@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../beacons"
+		},
+		{
+			"name": "polaris-beacon",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
