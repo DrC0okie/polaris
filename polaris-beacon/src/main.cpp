@@ -18,9 +18,13 @@
 // }
 
 #include <Arduino.h>
+#include "counter.h"
+
+MinuteCounter counter;
 
 void setup(){
   Serial.begin(115200);
+  counter.begin();
 }
 
 void loop(){
