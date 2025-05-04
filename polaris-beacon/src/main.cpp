@@ -1,31 +1,15 @@
-// #include <Arduino.h>
-// #include "ble_server.h"
-
-// void setup() {
-//   Serial.begin(115200);
-//   setupBLE();
-// }
-
-// void loop() {
-//   static unsigned long lastTime = 0;
-//   if (millis() - lastTime > 5000) {
-//     lastTime = millis();
-//     Serial.println("Heartbeat");
-//     if (isDeviceConnected()) {
-//       sendIndication("Hello from Polaris");
-//     }
-//   }
-// }
-
 #include <Arduino.h>
-#include "counter.h"
-#include "crypto.h"
-#include "ble_server.h"
+
+#include "ble/ble_server.h"
+#include "utils/counter.h"
+#include "protocol/crypto.h"
+#include "protocol/pol_request_processor.h"
 
 MinuteCounter counter;
-BleServer* server;
+BleServer server(PoLRequest::packedSize());
 
 uint8_t sk[32], pk[32];
+const uint32_t BEACON_ID = 1;
 
 void setup() {
     Serial.begin(115200);
@@ -35,9 +19,17 @@ void setup() {
     generateKeyPair(pk, sk);
     Serial.println("Key par created");
 
-    static BleServer srv(0xBADC0DE, sk, pk, counter);
-    server = &srv;
-    server->begin();
+    server.begin();
+
+    auto* indicationChar = server.getIndicationCharacteristic();
+    if (!indicationChar) {
+        Serial.println("[MAIN] Could not get indication characteristic");
+        return;
+    }
+
+    server.setRequestProcessor(
+        new PoLRequestProcessor(BEACON_ID, sk, pk, counter, indicationChar));
+
     Serial.println("BLE Server started");
 }
 
