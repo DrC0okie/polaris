@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "cstdint": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "memory": "cpp"
     }
 }

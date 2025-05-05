@@ -1,5 +1,7 @@
 #include "pol_request_processor.h"
 
+#include <HardwareSerial.h>
+
 #include "crypto.h"
 #include "pol_request.h"
 #include "pol_response.h"
@@ -30,6 +32,8 @@ void PoLRequestProcessor::process(const uint8_t* data, size_t len) {
         Serial.println("[Processor] Invalid signature");
         return;
     }
+
+    Serial.println("[Processor] Valid request signature");
 
     PoLResponse resp;
     resp.flags = 0xB1;

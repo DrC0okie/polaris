@@ -2,14 +2,9 @@
 
 #include <BLE2902.h>
 #include <BLEDevice.h>
-#include <BLEServer.h>
 #include <BLEUUID.h>
 #include <BLEUtils.h>
-#include <Preferences.h>
-
-#define SERVICE_UUID "f44dce36-ffb2-565b-8494-25fa5a7a7cd6"
-#define WRITE_CHAR_UUID "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b"
-#define INDICATE_CHAR_UUID "d234a7d8-ea1f-5299-8221-9cf2f942d3df"
+#include <HardwareSerial.h>
 
 // ========== SERVER CALLBACKS ==========
 class BleServer::ServerCallbacks : public BLEServerCallbacks {
@@ -18,14 +13,20 @@ class BleServer::ServerCallbacks : public BLEServerCallbacks {
         Serial.printf("[BLE] Negotiated MTU: %u bytes\n", param->mtu.mtu);
     }
     void onConnect(BLEServer *) override {
+        if (BLEDevice::getInitialized()) {
+            BLEDevice::getAdvertising()->stop();
+        }
         Serial.println("[BLE] Client connected");
     }
     void onDisconnect(BLEServer *) override {
+        if (BLEDevice::getInitialized()) {
+            BLEDevice::getAdvertising()->start();
+        }
         Serial.println("[BLE] Client disconnected");
     }
 };
 
-// ========== WRITE HANDLER ==========
+// ========== WRITE CHARACTERISTIC CALLBACK ==========
 class BleServer::WriteHandler : public BLECharacteristicCallbacks {
 public:
     explicit WriteHandler(BleServer *server) : _server(server) {
@@ -34,7 +35,6 @@ public:
     void onWrite(BLECharacteristic *pChar) override {
         auto value = pChar->getValue();
         Serial.printf("[BLE] Write received: %d bytes\n", (int)value.size());
-        printHex((const uint8_t *)value.data(), value.size());
         if (_server && !value.empty()) {
             _server->queueRequest((const uint8_t *)value.data(), value.size());
         }
@@ -42,23 +42,6 @@ public:
 
 private:
     BleServer *_server;
-    void printHex(const uint8_t *data, size_t len) {
-        Serial.print("HEX DUMP (");
-        Serial.print(len);
-        Serial.println(" bytes):");
-
-        char line[16 * 3 + 1];  // Up to 16 bytes per line, 3 chars per byte +
-                                // null terminator
-
-        for (size_t i = 0; i < len; i += 16) {
-            size_t chunk = (len - i >= 16) ? 16 : len - i;
-            for (size_t j = 0; j < chunk; ++j) {
-                sprintf(&line[j * 3], "%02X ", data[i + j]);
-            }
-            line[chunk * 3] = '\0';  // Null terminate
-            Serial.println(line);
-        }
-    }
 };
 
 BleServer::BleServer(size_t maxRequestSize) : _maxRequestSize(maxRequestSize) {
@@ -69,19 +52,15 @@ BleServer::BleServer(size_t maxRequestSize) : _maxRequestSize(maxRequestSize) {
 }
 
 BleServer::~BleServer() {
+    stop();
+
     if (_writeHandler) {
         delete _writeHandler;
         _writeHandler = nullptr;
     }
-
     if (_serverCallbacks) {
         delete _serverCallbacks;
         _serverCallbacks = nullptr;
-    }
-
-    if (_queue) {
-        vQueueDelete(_queue);
-        _queue = nullptr;
     }
 }
 
@@ -89,15 +68,27 @@ void BleServer::begin() {
     BLEDevice::init("PoL Beacon");
     BLEDevice::setMTU(517);
 
-    BLEServer *server = BLEDevice::createServer();
-    _serverCallbacks = new ServerCallbacks();
-    server->setCallbacks(_serverCallbacks);
+    _pServer = BLEDevice::createServer();
 
-    BLEService *service = server->createService(SERVICE_UUID);
+    if (!_pServer) {
+        Serial.println("[BLE] Failed to create BLE server!");
+        return;
+    }
+
+    _serverCallbacks = new ServerCallbacks();
+
+    if (!_serverCallbacks) {
+        Serial.println("[BLE] Failed to allocate ServerCallbacks!");
+        return;
+    }
+
+    _pServer->setCallbacks(_serverCallbacks);
+
+    BLEService *service = _pServer->createService(SERVICE_UUID);
 
     // --- WRITE CHARACTERISTIC ---
     BLECharacteristic *pWrite = service->createCharacteristic(
-        WRITE_CHAR_UUID, BLECharacteristic::PROPERTY_WRITE);
+        WRITE_UUID, BLECharacteristic::PROPERTY_WRITE);
     pWrite->setAccessPermissions(ESP_GATT_PERM_WRITE);
     addUserDescription(pWrite, "PoL Request (write)");
     _writeHandler = new WriteHandler(this);
@@ -105,7 +96,7 @@ void BleServer::begin() {
 
     // --- INDICATE CHARACTERISTIC ---
     _indicateCharacteristic = service->createCharacteristic(
-        INDICATE_CHAR_UUID, BLECharacteristic::PROPERTY_INDICATE);
+        INDICATE_UUID, BLECharacteristic::PROPERTY_INDICATE);
     _indicateCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ);
     BLE2902 *desc = new BLE2902();
     desc->setAccessPermissions(ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE);
@@ -127,14 +118,15 @@ void BleServer::begin() {
 
     Serial.println("[BLE] Advertising started");
 
+    _shutdownRequested = false;  // Ensure flag is reset before task starts
     BaseType_t res = xTaskCreatePinnedToCore(
-        [](void *arg) { static_cast<BleServer *>(arg)->processRequests(); },
-        "PoLProc",   // Task name
-        4096,        // Stack size
-        this,        // Task parameter
-        1,           // Priority
-        nullptr,     // Task handle
-        APP_CPU_NUM  // Core to pin to
+        processorTaskTrampoline,  // Static trampoline function
+        "PoLProc",                // Task name
+        4096,                     // Stack size
+        this,                     // Pass 'this' pointer as parameter
+        1,                        // Priority
+        &_processorTaskHandle,    // Store task handle
+        APP_CPU_NUM               // Core to pin to (usually core 1)
     );
 
     if (res != pdPASS) {
@@ -142,42 +134,87 @@ void BleServer::begin() {
     }
 }
 
+void BleServer::stop() {
+    // Signal and stop the task
+    if (_processorTaskHandle != nullptr) {
+        _shutdownRequested = true;
+
+        // Give the task a moment to see the flag
+        vTaskDelay(pdMS_TO_TICKS(150));
+        vTaskDelete(_processorTaskHandle);
+        _processorTaskHandle = nullptr;
+    }
+
+    // Stop Advertising (check if initialized)
+    if (BLEDevice::getInitialized()) {
+        BLEDevice::getAdvertising()->stop();
+    }
+
+    // Delete Queue (check handle)
+    if (_queue != nullptr) {
+        vQueueDelete(_queue);
+        _queue = nullptr;
+    }
+
+    // Delete the request processor AFTER the task is stopped
+    if (_requestProcessor != nullptr) {
+        delete _requestProcessor;
+        _requestProcessor = nullptr;  // Prevent double deletion
+    }
+
+    // Deinitialize BLE Stack (check if initialized)
+    if (BLEDevice::getInitialized()) {
+        BLEDevice::deinit(true);
+    }
+
+    _pServer = nullptr;
+    _indicateCharacteristic = nullptr;
+}
+
 // ========== ADD REQUEST TO QUEUE ==========
 void BleServer::queueRequest(const uint8_t *data, size_t len) {
-    if (!_queue || len > _maxRequestSize) {
-        Serial.println("[BLE] Request too long or queue uninitialized");
+    if (!_queue || len != PoLRequest::packedSize()) {
+        Serial.printf(
+            "[BLE] Invalid request size %d (expected %d). Dropping.\n", len,
+            PoLRequest::packedSize());
         return;
     }
 
-    RequestMessage msg = {};
-    msg.data = static_cast<uint8_t *>(malloc(len));
-    if (!msg.data) {
-        Serial.println("[BLE] Failed to allocate memory for request");
-        return;
-    }
-
+    RequestMessage msg;
     memcpy(msg.data, data, len);
     msg.len = len;
 
     if (xQueueSend(_queue, &msg, 0) != pdTRUE) {
         Serial.println("[BLE] Request queue full, dropping request");
-        free(msg.data);
     }
+}
+
+/* Workaround to integrate C++ object methods with C-based task schedulers */
+void BleServer::processorTaskTrampoline(void *pvParameters) {
+    // Cast the parameter back to the BleServer instance pointer
+    BleServer *serverInstance = static_cast<BleServer *>(pvParameters);
+    if (serverInstance) {
+        // Call the actual member function
+        serverInstance->processRequests();
+    }
+    // Task function should not return, but if it does, delete itself.
+    vTaskDelete(NULL);
 }
 
 // ========== PROCESS REQUEST QUEUE ==========
 void BleServer::processRequests() {
     Serial.println("[BLE] PoL processor task started");
     RequestMessage msg;
-    while (true) {
-        if (xQueueReceive(_queue, &msg, portMAX_DELAY) == pdTRUE) {
+    while (!_shutdownRequested) {
+        // Wait for a message, but with a timeout to allow checking the shutdown
+        // flag
+        if (xQueueReceive(_queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
             Serial.println("[BLE] Got request from queue");
             if (_requestProcessor) {
                 _requestProcessor->process(msg.data, msg.len);
             } else {
                 Serial.println("[BLE] No request processor set");
             }
-            free(msg.data);
         }
     }
 }
@@ -187,10 +224,21 @@ void BleServer::addUserDescription(BLECharacteristic *characteristic,
                                    const std::string &description) {
     auto *desc = new BLEDescriptor(BLEUUID((uint16_t)0x2901));
     desc->setValue(description);
+    desc->setAccessPermissions(ESP_GATT_PERM_READ);
     characteristic->addDescriptor(desc);
 }
 
 void BleServer::setRequestProcessor(IPolRequestProcessor *processor) {
+    // Delete the currently held processor, if one exists, before assigning the
+    // new one.
+    if (_requestProcessor != nullptr && _requestProcessor != processor) {
+        delete _requestProcessor;
+        _requestProcessor = nullptr;
+    } else if (_requestProcessor == processor) {
+        return;
+    }
+
+    // Take ownership of the new processor pointer
     _requestProcessor = processor;
 }
 

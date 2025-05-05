@@ -2,6 +2,7 @@
 extern "C" {
 #include "monocypher.h"
 }
+#include <HardwareSerial.h>
 #include <esp_random.h>
 
 void generateKeyPair(uint8_t public_key[32], uint8_t secret_key[32]) {
@@ -15,19 +16,15 @@ void generateKeyPair(uint8_t public_key[32], uint8_t secret_key[32]) {
 // Verifies that the signature in `req` matches the signed fields using the
 // phone's public key
 bool verifyPoLRequestSignature(const PoLRequest& req) {
-    size_t len = req.getSignedSize();
-    uint8_t* signed_data = new uint8_t[len];
-
-    req.getSignedData(signed_data);
-
-    if (!signed_data) {
+    if (req.getSignedSize() != PoLRequest::SIGNED_SIZE) {
+        Serial.println("[Crypto] Error: Request signed size mismatch.");
         return false;
     }
 
-    bool ok = crypto_check(req.phone_sig, req.phone_pk, signed_data, len) == 0;
-
-    delete[] signed_data;
-    return ok;
+    uint8_t signed_data[PoLRequest::SIGNED_SIZE];
+    req.getSignedData(signed_data);
+    return crypto_check(req.phone_sig, req.phone_pk, signed_data,
+                        PoLRequest::SIGNED_SIZE) == 0;
 }
 
 void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[32],
