@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/rootLayout"
     android:layout_width="match_parent"
@@ -13,42 +12,48 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Start"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Debug log -->
-    <TextView
-        android:id="@+id/debugLog"
+    <ScrollView
+        android:id="@+id/scrollView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:text="Debug log will appear here..."
-        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
         android:background="#eeeeee"
-        android:padding="8dp"
-        android:scrollbars="vertical"
-        android:overScrollMode="always"
-        android:gravity="start|top"
-        android:lineSpacingExtra="4dp"
-        android:maxLines="100"
-        android:importantForAccessibility="no"
-        android:breakStrategy="simple"
-        app:layout_constraintTop_toBottomOf="@+id/startButton"
+        android:fillViewport="true"
         app:layout_constraintBottom_toTopOf="@+id/messageBox"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintTop_toBottomOf="@+id/startButton">
+
+        <TextView
+            android:id="@+id/debugLog"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:breakStrategy="simple"
+            android:gravity="start|top"
+            android:importantForAccessibility="no"
+            android:lineSpacingExtra="4dp"
+            android:padding="8dp"
+            android:text="Debug log will appear here..."
+            android:textAppearance="?android:attr/textAppearanceSmall" />
+
+    </ScrollView>
 
     <!-- Message received -->
     <TextView
         android:id="@+id/messageBox"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="#dddddd"
+        android:padding="8dp"
         android:text="Message from beacon: ---"
         android:textStyle="bold"
-        android:padding="8dp"
-        android:background="#dddddd"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

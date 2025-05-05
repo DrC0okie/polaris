@@ -2,6 +2,7 @@ package ch.drcookie.polaris_app
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.os.Build
@@ -61,8 +62,12 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
             return
         }
 
-        appendLog("Starting BLE scan...")
-        bleManager.start()
+        if (bleManager.isConnected() || bleManager.isReady()) {
+            appendLog("Already connected or ready.")
+            return
+        }
+
+        bleManager.startScan()
     }
 
     private fun isBluetoothEnabled(): Boolean {
@@ -82,24 +87,55 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
         }
     }
 
-    override fun onMessageReceived(message: String) {
+    override fun onMessageReceived(data: ByteArray) {
         runOnUiThread {
-            binding.messageBox.text = "Message from beacon: $message"
+            val hexString = data.joinToString(separator = " ") { "%02X".format(it) }
+            val messageText = "Message from beacon (${data.size} bytes): $hexString"
+            binding.messageBox.text = messageText
+            appendLog("Message Received: $hexString")
         }
     }
 
     override fun onDeviceNotFound() {
         runOnUiThread {
-            appendLog("No device found.")
+            appendLog("Scan finished: No suitable device found.")
+        }
+    }
+
+    override fun onConnectionFailed(status: Int) {
+        runOnUiThread {
+            val statusText = when(status) {
+                BluetoothGatt.GATT_SUCCESS -> "Disconnected normally"
+                8 -> "Connection failed: Insufficient Encryption (Bonding required?)"
+                15 -> "Connection failed: Insufficient Authentication (Bonding required?)"
+                133 -> "Connection failed: GATT Error 133 (Timeout, resource issue, device busy?)"
+                257 -> "Connection failed: GATT Internal Error (Stack issue?)"
+                else -> "Connection failed or lost: Status $status"
+            }
+            appendLog(statusText)
         }
     }
 
     @SuppressLint("MissingPermission")
     override fun onReady() {
         runOnUiThread {
-            appendLog("Device ready. Sending message...")
+            appendLog("Device ready. Enabling indications...")
             bleManager.enableIndication()
-            bleManager.send(Payload.data)
+            appendLog("Sent ${Payload.data.size} bytes.")
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onIndicationEnabled() {
+        runOnUiThread {
+            appendLog("Indications enabled. Sending message...")
+            try {
+                val dataToSend = Payload.data
+                bleManager.send(dataToSend)
+            } catch (e: Exception) {
+                appendLog("Error preparing data to send: ${e.message}")
+                bleManager.close()
+            }
         }
     }
 
@@ -110,6 +146,7 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
 
     @SuppressLint("MissingPermission")
     override fun onDestroy() {
+        appendLog("Activity destroying. Closing BLE connection...")
         bleManager.close()
         super.onDestroy()
     }
