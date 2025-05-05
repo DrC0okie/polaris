@@ -65,7 +65,7 @@ BleServer::~BleServer() {
 }
 
 void BleServer::begin() {
-    BLEDevice::init("PoL Beacon");
+    //BLEDevice::init("PoL Beacon");
     BLEDevice::setMTU(517);
 
     _pServer = BLEDevice::createServer();
