@@ -6,13 +6,18 @@
 
 class MinuteCounter {
 public:
+    // Callback
+    typedef void (*IncrementCallback_t)(void*);
+
     // Constructor with optional NVS namespace and key
     MinuteCounter(const char* nvsNamespace = "polaris-beacon",
                   const char* key = "counter");
 
     void begin();               // Call in setup()
-    uint32_t getValue() const;  // Read current counter
+    uint64_t getValue() const;  // Read current counter
     void reset();               // Optional: reset counter to 0
+
+    void setIncrementCallback(IncrementCallback_t callback, void* context);
 
 private:
     void increment();  // Called every minute
@@ -25,7 +30,10 @@ private:
     Preferences _prefs;
     const char* _nvsNamespace;
     const char* _key;
-    uint32_t _counter;
+    uint64_t _counter;
+
+    IncrementCallback_t _incrementCallback = nullptr;
+    void* _callbackContext = nullptr;
 };
 
 #endif  // COUNTER_H
