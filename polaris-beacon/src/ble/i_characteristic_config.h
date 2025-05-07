@@ -1,8 +1,5 @@
 
-#include <string>
-#include <vector>
-#include <memory>
-#include <BLEServer.h>       // For BLEService, BLECharacteristic
+#include <BLEServer.h>// For BLECharacteristic
 #include <BLEUUID.h>
 
 class BleServer;
@@ -16,16 +13,4 @@ public:
     virtual esp_gatt_perm_t getPermissions() const = 0;
     // Could add methods for initial value, descriptors, callbacks etc.
     virtual void configure(BLECharacteristic* pChar, BleServer* pBleServer) = 0;
-};
-
-
-class IGattServiceConfig {
-public:
-    virtual ~IGattServiceConfig() = default;
-    virtual BLEUUID getServiceUUID() const = 0;
-    // Returns a list of characteristic configurators for this service
-    virtual std::vector<std::unique_ptr<ICharacteristicConfig>> getCharacteristicConfigs() = 0;
-    // Could add methods for primary/secondary service etc.
-    // Callback for when this specific service is started (optional)
-    virtual void onServiceStarted(BLEService* pService) { (void)pService; }
 };
