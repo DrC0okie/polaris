@@ -7,7 +7,7 @@
 
 ## Overview
 
-**Polaris Beacon** is an embedded BLE application for ESP32-S3 boards. It implements a proof-of-location protocol over BLE using cryptographic signatures (Ed25519 via Monocypher.
+**Polaris Beacon** is an embedded BLE application for ESP32-S3 boards. It implements a proof-of-location protocol over BLE using cryptographic signatures (Ed25519).
 
 This project is part of an experimental system — it is **not ready for production**, and **no support or contributions** will be accepted at this stage.
 
@@ -18,7 +18,7 @@ This project is part of an experimental system — it is **not ready for product
   - **Indicate:** For sending signed PoLResponses back.
 - Uses a FreeRTOS queue for asynchronous request processing.
 - Modular cryptographic handlers decoupled from BLE logic.
-- Ed25519-based signature verification using Monocypher.
+- Ed25519-based signature verification.
 - Well-structured code with clear separation of responsibilities.
 
 ## Getting Started
@@ -52,16 +52,14 @@ framework = arduino
 monitor_speed = 115200
 monitor_rts = 0
 monitor_dtr = 0
-lib_deps =
-    davylandman/Monocypher@^2.0.6
-build_flags =
-    -DARDUINO_USB_MODE=1
-    -DARDUINO_USB_CDC_ON_BOOT=1
-    -DARDUINO_USB_MSC_OFF
-    -DBOARD_HAS_PSRAM
-    -mfix-esp32-psram-cache-issue
-    -DED25519_SHA512 ; Important for the signature
-    -DCONFIG_BT_BLE_50_FEATURES_SUPPORTED ; Enables periodic advertising & extended advertising
+lib_deps = esphome/libsodium@^1.10018.4
+build_flags = 
+	-DARDUINO_USB_MODE=1
+	-DARDUINO_USB_CDC_ON_BOOT=1
+	-DARDUINO_USB_MSC_OFF
+	-DBOARD_HAS_PSRAM
+	-mfix-esp32-psram-cache-issue
+	-DCONFIG_BT_BLE_50_FEATURES_SUPPORTED
 ```
 
 ### Build and Flash
@@ -120,17 +118,15 @@ This project relies on several third-party libraries and components, each with i
 
 ### Dependencies
 
-*   **ESP32 Arduino Core:** The framework used for this project is the [ESP32 Arduino core](https://github.com/espressif/arduino-esp32), which is licensed under the [GNU Lesser General Public License Version 2.1 (LGPL-2.1)](https://www.gnu.org/licenses/lgpl-2.1.html).
-    *   The BLE library functionality utilized in this project is provided as part of this core.
-    *   The ESP32 Arduino core, in turn, utilizes components from the Espressif IoT Development Framework (ESP-IDF). Many of these underlying components, including parts of the Bluetooth (BLE) stack, are licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-*   **Monocypher:** This project uses the [Monocypher library](https://registry.platformio.org/libraries/davylandman/Monocypher) (via `davylandman/Monocypher`) for Ed25519 cryptographic operations. Monocypher is licensed under the [CC0-1.0 License (Public Domain Dedication)](https://creativecommons.org/publicdomain/zero/1.0/legalcode) or the 2-Clause BSD license, effectively making it very permissive. Please refer to the library's own licensing terms for specifics.
+*   [ESP32 Arduino core](https://github.com/espressif/arduino-esp32) is licensed under [LGPL-2.1](https://www.gnu.org/licenses/lgpl-2.1.html).
+    
+*   [libsodium](https://github.com/esphome/libsodium-esphome) is licensed under the [ISC License](https://github.com/jedisct1/libsodium#license)
 
 ## External resources
 
 * [Adafruit QT Py ESP32-S3 (N4R2) board detail](https://www.adafruit.com/product/5700)
 * [Adafruit documentation](https://learn.adafruit.com/adafruit-qt-py-esp32-s3/overview)
 * [PlatformIO IDE](https://docs.platformio.org/en/latest/integration/ide/pioide.html)
-* [PlatformIO monocypher library registry](https://registry.platformio.org/libraries/davylandman/Monocypher)
-* [monocypher library manual](https://monocypher.org/manual/)
+* [libsodium documentation](https://doc.libsodium.org/)
+* [libsodium esp32 port](https://github.com/esphome/libsodium-esphome)
 
