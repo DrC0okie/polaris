@@ -11,15 +11,13 @@
 bool verifyPoLRequestSignature(const PoLRequest& req);
 
 // Generate a new Ed25519 key pair
-void generateKeyPair(uint8_t public_key[32], uint8_t secret_key[32]);
+void generateKeyPair(uint8_t public_key_out[POL_PK_SIZE], uint8_t secret_key_out[POL_SK_SIZE]);
 
 // Sign a PoLResponse using the beacon's secret key
-void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[32],
-                     const uint8_t public_key[32]);
+void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[POL_SK_SIZE]);
 
 // Sign data specifically for periodic advertising broadcast
-void signBeaconBroadcast(uint8_t signature_out[64], uint32_t beacon_id,
-                         uint64_t counter, const uint8_t secret_key[32],
-                         const uint8_t public_key[32]);
+void signBeaconBroadcast(uint8_t signature_out[POL_SIG_SIZE], uint32_t beacon_id,
+                         uint64_t counter, const uint8_t secret_key[POL_SK_SIZE]);
 
 #endif

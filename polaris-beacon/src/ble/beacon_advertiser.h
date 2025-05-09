@@ -1,24 +1,22 @@
 #ifndef BEACON_ADVERTISER_H
 #define BEACON_ADVERTISER_H
 
+#include <BLEAdvertising.h>  // For BLEMultiAdvertising (if used directly) or forward declare
 #include <stdint.h>
-#include <BLEAdvertising.h> // For BLEMultiAdvertising (if used directly) or forward declare
-#include "../utils/counter.h"     // Assuming MinuteCounter is in utils/
-#include "../protocol/pol_constants.h" // For POL_SIG_SIZE
+
+#include "../protocol/pol_constants.h"  // For POL_SIG_SIZE
+#include "../utils/counter.h"           // Assuming MinuteCounter is in utils/
 
 // Forward declaration if BLEMultiAdvertising is not included directly
 class BLEMultiAdvertising;
 
 class BeaconAdvertiser {
 public:
-    BeaconAdvertiser(uint32_t beacon_id,
-                     const uint8_t secret_key[32],
-                     const uint8_t public_key[32],
-                     MinuteCounter& counter,
-                     BLEMultiAdvertising& advertiser); // Pass by reference
+    BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_SK_SIZE],
+                      MinuteCounter& counter, BLEMultiAdvertising& advertiser);
 
-    void begin(); // Call to set initial advertisement and link counter callback
-    void updateAdvertisement(); // Public method to trigger an update
+    void begin();                // Call to set initial advertisement and link counter callback
+    void updateAdvertisement();  // Public method to trigger an update
 
 private:
     // Callback for MinuteCounter
@@ -26,8 +24,8 @@ private:
     void handleCounterIncrement();
 
     uint32_t _beacon_id;
-    const uint8_t* _secret_key; // Store as pointer, ensure lifetime
-    const uint8_t* _public_key; // Store as pointer, ensure lifetime
+    const uint8_t* _sk;  // Store as pointer, ensure lifetime
+    const uint8_t* _pk;  // Store as pointer, ensure lifetime
     MinuteCounter& _counterRef;
     BLEMultiAdvertising& _advertiserRef;
 
@@ -43,4 +41,4 @@ private:
     };
 };
 
-#endif // BEACON_ADVERTISER_H
+#endif  // BEACON_ADVERTISER_H
