@@ -12,7 +12,7 @@ class BLEMultiAdvertising;
 
 class BeaconAdvertiser {
 public:
-    BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_SK_SIZE],
+    BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
                       MinuteCounter& counter, BLEMultiAdvertising& advertiser);
 
     void begin();                // Call to set initial advertisement and link counter callback

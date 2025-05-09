@@ -18,11 +18,11 @@ bool PoLRequest::fromBytes(const uint8_t* data, size_t len) {
     memcpy(&beacon_id, data + offset, sizeof(beacon_id));
     offset += sizeof(beacon_id);
 
-    memcpy(nonce, data + offset, POL_NONCE_SIZE);
-    offset += POL_NONCE_SIZE;
+    memcpy(nonce, data + offset, POL_PROTOCOL_NONCE_SIZE);
+    offset += POL_PROTOCOL_NONCE_SIZE;
 
-    memcpy(phone_pk, data + offset, POL_PK_SIZE);
-    offset += POL_PK_SIZE;
+    memcpy(phone_pk, data + offset, POL_Ed25519_PK_SIZE);
+    offset += POL_Ed25519_PK_SIZE;
 
     memcpy(phone_sig, data + offset, POL_SIG_SIZE);
     // offset += POL_SIG_SIZE; // Optional, not needed here
@@ -40,11 +40,11 @@ void PoLRequest::toBytes(uint8_t* out) const {
     memcpy(out + offset, &beacon_id, sizeof(beacon_id));
     offset += sizeof(beacon_id);
 
-    memcpy(out + offset, nonce, POL_NONCE_SIZE);
-    offset += POL_NONCE_SIZE;
+    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
+    offset += POL_PROTOCOL_NONCE_SIZE;
 
-    memcpy(out + offset, phone_pk, POL_PK_SIZE);
-    offset += POL_PK_SIZE;
+    memcpy(out + offset, phone_pk, POL_Ed25519_PK_SIZE);
+    offset += POL_Ed25519_PK_SIZE;
 
     memcpy(out + offset, phone_sig, POL_SIG_SIZE);
 }
@@ -60,8 +60,8 @@ void PoLRequest::getSignedData(uint8_t* out) const {
     memcpy(out + offset, &beacon_id, sizeof(beacon_id));
     offset += sizeof(beacon_id);
 
-    memcpy(out + offset, nonce, POL_NONCE_SIZE);
-    offset += POL_NONCE_SIZE;
+    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
+    offset += POL_PROTOCOL_NONCE_SIZE;
 
-    memcpy(out + offset, phone_pk, POL_PK_SIZE);
+    memcpy(out + offset, phone_pk, POL_Ed25519_PK_SIZE);
 }

@@ -6,10 +6,10 @@
 #include "pol_request.h"
 #include "pol_response.h"
 
-PoLRequestProcessor::PoLRequestProcessor(uint32_t beacon_id, const uint8_t sk[POL_SK_SIZE],
+PoLRequestProcessor::PoLRequestProcessor(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
                                          MinuteCounter& counter, BLECharacteristic* indicationChar)
     : _beacon_id(beacon_id), _counter(counter), _indicateChar(indicationChar) {
-    memcpy(_sk, sk, POL_SK_SIZE);
+    memcpy(_sk, sk, POL_Ed25519_SK_SIZE);
 }
 
 void PoLRequestProcessor::process(const uint8_t* data, size_t len) {
@@ -35,7 +35,7 @@ void PoLRequestProcessor::process(const uint8_t* data, size_t len) {
     resp.flags = 0x01;
     resp.beacon_id = _beacon_id;
     resp.counter = _counter.getValue();
-    memcpy(resp.nonce, req.nonce, POL_NONCE_SIZE);
+    memcpy(resp.nonce, req.nonce, POL_PROTOCOL_NONCE_SIZE);
     signPoLResponse(resp, _sk);
 
     uint8_t buffer[PoLResponse::packedSize()];

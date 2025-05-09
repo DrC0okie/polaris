@@ -9,11 +9,9 @@ public:
     // Callback
     typedef void (*IncrementCallback_t)(void*);
 
-    // Constructor with optional NVS namespace and key
-    MinuteCounter(const char* nvsNamespace = "polaris-beacon",
-                  const char* key = "counter");
+    // Constructor with optional NVS namespace
+    MinuteCounter(Preferences& prefs, const char* nvsKeyName = "counter");
 
-    void begin();               // Call in setup()
     uint64_t getValue() const;  // Read current counter
     void reset();               // Optional: reset counter to 0
 
@@ -28,8 +26,7 @@ private:
 
     Ticker _ticker;
     Preferences _prefs;
-    const char* _nvsNamespace;
-    const char* _key;
+    const char* _nvsKeyName;
     uint64_t _counter;
 
     IncrementCallback_t _incrementCallback = nullptr;

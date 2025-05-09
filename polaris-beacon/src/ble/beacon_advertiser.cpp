@@ -8,7 +8,7 @@
 // Defined in ble_server.h or a common header
 const uint8_t EXTENDED_ADV_INSTANCE = 1;
 
-BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_SK_SIZE], MinuteCounter& counter,
+BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE], MinuteCounter& counter,
                                    BLEMultiAdvertising& advertiser)
     : _beacon_id(beacon_id), _sk(sk), _counterRef(counter), _advertiserRef(advertiser) {
 }

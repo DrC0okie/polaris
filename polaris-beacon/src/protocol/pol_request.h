@@ -13,8 +13,8 @@ public:
     uint8_t flags;                    // Bit flags for message type or options
     uint64_t phone_id;                // Unique phone identifier
     uint32_t beacon_id;               // Intended beacon recipient
-    uint8_t nonce[POL_NONCE_SIZE];    // Random nonce to prevent replay
-    uint8_t phone_pk[POL_PK_SIZE];    // Phone's Ed25519 public key
+    uint8_t nonce[POL_PROTOCOL_NONCE_SIZE];    // Random nonce to prevent replay
+    uint8_t phone_pk[POL_Ed25519_PK_SIZE];    // Phone's Ed25519 public key
     uint8_t phone_sig[POL_SIG_SIZE];  // Signature of the message
 
     // Parses fields from a raw binary buffer (BLE payload)
@@ -26,8 +26,8 @@ public:
 
     // size of the fields that are signed
     static constexpr size_t SIGNED_SIZE = sizeof(uint8_t) + sizeof(uint64_t) +
-                                          sizeof(uint32_t) + POL_NONCE_SIZE +
-                                          POL_PK_SIZE;
+                                          sizeof(uint32_t) + POL_PROTOCOL_NONCE_SIZE +
+                                          POL_Ed25519_PK_SIZE;
 
     // Returns the exact size of the message when serialized
     static constexpr size_t packedSize() {

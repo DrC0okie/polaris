@@ -287,11 +287,9 @@ BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
     return _multiAdvertiserPtr.get();
 }
 
-// --- ADVERTISING CONFIGURATION HELPERS ---
 bool BleServer::configureLegacyAdvertisement(const std::string& deviceName) {
     esp_ble_gap_ext_adv_params_t legacy_params = {
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Connectable,
-                                                          // Scannable, Legacy
         .interval_min = 0x50,
         .interval_max = 0x50,
         .channel_map = ADV_CHNL_ALL,

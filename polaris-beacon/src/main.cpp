@@ -1,145 +1,123 @@
 #include <Arduino.h>
 #include <Preferences.h>
+#include <sodium.h>
 
 #include "ble/beacon_advertiser.h"
 #include "ble/ble_server.h"  // Includes BLEMultiAdvertising if 5.0 features are on
 #include "protocol/crypto.h"
 #include "protocol/pol_request_processor.h"
 #include "utils/counter.h"
-#include <sodium.h>
-
-
-const uint32_t BEACON_ID = 1;
-const char* NVS_NAMESPACE = "polaris-beacon";
-const char* NVS_SECRET_KEY_NAME = "beacon_sk";
-const char* BLE_DEVICE_NAME = "PoL Beacon";  // Example device name
+#include "utils/key_storage.h"
 
 // Global
-MinuteCounter counter(NVS_NAMESPACE, "counter");
+const char* TAG = "[MAIN]";
+
 // BLEMultiAdvertising g_advertiser(NUM_ADV_INSTANCES);  // Global advertiser instance
 BleServer server(PoLRequest::packedSize());
 
-uint8_t sk[POL_SK_SIZE];
-uint8_t pk[POL_PK_SIZE];
+uint8_t ed25519_sk[POL_Ed25519_SK_SIZE];
+uint8_t ed25519_pk[POL_Ed25519_PK_SIZE];
+uint8_t x25519_sk[POL_X25519_SK_SIZE];
+uint8_t x25519_pk[POL_X25519_PK_SIZE];
+uint8_t server_x25519_pk[POL_X25519_PK_SIZE];
 
 // Global BeaconAdvertiser
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 
-bool loadOrGenerateKeys(Preferences& prefs, uint8_t* public_key, uint8_t* secret_key);
-
 void setup() {
     Serial.begin(115200);
     delay(5000);
-    Serial.println("\n[MAIN] Booting Polaris Beacon...");
+    Serial.printf("%s Booting Polaris Beacon...\n", TAG);
 
     if (sodium_init() == -1) {
-        Serial.println("[MAIN] CRITICAL: Libsodium initialization failed! Restarting...");
-        delay(1000);
+        Serial.printf("%s CRITICAL: Libsodium initialization failed! Restarting...\n", TAG);
         ESP.restart();
     }
-    Serial.println("[MAIN] Libsodium initialized.");
+    Serial.printf("%s Libsodium initialized.\n", TAG);
 
-    Preferences preferences;
-    if (!preferences.begin(NVS_NAMESPACE, false)) {
-        Serial.println("[MAIN] CRITICAL: Failed to initialize NVS! Restarting...");
-        delay(1000);
+    Preferences prefs;
+    if (!prefs.begin(NVS_NAMESPACE, false)) {
+        Serial.printf("%s CRITICAL: Failed to initialize NVS! Restarting...\n", TAG);
         ESP.restart();
     }
-    Serial.println("[MAIN] NVS Initialized.");
+    Serial.printf("%s NVS Initialized.\n", TAG);
 
-    counter.begin();
-    Serial.printf("[MAIN] Counter initialized. Current value: %u\n", counter.getValue());
+    MinuteCounter counter(prefs, "counter");
+    Serial.printf("TAG Counter initialized. Current value: %llu\n", TAG, counter.getValue());
 
-    if (loadOrGenerateKeys(preferences, pk, sk)) {
-        Serial.println("[MAIN] Key pair loaded/generated successfully.");
-        Serial.print("[MAIN] Beacon Public Key: ");
-        for (int i = 0; i < 32; ++i)
-            Serial.printf("%02X", pk[i]);
-        Serial.println();
-    } else {
-        Serial.println("[MAIN] CRITICAL: Failed to load or generate keys! Restarting...");
-        delay(1000);
+    KeyStorage keyManager(prefs);
+
+    // Manage Ed25519 keys using KeyStorage
+    if (!keyManager.manageEd25519KeyPair(ed25519_pk, ed25519_sk)) {
+        Serial.printf("%s CRITICAL: Failed to manage Ed25519 keys! Restarting...\n", TAG);
         ESP.restart();
     }
-    preferences.end();
 
-    Serial.println("[MAIN] Starting GATT Server & Multi-Advertising...");
+    Serial.printf("%s Beacon Ed25519 Public Key: ", TAG);
+    for (int i = 0; i < POL_Ed25519_PK_SIZE; ++i)
+        Serial.printf("%02X", ed25519_pk[i]);
+    Serial.println();
+
+    // Manage X25519 keys using KeyStorage
+    if (!keyManager.manageX25519KeyPair(x25519_pk, x25519_sk)) {
+        Serial.printf("%s CRITICAL: Failed to manage X25519 keys! Restarting...\n", TAG);
+        ESP.restart();
+    }
+
+    Serial.printf("%s X25519 Public Key: ", TAG);
+    for (int i = 0; i < POL_X25519_PK_SIZE; ++i)
+        Serial.printf("%02X", x25519_pk[i]);
+    Serial.println();
+
+    // Manage Server's X25519 Public Key using KeyStorage
+    if (!keyManager.manageServerX25519PublicKey(server_x25519_pk, HARDCODED_SERVER_X25519_PK)) {
+        Serial.printf("%s CRITICAL: Failed to manage Server's X25519 PK! Restarting...\n", TAG);
+        ESP.restart();
+    }
+    Serial.printf("%s Server X25519 Public Key: ", TAG);
+    for (int i = 0; i < POL_X25519_PK_SIZE; ++i)
+        Serial.printf("%02X", server_x25519_pk[i]);
+    Serial.println();
+
+    prefs.end();
+
+    Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
     server.begin(BLE_DEVICE_NAME);  // This will internally use g_advertiser
 
     BLEMultiAdvertising* actual_advertiser_ptr = server.getMultiAdvertiser();
     if (!actual_advertiser_ptr) {
-        Serial.println("[MAIN] CRITICAL: Could not get multi-advertiser from BleServer! Halting.");
+        Serial.printf("%s CRITICAL: Could not get multi-advertiser from BleServer! Halting.\n",
+                      TAG);
         while (1) {
             delay(1000);
         }
     }
 
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
-        new BeaconAdvertiser(BEACON_ID, sk, counter, *actual_advertiser_ptr));
+        new BeaconAdvertiser(BEACON_ID, ed25519_sk, counter, *actual_advertiser_ptr));
 
     beaconExtAdvertiser->begin();  // This will set the initial extended adv data
 
     BLECharacteristic* indChar = server.getIndicationCharacteristic();
     if (!indChar) {
-        Serial.println("[MAIN] CRITICAL: Indication characteristic is null "
-                       "after server.begin()! Restarting...");
-        delay(1000);
+        Serial.printf(
+            " CRITICAL: Indication characteristic is null after server.begin()! Restarting...\n",
+            TAG);
         ESP.restart();
     }
 
     auto processor = std::unique_ptr<PoLRequestProcessor>(
-        new PoLRequestProcessor(BEACON_ID, sk, counter, indChar));
+        new PoLRequestProcessor(BEACON_ID, ed25519_sk, counter, indChar));
 
     if (!processor) {
-        Serial.println("[MAIN] CRITICAL: Failed to allocate "
-                       "PoLRequestProcessor! Restarting...");
-        delay(1000);
+        Serial.printf("%s CRITICAL: Failed to allocate PoLRequestProcessor! Restarting...\n", TAG);
         ESP.restart();
     }
     server.setRequestProcessor(std::move(processor));
 
-    Serial.println("[MAIN] Setup complete. Beacon is operational.");
+    Serial.printf("%s Setup complete. Beacon is operational.", TAG);
 }
 
 void loop() {
     vTaskDelay(pdMS_TO_TICKS(1000));
-}
-
-bool loadOrGenerateKeys(Preferences& prefs, uint8_t public_key_out[POL_PK_SIZE], uint8_t secret_key_out[POL_SK_SIZE]) {
-    Serial.println("[KEYS] Attempting to load secret key from NVS...");
-    size_t key_len_in_nvs = prefs.getBytesLength(NVS_SECRET_KEY_NAME);
-
-    // Check if a key of the correct SK size is stored
-    if (key_len_in_nvs == POL_SK_SIZE) {
-        if (prefs.getBytes(NVS_SECRET_KEY_NAME, secret_key_out, POL_SK_SIZE) == POL_SK_SIZE) {
-            Serial.println("[KEYS] Secret key loaded successfully from NVS.");
-
-            if (crypto_sign_ed25519_sk_to_pk(public_key_out, secret_key_out) == 0) {
-                 Serial.println("[KEYS] Public key derived from loaded secret key.");
-                 return true;
-            } else {
-                Serial.println("[KEYS] Error deriving public key from loaded secret key.");
-            }
-        } else {
-            Serial.println("[KEYS] Error reading secret key from NVS despite correct length.");
-        }
-    } else if (key_len_in_nvs == 32) {
-        // Handle old 32-byte Monocypher key: discard
-        Serial.println("[KEYS] Found old 32-byte Monocypher key in NVS. Discarding.");
-    } else if (key_len_in_nvs == 0) {
-        Serial.println("[KEYS] No secret key found in NVS.");
-    } else {
-        Serial.printf("[KEYS] Found key with incorrect length (%zu bytes) in NVS. Discarding.\n", key_len_in_nvs);
-    }
-
-    generateKeyPair(public_key_out, secret_key_out);
-    Serial.println("[KEYS] New key pair generated.");
-
-    Serial.println("[KEYS] Storing new secret key to NVS...");
-    if (prefs.putBytes(NVS_SECRET_KEY_NAME, secret_key_out, POL_SK_SIZE) == POL_SK_SIZE) {
-        Serial.println("[KEYS] New secret key stored successfully.");
-        return true;
-    }
-    Serial.println("[KEYS] CRITICAL: Failed to store new secret key!");
-    return false;
 }

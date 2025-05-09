@@ -1,15 +1,12 @@
 #include "counter.h"
+
 #include <HardwareSerial.h>
 
 // Initialize static instance pointer
 MinuteCounter* MinuteCounter::instance = nullptr;
 
-MinuteCounter::MinuteCounter(const char* nvsNamespace, const char* key)
-    : _nvsNamespace(nvsNamespace), _key(key), _counter(0) {}
-
-void MinuteCounter::begin() {
-    _prefs.begin(_nvsNamespace, false);
-    _counter = _prefs.getULong64(_key, 0);
+MinuteCounter::MinuteCounter(Preferences& prefs, const char* key) : _prefs(prefs), _nvsKeyName(key), _counter(0) {
+    _counter = _prefs.getULong64(_nvsKeyName, 0);
     Serial.printf("[Counter] Initialized from NVS: %llu\n", _counter);
 
     // Set static instance pointer so static callback can access 'this'
@@ -35,7 +32,7 @@ void MinuteCounter::increment() {
 }
 
 void MinuteCounter::save() {
-    _prefs.putULong64(_key, _counter);
+    _prefs.putULong64(_nvsKeyName, _counter);
 }
 
 uint64_t MinuteCounter::getValue() const {
@@ -46,7 +43,7 @@ void MinuteCounter::reset() {
     _counter = 0;
     save();
 
-    if (_incrementCallback) { 
+    if (_incrementCallback) {
         _incrementCallback(_callbackContext);
     }
 }

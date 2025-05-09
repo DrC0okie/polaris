@@ -17,8 +17,8 @@ bool PoLResponse::fromBytes(const uint8_t* data, size_t len) {
     memcpy(&counter, data + offset, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(nonce, data + offset, POL_NONCE_SIZE);
-    offset += POL_NONCE_SIZE;
+    memcpy(nonce, data + offset, POL_PROTOCOL_NONCE_SIZE);
+    offset += POL_PROTOCOL_NONCE_SIZE;
 
     memcpy(beacon_sig, data + offset, POL_SIG_SIZE);
     return true;
@@ -34,8 +34,8 @@ void PoLResponse::toBytes(uint8_t* out) const {
     memcpy(out + offset, &counter, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(out + offset, nonce, POL_NONCE_SIZE);
-    offset += POL_NONCE_SIZE;
+    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
+    offset += POL_PROTOCOL_NONCE_SIZE;
 
     memcpy(out + offset, beacon_sig, POL_SIG_SIZE);
 }
@@ -50,5 +50,5 @@ void PoLResponse::getSignedData(uint8_t* out) const {
     memcpy(out + offset, &counter, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(out + offset, nonce, POL_NONCE_SIZE);
+    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
 }
