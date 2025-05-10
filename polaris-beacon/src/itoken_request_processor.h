@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 
-class IPolRequestProcessor {
+class ITokenRequestProcessor {
 public:
-    virtual ~IPolRequestProcessor() = default;
+    virtual ~ITokenRequestProcessor() = default;
 
     // Accepts raw request data, performs validation & cryptographic processing,
     // and sends back response

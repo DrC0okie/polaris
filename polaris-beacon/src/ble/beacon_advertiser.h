@@ -1,13 +1,13 @@
 #ifndef BEACON_ADVERTISER_H
 #define BEACON_ADVERTISER_H
 
-#include <BLEAdvertising.h>  // For BLEMultiAdvertising (if used directly) or forward declare
+#include <BLEAdvertising.h>
 #include <stdint.h>
 
-#include "../protocol/pol_constants.h"  // For POL_SIG_SIZE
-#include "../utils/counter.h"           // Assuming MinuteCounter is in utils/
+#include "../protocol/pol_constants.h"
+#include "../utils/counter.h"
 
-// Forward declaration if BLEMultiAdvertising is not included directly
+
 class BLEMultiAdvertising;
 
 class BeaconAdvertiser {

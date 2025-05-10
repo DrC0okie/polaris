@@ -3,8 +3,9 @@
 #include <sodium.h>
 
 #include "ble/beacon_advertiser.h"
-#include "ble/ble_server.h"  // Includes BLEMultiAdvertising if 5.0 features are on
+#include "ble/ble_server.h"
 #include "protocol/crypto.h"
+#include "protocol/encrypted_data_processor.h"
 #include "protocol/pol_request_processor.h"
 #include "utils/counter.h"
 #include "utils/key_storage.h"
@@ -12,8 +13,7 @@
 // Global
 const char* TAG = "[MAIN]";
 
-// BLEMultiAdvertising g_advertiser(NUM_ADV_INSTANCES);  // Global advertiser instance
-BleServer server(PoLRequest::packedSize());
+BleServer server;
 
 uint8_t ed25519_sk[POL_Ed25519_SK_SIZE];
 uint8_t ed25519_pk[POL_Ed25519_PK_SIZE];
@@ -98,24 +98,39 @@ void setup() {
 
     beaconExtAdvertiser->begin();  // This will set the initial extended adv data
 
-    BLECharacteristic* indChar = server.getIndicationCharacteristic();
-    if (!indChar) {
+    // --- Setup token Request Processor ---
+    BLECharacteristic* tokenIndChar = server.getTokenIndicationCharacteristic();
+    if (!tokenIndChar) {
+        Serial.printf(" CRITICAL: token Indication characteristic is null Restarting...\n", TAG);
+        ESP.restart();
+    }
+
+    auto tokenProcessor = std::unique_ptr<PoLRequestProcessor>(
+        new PoLRequestProcessor(BEACON_ID, ed25519_sk, counter, tokenIndChar));
+
+    if (!tokenProcessor) {
+        Serial.printf("%s CRITICAL: Failed to allocate token processor! Restarting...\n", TAG);
+        ESP.restart();
+    }
+    server.setTokenRequestProcessor(std::move(tokenProcessor));
+
+    BLECharacteristic* encIndChar = server.getEncryptedIndicationCharacteristic();
+    if (!encIndChar) {
         Serial.printf(
-            " CRITICAL: Indication characteristic is null after server.begin()! Restarting...\n",
-            TAG);
+            "%s CRITICAL: Encrypted Data indication characteristic is null! Restarting...\n", TAG);
         ESP.restart();
     }
 
-    auto processor = std::unique_ptr<PoLRequestProcessor>(
-        new PoLRequestProcessor(BEACON_ID, ed25519_sk, counter, indChar));
-
-    if (!processor) {
-        Serial.printf("%s CRITICAL: Failed to allocate PoLRequestProcessor! Restarting...\n", TAG);
+    auto encryptedProcessor =
+        std::unique_ptr<EncryptedDataProcessor>(new EncryptedDataProcessor(encIndChar));
+    if (!encryptedProcessor) {
+        Serial.printf("%s CRITICAL: Failed to allocate EncryptedDataProcessor! Restarting...\n",
+                      TAG);
         ESP.restart();
     }
-    server.setRequestProcessor(std::move(processor));
+    server.setEncryptedDataProcessor(std::move(encryptedProcessor));
 
-    Serial.printf("%s Setup complete. Beacon is operational.", TAG);
+    Serial.printf("%s Setup complete. Beacon is operational.\n", TAG);
 }
 
 void loop() {

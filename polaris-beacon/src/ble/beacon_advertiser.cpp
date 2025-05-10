@@ -6,7 +6,7 @@
 #include "../protocol/crypto.h"  // For signBeaconBroadcast
 
 // Defined in ble_server.h or a common header
-const uint8_t EXTENDED_ADV_INSTANCE = 1;
+const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 
 BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
                                    MinuteCounter& counter, BLEMultiAdvertising& advertiser)
@@ -63,7 +63,7 @@ void BeaconAdvertiser::updateAdvertisement() {
     idx += BroadcastPayload::packedSize();
 
     // Update the advertising data for the extended instance
-    if (!_advertiserRef.setAdvertisingData(EXTENDED_ADV_INSTANCE, idx, raw_adv_payload)) {
+    if (!_advertiserRef.setAdvertisingData(EXTENDED_BROADCAST_ADV_INSTANCE, idx, raw_adv_payload)) {
         Serial.println("[BeaconAdv] Failed to update extended advertising data.");
     } else {
         Serial.printf("[BeaconAdv] Extended advertisement updated. Counter: %llu\n",

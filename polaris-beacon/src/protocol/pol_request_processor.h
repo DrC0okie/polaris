@@ -4,13 +4,13 @@
 #include <BLECharacteristic.h>
 
 #include "../utils/counter.h"
+#include "itoken_request_processor.h"
 #include "pol_constants.h"
-#include "ipol_request_processor.h"
 
-class PoLRequestProcessor : public IPolRequestProcessor {
+class PoLRequestProcessor : public ITokenRequestProcessor {
 public:
-    PoLRequestProcessor(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE], MinuteCounter& counter,
-                        BLECharacteristic* indicationChar);
+    PoLRequestProcessor(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
+                        MinuteCounter& counter, BLECharacteristic* indicationChar);
 
     void process(const uint8_t* requestData, size_t len) override;
 

@@ -24,6 +24,7 @@ void PoLRequestProcessor::process(const uint8_t* data, size_t len) {
         return;
     }
 
+    Serial.println("[processor] Verifiying signatures");
     if (!verifyPoLRequestSignature(req)) {
         Serial.println("[Processor] Invalid signature");
         return;

@@ -13,34 +13,40 @@
 // Forward declaration for BLEMultiAdvertising
 class BLEMultiAdvertising;
 
-#include "../ipol_request_processor.h"
+#include "../iencrypted_data_processor.h"
+#include "../itoken_request_processor.h"
+#include "../protocol/encrypted_message.h"
 #include "../protocol/pol_request.h"
 
-static constexpr const char* SERVICE_UUID = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
-static constexpr const char* WRITE_UUID = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
-static constexpr const char* INDICATE_UUID = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
+static constexpr const char* POL_SERVICE = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
+static constexpr const char* TOKEN_WRITE = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
+static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
+static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
+static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 
-static constexpr uint8_t LEGACY_ADV_INSTANCE = 0;
-static constexpr uint8_t EXTENDED_ADV_INSTANCE = 1;
-static constexpr uint8_t NUM_ADV_INSTANCES = 2;  // Total number of advertising instances
-
-static constexpr uint8_t LEGACY_ADV_SID = 0;
-static constexpr uint8_t EXTENDED_ADV_SID = 1;
+static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
+static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
+static constexpr uint8_t NUM_ADV_INSTANCES = 2;
 
 class BleServer {
 public:
-    explicit BleServer(size_t maxRequestSize);
+    explicit BleServer();
     ~BleServer();
 
     void begin(const std::string& deviceName);
     void stop();
-    void queueRequest(const uint8_t* data, size_t len);
-    BLECharacteristic* getIndicationCharacteristic() const;
-    void setRequestProcessor(std::unique_ptr<IPolRequestProcessor> processor);
+    void queueTokenRequest(const uint8_t* data, size_t len);
+    void queueEncryptedRequest(const uint8_t* data, size_t len);
+
+    BLECharacteristic* getTokenIndicationCharacteristic() const;
+    void setTokenRequestProcessor(std::unique_ptr<ITokenRequestProcessor> processor);
+
+    BLECharacteristic* getEncryptedIndicationCharacteristic() const;
+    void setEncryptedDataProcessor(std::unique_ptr<IEncryptedDataProcessor> processor);
+
     BLEMultiAdvertising* getMultiAdvertiser();
 
 private:
-
     BleServer(const BleServer&) = delete;
     BleServer& operator=(const BleServer&) = delete;
     BleServer(BleServer&&) = delete;
@@ -57,35 +63,60 @@ private:
         BleServer* _parentServer;
     };
 
-    class WriteHandler : public BLECharacteristicCallbacks {
+    class TokenWriteHandler : public BLECharacteristicCallbacks {
     public:
-        explicit WriteHandler(BleServer* server);
+        explicit TokenWriteHandler(BleServer* server);
         void onWrite(BLECharacteristic* pChar) override;
 
     private:
         BleServer* _server;
     };
 
-    struct RequestMessage {
+    class EncryptedWriteHandler : public BLECharacteristicCallbacks {
+    public:
+        explicit EncryptedWriteHandler(BleServer* server);
+        void onWrite(BLECharacteristic* pChar) override;
+
+    private:
+        BleServer* _server;
+    };
+
+    struct TokenRequestMessage {
         uint8_t data[PoLRequest::packedSize()];
         size_t len;
     };
 
-    size_t _maxRequestSize;
+    struct EncryptedRequestMessage {
+        uint8_t data[512];
+        size_t len;
+    };
+
+    std::unique_ptr<ITokenRequestProcessor> _tokenRequestProcessor;
+    std::unique_ptr<TokenWriteHandler> _tokenWriteHandler;
+    TaskHandle_t _tokenProcessorTask = nullptr;
+    QueueHandle_t _tokenQueue = nullptr;
+    BLECharacteristic* _tokenIndicateCharacteristic = nullptr;
+
+    std::unique_ptr<IEncryptedDataProcessor> _encryptedDataProcessor;
+    std::unique_ptr<EncryptedWriteHandler> _encryptedWriteHandler;
+    TaskHandle_t _encryptedProcessorTaskHandle = nullptr;
+    QueueHandle_t _encryptedQueue = nullptr;
+    BLECharacteristic* _encryptedIndicateCharacteristic = nullptr;
+
     BLEServer* _pServer = nullptr;
-    std::unique_ptr<IPolRequestProcessor> _requestProcessor;
     std::unique_ptr<ServerCallbacks> _serverCallbacks;
-    std::unique_ptr<WriteHandler> _writeHandler;
-    QueueHandle_t _queue = nullptr;
-    TaskHandle_t _processorTaskHandle = nullptr;
     volatile bool _shutdownRequested = false;
     std::unique_ptr<BLEMultiAdvertising> _multiAdvertiserPtr;
-    BLECharacteristic* _indicateCharacteristic = nullptr;
 
-    static void processorTaskTrampoline(void* pvParameters);
-    void processRequests();
+    static void tokenProcessorTask(void* pvParameters);
+    void processTokenRequests();
+
+    static void encryptedProcessorTask(void* pvParameters);
+    void processEncryptedRequests();
+
     void addUserDescription(BLECharacteristic* characteristic, const std::string& description);
-    bool configureLegacyAdvertisement(const std::string& deviceName);
+    bool configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
+                                         const char* serviceUuid);
     bool configureExtendedAdvertisement();
 };
 
