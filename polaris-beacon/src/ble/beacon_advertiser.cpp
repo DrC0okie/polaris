@@ -8,16 +8,14 @@
 // Defined in ble_server.h or a common header
 const uint8_t EXTENDED_ADV_INSTANCE = 1;
 
-BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE], MinuteCounter& counter,
-                                   BLEMultiAdvertising& advertiser)
+BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
+                                   MinuteCounter& counter, BLEMultiAdvertising& advertiser)
     : _beacon_id(beacon_id), _sk(sk), _counterRef(counter), _advertiserRef(advertiser) {
 }
 
 void BeaconAdvertiser::begin() {
     Serial.println("[BeaconAdv] Beginning initial advertisement setup.");
     // Set the callback in MinuteCounter
-    // Modifying MinuteCounter to accept a generic callback:
-    // void MinuteCounter::setIncrementCallback(void (*callback)(void*), void* context);
     _counterRef.setIncrementCallback(BeaconAdvertiser::onCounterIncremented, this);
 
     // Perform an initial update to set the first advertisement
@@ -48,7 +46,7 @@ void BeaconAdvertiser::updateAdvertisement() {
 
     // Construct the actual advertising data (e.g., Manufacturer Specific Data)
     // Format: [Len1][Type1][ManufID_LSB][ManufID_MSB][BroadcastPayload_Bytes]
-    const uint16_t manufacturer_id = 0xABCD;                             // Your company ID
+    const uint16_t manufacturer_id = 0xABCD;                             // company ID
     const size_t data_len_for_adv = 2 + BroadcastPayload::packedSize();  // ManufID + Payload
 
     uint8_t raw_adv_payload[1 + 1 + data_len_for_adv];  // Full AD Structure: Len + Type + Data
