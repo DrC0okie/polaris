@@ -222,7 +222,7 @@ void BleServer::begin(const std::string& deviceName) {
 
     Serial.println("[BLE] Starting PoL processor task...");
     _shutdownRequested = false;
-    BaseType_t task_res = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 8192, this, 1,
+    BaseType_t task_res = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
                                                   &_tokenProcessorTask, tskNO_AFFINITY);
     if (task_res != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create PoL processor task!");
@@ -230,7 +230,7 @@ void BleServer::begin(const std::string& deviceName) {
 
     Serial.println("[BLE] Starting Encrypted Data processor task...");
     BaseType_t enc_task_res =
-        xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 8192, this, 1,
+        xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this, 1,
                                 &_encryptedProcessorTaskHandle, tskNO_AFFINITY);
     if (enc_task_res != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
@@ -346,15 +346,10 @@ void BleServer::tokenProcessorTask(void* pvParameters) {
 void BleServer::processTokenRequests() {
     Serial.println("[BLE] PoL processor task started.");
     TokenRequestMessage msg;
-    uint32_t hwm_after_process;
     while (!_shutdownRequested) {
         if (xQueueReceive(_tokenQueue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
             if (_tokenRequestProcessor) {
                 _tokenRequestProcessor->process(msg.data, msg.len);
-                hwm_after_process = uxTaskGetStackHighWaterMark(NULL);
-                Serial.printf(
-                    "[PoLTask] Processed request. Stack HWM: %lu words free (%lu bytes free)\n",
-                    hwm_after_process, hwm_after_process * sizeof(StackType_t));
             } else {
                 Serial.println("[BLE] No request processor set, request ignored.");
             }
