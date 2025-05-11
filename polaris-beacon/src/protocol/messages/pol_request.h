@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "pol_constants.h"
+#include "../pol_constants.h"
 
 // Represents a proof-of-location request sent by a phone
 class PoLRequest {

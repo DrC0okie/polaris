@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sodium.h>
 
-#include "crypto.h"
+#include "../crypto.h"
 
 // --- InnerPlaintext Implementation ---
 size_t InnerPlaintext::getTotalSerializedSize() const {

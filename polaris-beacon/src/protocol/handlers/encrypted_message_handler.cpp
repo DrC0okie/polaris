@@ -1,15 +1,15 @@
-#include "encrypted_data_processor.h"
+#include "encrypted_message_handler.h"
 
 #include <HardwareSerial.h>
 
-#include "crypto.h"
-#include "encrypted_message.h"
+#include "../crypto.h"
+#include "../messages/encrypted_message.h"
 
-EncryptedDataProcessor::EncryptedDataProcessor(BLECharacteristic* indicationChar)
+EncryptedMessageHandler::EncryptedMessageHandler(BLECharacteristic* indicationChar)
     : _indicateChar(indicationChar) {
 }
 
-void EncryptedDataProcessor::process(const uint8_t* data, size_t len) {
+void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     if (len >= 512) {
         Serial.println("[Encrypted processor] Invalid length");
         return;

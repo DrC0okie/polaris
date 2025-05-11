@@ -1,16 +1,16 @@
-#ifndef IPOL_REQUEST_PROCESSOR_H
-#define IPOL_REQUEST_PROCESSOR_H
+#ifndef IMESSAGE_HANDLER_H
+#define IMESSAGE_HANDLER_H
 
 #include <cstddef>
 #include <cstdint>
 
-class ITokenRequestProcessor {
+class IMessageHandler {
 public:
-    virtual ~ITokenRequestProcessor() = default;
+    virtual ~IMessageHandler() = default;
 
     // Accepts raw request data, performs validation & cryptographic processing,
     // and sends back response
     virtual void process(const uint8_t* requestData, size_t len) = 0;
 };
 
-#endif
+#endif  // IMESSAGE_HANDLER_H

@@ -121,7 +121,7 @@ void BleServer::begin(const std::string& deviceName) {
 
     // Add characteristics to the service
     for (const auto& charWrapper : _polServiceChars) {
-        printf("Adding %s characteristic.\n", charWrapper->getName());
+        Serial.printf("Adding %s characteristic.\n", charWrapper->getName());
         if (!charWrapper->configure(*polService)) {
             Serial.printf(
                 "[BLE] CRITICAL: Failed to configure a characteristic for PoL service.\n");
@@ -311,23 +311,6 @@ void BleServer::processEncryptedRequests() {
 }
 
 // ========== UTILS ==========
-void BleServer::addUserDescription(BLECharacteristic* characteristic,
-                                   const std::string& description) {
-    if (!characteristic)
-        return;
-    BLEDescriptor* desc = new BLEDescriptor(BLEUUID((uint16_t)0x2901));  // User Description UUID
-    if (!desc) {
-        Serial.println("[BLE] Failed to allocate User Description descriptor!");
-        return;
-    }
-    desc->setValue(description);
-    desc->setAccessPermissions(ESP_GATT_PERM_READ);
-    characteristic->addDescriptor(desc);
-}
-
-void BleServer::setTokenRequestProcessor(std::unique_ptr<ITokenRequestProcessor> processor) {
-    _tokenRequestProcessor = std::move(processor);
-}
 
 BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const {
     auto it = std::find_if(_polServiceChars.begin(), _polServiceChars.end(),
@@ -346,7 +329,11 @@ BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const
     return nullptr;
 }
 
-void BleServer::setEncryptedDataProcessor(std::unique_ptr<IEncryptedDataProcessor> processor) {
+void BleServer::setTokenRequestProcessor(std::unique_ptr<IMessageHandler> processor) {
+    _tokenRequestProcessor = std::move(processor);
+}
+
+void BleServer::setEncryptedDataProcessor(std::unique_ptr<IMessageHandler> processor) {
     _encryptedDataProcessor = std::move(processor);
 }
 

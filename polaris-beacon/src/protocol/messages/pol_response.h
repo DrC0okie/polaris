@@ -4,16 +4,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "pol_constants.h"
+#include "../pol_constants.h"
 
 // Proof-of-Location response from the beacon
 class PoLResponse {
 public:
-    uint8_t flags;                     // Message type flags
-    uint32_t beacon_id;                // ID of the responding beacon
-    uint64_t counter;                  // Monotonic counter value
-    uint8_t nonce[POL_PROTOCOL_NONCE_SIZE];     // Echoed nonce from the request
-    uint8_t beacon_sig[POL_SIG_SIZE];  // Signature by beacon's private key
+    uint8_t flags;                           // Message type flags
+    uint32_t beacon_id;                      // ID of the responding beacon
+    uint64_t counter;                        // Monotonic counter value
+    uint8_t nonce[POL_PROTOCOL_NONCE_SIZE];  // Echoed nonce from the request
+    uint8_t beacon_sig[POL_SIG_SIZE];        // Signature by beacon's private key
 
     // Deserialize from raw buffer
     bool fromBytes(const uint8_t* data, size_t len);

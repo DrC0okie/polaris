@@ -14,10 +14,9 @@
 // Forward declaration for BLEMultiAdvertising
 class BLEMultiAdvertising;
 
-#include "../iencrypted_data_processor.h"
-#include "../itoken_request_processor.h"
-#include "../protocol/encrypted_message.h"
-#include "../protocol/pol_request.h"
+#include "../protocol/handlers/imessage_handler.h"
+#include "../protocol/messages/encrypted_message.h"
+#include "../protocol/messages/pol_request.h"
 #include "characteristics/icharacteristic.h"
 
 static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
@@ -36,8 +35,8 @@ public:
 
     BLECharacteristic* getCharacteristicByUUID(const BLEUUID& targetUuid) const;
 
-    void setTokenRequestProcessor(std::unique_ptr<ITokenRequestProcessor> processor);
-    void setEncryptedDataProcessor(std::unique_ptr<IEncryptedDataProcessor> processor);
+    void setTokenRequestProcessor(std::unique_ptr<IMessageHandler> processor);
+    void setEncryptedDataProcessor(std::unique_ptr<IMessageHandler> processor);
 
     BLEMultiAdvertising* getMultiAdvertiser();
 
@@ -74,11 +73,11 @@ private:
         size_t len;
     };
 
-    std::unique_ptr<ITokenRequestProcessor> _tokenRequestProcessor;
+    std::unique_ptr<IMessageHandler> _tokenRequestProcessor;
     TaskHandle_t _tokenProcessorTask = nullptr;
     QueueHandle_t _tokenQueue = nullptr;
 
-    std::unique_ptr<IEncryptedDataProcessor> _encryptedDataProcessor;
+    std::unique_ptr<IMessageHandler> _encryptedDataProcessor;
     TaskHandle_t _encryptedProcessorTask = nullptr;
     QueueHandle_t _encryptedQueue = nullptr;
 

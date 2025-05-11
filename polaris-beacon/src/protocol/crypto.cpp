@@ -5,8 +5,8 @@
 #include <string.h>
 
 #include "pol_constants.h"
-#include "pol_request.h"
-#include "pol_response.h"
+#include "messages/pol_request.h"
+#include "messages/pol_response.h"
 
 // --- Ed25519 Signature Functions ---
 void generateEd25519KeyPair(uint8_t public_key_out[POL_Ed25519_PK_SIZE],

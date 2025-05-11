@@ -5,8 +5,8 @@
 #include "ble/beacon_advertiser.h"
 #include "ble/ble_server.h"
 #include "protocol/crypto.h"
-#include "protocol/encrypted_data_processor.h"
-#include "protocol/pol_request_processor.h"
+#include "protocol/handlers/encrypted_message_handler.h"
+#include "protocol/handlers/token_message_handler.h"
 #include "utils/counter.h"
 #include "utils/key_storage.h"
 
@@ -15,11 +15,12 @@ const char* TAG = "[MAIN]";
 
 BleServer server;
 
-uint8_t ed25519_sk[POL_Ed25519_SK_SIZE];
-uint8_t ed25519_pk[POL_Ed25519_PK_SIZE];
-uint8_t x25519_sk[POL_X25519_SK_SIZE];
-uint8_t x25519_pk[POL_X25519_PK_SIZE];
-uint8_t server_x25519_pk[POL_X25519_PK_SIZE];
+uint8_t ed25519Sk[POL_Ed25519_SK_SIZE];
+uint8_t ed25519Pk[POL_Ed25519_PK_SIZE];
+uint8_t x25519Sk[POL_X25519_SK_SIZE];
+uint8_t x25519Pk[POL_X25519_PK_SIZE];
+uint8_t serverX25519Pk[POL_X25519_PK_SIZE];
+uint8_t aeadKey[POL_SHARED_KEY_SIZE];
 
 // Global BeaconAdvertiser
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
@@ -48,38 +49,45 @@ void setup() {
     KeyStorage keyManager(prefs);
 
     // Manage Ed25519 keys using KeyStorage
-    if (!keyManager.manageEd25519KeyPair(ed25519_pk, ed25519_sk)) {
+    if (!keyManager.manageEd25519KeyPair(ed25519Pk, ed25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage Ed25519 keys! Restarting...\n", TAG);
         ESP.restart();
     }
 
     Serial.printf("%s Beacon Ed25519 Public Key: ", TAG);
     for (int i = 0; i < POL_Ed25519_PK_SIZE; ++i)
-        Serial.printf("%02X", ed25519_pk[i]);
+        Serial.printf("%02X", ed25519Pk[i]);
     Serial.println();
 
     // Manage X25519 keys using KeyStorage
-    if (!keyManager.manageX25519KeyPair(x25519_pk, x25519_sk)) {
+    if (!keyManager.manageX25519KeyPair(x25519Pk, x25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage X25519 keys! Restarting...\n", TAG);
         ESP.restart();
     }
 
     Serial.printf("%s X25519 Public Key: ", TAG);
     for (int i = 0; i < POL_X25519_PK_SIZE; ++i)
-        Serial.printf("%02X", x25519_pk[i]);
+        Serial.printf("%02X", x25519Pk[i]);
     Serial.println();
 
     // Manage Server's X25519 Public Key using KeyStorage
-    if (!keyManager.manageServerX25519PublicKey(server_x25519_pk, HARDCODED_SERVER_X25519_PK)) {
+    if (!keyManager.manageServerX25519PublicKey(serverX25519Pk, HARDCODED_SERVER_X25519_PK)) {
         Serial.printf("%s CRITICAL: Failed to manage Server's X25519 PK! Restarting...\n", TAG);
         ESP.restart();
     }
     Serial.printf("%s Server X25519 Public Key: ", TAG);
     for (int i = 0; i < POL_X25519_PK_SIZE; ++i)
-        Serial.printf("%02X", server_x25519_pk[i]);
+        Serial.printf("%02X", serverX25519Pk[i]);
     Serial.println();
 
     prefs.end();
+
+    if (deriveAEADSharedKey(aeadKey, x25519Sk, serverX25519Pk)) {
+        Serial.printf("%s Shared AEAD key with server derived successfully.\n", TAG);
+    } else {
+        Serial.printf("%s CRITICAL: Failed to derive shared AEAD key with server!\n", TAG);
+        ESP.restart();
+    }
 
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
     server.begin(BLE_DEVICE_NAME);  // This will internally use g_advertiser
@@ -94,7 +102,7 @@ void setup() {
     }
 
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
-        new BeaconAdvertiser(BEACON_ID, ed25519_sk, counter, *actual_advertiser_ptr));
+        new BeaconAdvertiser(BEACON_ID, ed25519Sk, counter, *actual_advertiser_ptr));
 
     beaconExtAdvertiser->begin();  // This will set the initial extended adv data
 
@@ -106,8 +114,8 @@ void setup() {
         ESP.restart();
     }
 
-    auto tokenProcessor = std::unique_ptr<PoLRequestProcessor>(
-        new PoLRequestProcessor(BEACON_ID, ed25519_sk, counter, tokenIndChar));
+    auto tokenProcessor = std::unique_ptr<TokenMessageHandler>(
+        new TokenMessageHandler(BEACON_ID, ed25519Sk, counter, tokenIndChar));
 
     if (!tokenProcessor) {
         Serial.printf("%s CRITICAL: Failed to allocate token processor! Restarting...\n", TAG);
@@ -124,9 +132,9 @@ void setup() {
     }
 
     auto encryptedProcessor =
-        std::unique_ptr<EncryptedDataProcessor>(new EncryptedDataProcessor(encIndChar));
+        std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(encIndChar));
     if (!encryptedProcessor) {
-        Serial.printf("%s CRITICAL: Failed to allocate EncryptedDataProcessor! Restarting...\n",
+        Serial.printf("%s CRITICAL: Failed to allocate EncryptedMessageHandler! Restarting...\n",
                       TAG);
         ESP.restart();
     }

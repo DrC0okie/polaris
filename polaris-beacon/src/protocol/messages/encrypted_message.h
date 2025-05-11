@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "pol_constants.h"
+#include "../pol_constants.h"
 
 // Max size for the inner plaintext
 #define MAX_INNER_PLAINTEXT_SIZE 200

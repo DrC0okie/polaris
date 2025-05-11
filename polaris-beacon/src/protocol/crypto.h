@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#include "pol_request.h"
-#include "pol_response.h"
+#include "messages/pol_request.h"
+#include "messages/pol_response.h"
 
 // Forward declarations
 class PoLRequest;
@@ -15,7 +15,8 @@ class EncryptedPayloadIn;
 // --- Ed25519 Signature Functions ---
 
 // Generate a new Ed25519 key pair
-void generateEd25519KeyPair(uint8_t public_key_out[POL_Ed25519_PK_SIZE], uint8_t secret_key_out[POL_Ed25519_SK_SIZE]);
+void generateEd25519KeyPair(uint8_t public_key_out[POL_Ed25519_PK_SIZE],
+                            uint8_t secret_key_out[POL_Ed25519_SK_SIZE]);
 
 // Verifies the signature in a PoLRequest using Monocypher
 // Returns true if signature is valid
@@ -43,8 +44,7 @@ bool deriveAEADSharedKey(uint8_t shared_key_out[POL_SHARED_KEY_SIZE],
 // Encrypt data using ChaCha20-Poly1305 (IETF variant)
 bool encryptAEAD(uint8_t ciphertext_and_tag_out[], size_t& actual_ciphertext_len_out,
                  const uint8_t plaintext[], size_t plaintext_len, const uint8_t associated_data[],
-                 size_t associated_data_len,
-                 const uint8_t public_nonce[POL_AEAD_NONCE_SIZE],
+                 size_t associated_data_len, const uint8_t public_nonce[POL_AEAD_NONCE_SIZE],
                  const uint8_t shared_key[POL_SHARED_KEY_SIZE]);
 
 // Decrypt data using ChaCha20-Poly1305 (IETF variant)

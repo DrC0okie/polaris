@@ -1,18 +1,18 @@
-#include "pol_request_processor.h"
+#include "token_message_handler.h"
 
 #include <HardwareSerial.h>
 
-#include "crypto.h"
-#include "pol_request.h"
-#include "pol_response.h"
+#include "../crypto.h"
+#include "../messages/pol_request.h"
+#include "../messages/pol_response.h"
 
-PoLRequestProcessor::PoLRequestProcessor(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
+TokenMessageHandler::TokenMessageHandler(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
                                          MinuteCounter& counter, BLECharacteristic* indicationChar)
     : _beacon_id(beacon_id), _counter(counter), _indicateChar(indicationChar) {
     memcpy(_sk, sk, POL_Ed25519_SK_SIZE);
 }
 
-void PoLRequestProcessor::process(const uint8_t* data, size_t len) {
+void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     if (len != PoLRequest::packedSize()) {
         Serial.println("[Processor] Invalid length");
         return;
