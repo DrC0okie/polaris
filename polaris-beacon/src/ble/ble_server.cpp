@@ -344,15 +344,15 @@ BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
 bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
                                                 const char* serviceUuid) {
     esp_ble_gap_ext_adv_params_t legacy_params = {
-        .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Connectable,
-        .interval_min = 0x50,
-        .interval_max = 0x50,
+        .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Legacy advertising (BLE 4.2)
+        .interval_min = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
+        .interval_max = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
         .channel_map = ADV_CHNL_ALL,
-        .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
-        .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
-        .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,
-        .primary_phy = ESP_BLE_GAP_PHY_1M,
-        .secondary_phy = ESP_BLE_GAP_PHY_1M,
+        .own_addr_type = BLE_ADDR_TYPE_PUBLIC,               // Same address as the device
+        .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,  // Allows scan & connection
+        .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,            // No preference for tx power
+        .primary_phy = ESP_BLE_GAP_PHY_1M,                   // 1Mb/s
+        .secondary_phy = ESP_BLE_GAP_PHY_1M,                 // 1Mb/s
         .sid = instanceNum,
         .scan_req_notif = false,
     };
@@ -409,15 +409,16 @@ bool BleServer::configureExtendedAdvertisement() {
     Serial.println("[BLE] Configuring Extended Advertisement...");
 
     esp_ble_gap_ext_adv_params_t ext_params = {
+        // Non-Connectable and Non-Scannable Undirected advertising
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_NONCONN_NONSCANNABLE_UNDIRECTED,
-        .interval_min = 0x60,
-        .interval_max = 0x60,
+        .interval_min = 0x320,  // 1s (intervals must be multiplied by 1.25 to get seconds)
+        .interval_max = 0x320,  // 1s (intervals must be multiplied by 1.25 to get seconds)
         .channel_map = ADV_CHNL_ALL,
         .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
         .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
         .tx_power = EXT_ADV_TX_PWR_NO_PREFERENCE,
-        .primary_phy = ESP_BLE_GAP_PHY_1M,
-        .secondary_phy = ESP_BLE_GAP_PHY_CODED,  // For longer range broadcast
+        .primary_phy = ESP_BLE_GAP_PHY_1M,       // 1Mb/s
+        .secondary_phy = ESP_BLE_GAP_PHY_CODED,  // 500 kb/s but longer range
         .sid = EXTENDED_BROADCAST_ADV_INSTANCE,
         .scan_req_notif = false,
     };
