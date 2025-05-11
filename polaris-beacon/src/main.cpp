@@ -99,7 +99,8 @@ void setup() {
     beaconExtAdvertiser->begin();  // This will set the initial extended adv data
 
     // --- Setup token Request Processor ---
-    BLECharacteristic* tokenIndChar = server.getTokenIndicationCharacteristic();
+    BLECharacteristic* tokenIndChar =
+        server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE));
     if (!tokenIndChar) {
         Serial.printf(" CRITICAL: token Indication characteristic is null Restarting...\n", TAG);
         ESP.restart();
@@ -114,7 +115,8 @@ void setup() {
     }
     server.setTokenRequestProcessor(std::move(tokenProcessor));
 
-    BLECharacteristic* encIndChar = server.getEncryptedIndicationCharacteristic();
+    BLECharacteristic* encIndChar =
+        server.getCharacteristicByUUID(BLEUUID(BleServer::ENCRYPTED_INDICATE));
     if (!encIndChar) {
         Serial.printf(
             "%s CRITICAL: Encrypted Data indication characteristic is null! Restarting...\n", TAG);

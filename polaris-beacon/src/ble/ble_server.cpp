@@ -7,6 +7,11 @@
 #include <BLEUtils.h>        // For helper functions like esp_err_to_name
 #include <HardwareSerial.h>  // For Serial output
 
+#include <algorithm>
+
+#include "characteristics/indicate_characteristic.h"
+#include "characteristics/write_characteristic.h"
+
 // ========== SERVER CALLBACKS ==========
 BleServer::ServerCallbacks::ServerCallbacks(BleServer* parentServer) : _parentServer(parentServer) {
 }
@@ -34,35 +39,6 @@ void BleServer::ServerCallbacks::onDisconnect(BLEServer* /*pServer*/) {
             Serial.printf("[BLE] Failed to restart legacy advertising instance %d.\n",
                           LEGACY_TOKEN_ADV_INSTANCE);
         }
-    }
-}
-
-// ========== TOKEN WRITE CHARACTERISTIC CALLBACK ==========
-BleServer::TokenWriteHandler::TokenWriteHandler(BleServer* server) : _server(server) {
-}
-
-void BleServer::TokenWriteHandler::onWrite(BLECharacteristic* pChar) {
-    if (!pChar)
-        return;
-    std::string value = pChar->getValue();
-    Serial.printf("[BLE] Write received: %zu bytes\n", value.size());
-    if (_server && !value.empty()) {
-        _server->queueTokenRequest(reinterpret_cast<const uint8_t*>(value.data()), value.size());
-    }
-}
-
-// ========== ENCRYPTED WRITE CHARACTERISTIC CALLBACK ==========
-BleServer::EncryptedWriteHandler::EncryptedWriteHandler(BleServer* server) : _server(server) {
-}
-
-void BleServer::EncryptedWriteHandler::onWrite(BLECharacteristic* pChar) {
-    if (!pChar)
-        return;
-    std::string value = pChar->getValue();
-    Serial.printf("[BLE Enc] Write received: %zu bytes\n", value.size());
-    if (_server && !value.empty()) {
-        _server->queueEncryptedRequest(reinterpret_cast<const uint8_t*>(value.data()),
-                                       value.size());
     }
 }
 
@@ -98,111 +74,66 @@ void BleServer::begin(const std::string& deviceName) {
     _pServer = BLEDevice::createServer();
     if (!_pServer) {
         Serial.println("[BLE] CRITICAL: Failed to create BLE server!");
-        BLEDevice::deinit(true);
+        stop();
         return;
     }
 
     _serverCallbacks = std::unique_ptr<ServerCallbacks>(new ServerCallbacks(this));
     if (!_serverCallbacks) {
         Serial.println("[BLE] CRITICAL: Failed to allocate server callback!");
-        BLEDevice::deinit(true);
+        stop();
         return;
     }
     _pServer->setCallbacks(_serverCallbacks.get());
+
+    // Setup all characteristics
+
+    // Write characteristic for pol request
+    _polServiceChars.push_back(std::unique_ptr<WriteCharacteristic>(new WriteCharacteristic(
+        TOKEN_WRITE,
+        [this](const uint8_t* data, size_t len) { this->queueTokenRequest(data, len); },
+        "PoL Request (write)")));
+
+    // Write characteristic for encrypted data
+    _polServiceChars.push_back(std::unique_ptr<WriteCharacteristic>(new WriteCharacteristic(
+        ENCRYPTED_WRITE,
+        [this](const uint8_t* data, size_t len) { this->queueEncryptedRequest(data, len); },
+        "Encrypted Data (write)")));
+
+    // Indicate characteristic for pol response
+    auto tokenIndicateWrapper = std::unique_ptr<IndicateCharacteristic>(
+        new IndicateCharacteristic(TOKEN_INDICATE, "PoL Response (indicate)"));
+    _polServiceChars.push_back(std::move(tokenIndicateWrapper));
+
+    // Indicate characteristic for encrypted data
+    auto encryptedIndicateWrapper = std::unique_ptr<IndicateCharacteristic>(
+        new IndicateCharacteristic(ENCRYPTED_INDICATE, "Encrypted Response (indicate)"));
+    _polServiceChars.push_back(std::move(encryptedIndicateWrapper));
 
     // pol service configuration
     Serial.println("[BLE] Creating pol service and Characteristics...");
     BLEService* polService = _pServer->createService(BLEUUID(POL_SERVICE));
     if (!polService) {
         Serial.println("[BLE] Failed to create token service!");
-        BLEDevice::deinit(true);
+        stop();
         return;
     }
 
-    // Write characteristic for pol request
-    BLECharacteristic* pWrite =
-        polService->createCharacteristic(BLEUUID(TOKEN_WRITE), BLECharacteristic::PROPERTY_WRITE);
-    if (!pWrite) {
-        Serial.println("[BLE] Failed to create pol request write characteristic!");
-        BLEDevice::deinit(true);
-        return;
+    // Add characteristics to the service
+    for (const auto& charWrapper : _polServiceChars) {
+        printf("Adding %s characteristic.\n", charWrapper->getName());
+        if (!charWrapper->configure(*polService)) {
+            Serial.printf(
+                "[BLE] CRITICAL: Failed to configure a characteristic for PoL service.\n");
+            stop();
+            return;
+        }
     }
-    pWrite->setAccessPermissions(ESP_GATT_PERM_WRITE);
-    addUserDescription(pWrite, "PoL Request (write)");
-    _tokenWriteHandler = std::unique_ptr<TokenWriteHandler>(new TokenWriteHandler(this));
-    if (!_tokenWriteHandler) {
-        Serial.println("[BLE] Failed to allocate pol request handler!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    pWrite->setCallbacks(_tokenWriteHandler.get());
-
-    // Indicate characteristic for pol response
-    _tokenIndicateCharacteristic = polService->createCharacteristic(
-        BLEUUID(TOKEN_INDICATE), BLECharacteristic::PROPERTY_INDICATE);
-    if (!_tokenIndicateCharacteristic) {
-        Serial.println("[BLE] Failed to create pol response indicate characteristic!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    _tokenIndicateCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ);
-
-    // Add CCCD to indicate descriptor
-    BLE2902* indicateDesc = new BLE2902();  // CCCD for indications/notifications
-    if (!indicateDesc) {
-        Serial.println("[BLE] Failed to allocate BLE2902 descriptor!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    indicateDesc->setAccessPermissions(ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE);
-    _tokenIndicateCharacteristic->addDescriptor(indicateDesc);
-    addUserDescription(_tokenIndicateCharacteristic, "PoL Response (indicate)");
-
-    // Write characteristic for encrypted data
-    BLECharacteristic* pNewWrite = polService->createCharacteristic(
-        BLEUUID(ENCRYPTED_WRITE), BLECharacteristic::PROPERTY_WRITE);
-    if (!pNewWrite) {
-        Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data Write characteristic!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    pNewWrite->setAccessPermissions(ESP_GATT_PERM_WRITE);
-    addUserDescription(pNewWrite, "Encrypted Data (write)");
-    _encryptedWriteHandler =
-        std::unique_ptr<EncryptedWriteHandler>(new EncryptedWriteHandler(this));
-    if (!_encryptedWriteHandler) {
-        Serial.println("[BLE] CRITICAL: Failed to allocate EncryptedWriteHandler!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    pNewWrite->setCallbacks(_encryptedWriteHandler.get());
-
-    // Indicate characteristic for encrypted data
-    _encryptedIndicateCharacteristic = polService->createCharacteristic(
-        BLEUUID(ENCRYPTED_INDICATE), BLECharacteristic::PROPERTY_INDICATE);
-    if (!_encryptedIndicateCharacteristic) {
-        Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data Indicate characteristic!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    _encryptedIndicateCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ);
-
-    // Add CCCD to indicate descriptor
-    BLE2902* newIndicateDesc = new BLE2902();  // CCCD for indications
-    if (!newIndicateDesc) {
-        Serial.println("[BLE] CRITICAL: Failed to allocate BLE2902 for Encrypted Indicate!");
-        BLEDevice::deinit(true);
-        return;
-    }
-    newIndicateDesc->setAccessPermissions(ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE);
-    _encryptedIndicateCharacteristic->addDescriptor(newIndicateDesc);
-    addUserDescription(_encryptedIndicateCharacteristic, "Encrypted Response (indicate)");
-    Serial.println("[BLE] Encrypted Data GATT Service started.");
 
     // Advertising configuration for token service
     Serial.println("[BLE] Configuring Legacy Advertisement...");
     if (!configureTokenSrvcAdvertisement(deviceName, LEGACY_TOKEN_ADV_INSTANCE, POL_SERVICE)) {
-        BLEDevice::deinit(true);
+        stop();
         return;
     }
 
@@ -216,7 +147,7 @@ void BleServer::begin(const std::string& deviceName) {
     Serial.println("[BLE] Starting Multi-Advertising instances...");
     if (!_multiAdvertiserPtr->start(NUM_ADV_INSTANCES, 0)) {
         Serial.printf("[BLE] CRITICAL: Failed to start multi-advertising.\n");
-        BLEDevice::deinit(true);
+        stop();
         return;
     }
 
@@ -229,14 +160,13 @@ void BleServer::begin(const std::string& deviceName) {
     }
 
     Serial.println("[BLE] Starting Encrypted Data processor task...");
-    BaseType_t enc_task_res =
-        xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this, 1,
-                                &_encryptedProcessorTaskHandle, tskNO_AFFINITY);
+    BaseType_t enc_task_res = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this,
+                                                      1, &_encryptedProcessorTask, tskNO_AFFINITY);
     if (enc_task_res != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
     }
 
-    Serial.println("[BLE] BleServer::begin() complete.");
+    Serial.println("[BLE] Server configuration complete.");
 }
 
 // ========== STOP ==========
@@ -251,18 +181,18 @@ void BleServer::stop() {
         vTaskDelete(tempHandle);
     }
 
-    if (_encryptedProcessorTaskHandle != nullptr) {
+    if (_encryptedProcessorTask != nullptr) {
         Serial.println("[BLE] Waiting for Encrypted Data processor task to shut down...");
         vTaskDelay(pdMS_TO_TICKS(200));  // Give task time to see flag
-        TaskHandle_t tempHandle = _encryptedProcessorTaskHandle;
-        _encryptedProcessorTaskHandle = nullptr;  // Clear before delete
+        TaskHandle_t tempHandle = _encryptedProcessorTask;
+        _encryptedProcessorTask = nullptr;  // Clear before delete
         vTaskDelete(tempHandle);
         Serial.println("[BLE] Encrypted Data processor task deleted.");
     }
 
     if (_multiAdvertiserPtr) {
         Serial.println("[BLE] Stopping and clearing multi-advertiser instances...");
-        _multiAdvertiserPtr->stop(NUM_ADV_INSTANCES, nullptr);
+        _multiAdvertiserPtr->stop(NUM_ADV_INSTANCES, 0);
         _multiAdvertiserPtr->clear();
     }
 
@@ -281,7 +211,6 @@ void BleServer::stop() {
     }
 
     _pServer = nullptr;
-    _tokenIndicateCharacteristic = nullptr;
 }
 
 // ========== QUEUE TOKEN REQUEST ==========
@@ -400,16 +329,25 @@ void BleServer::setTokenRequestProcessor(std::unique_ptr<ITokenRequestProcessor>
     _tokenRequestProcessor = std::move(processor);
 }
 
-BLECharacteristic* BleServer::getTokenIndicationCharacteristic() const {
-    return _tokenIndicateCharacteristic;
+BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const {
+    auto it = std::find_if(_polServiceChars.begin(), _polServiceChars.end(),
+                           [&](const std::unique_ptr<ICharacteristic>& ptr) {
+                               if (ptr) {
+                                   return const_cast<BLEUUID&>(ptr->getUUID()).equals(uuid);
+                               }
+                               return false;
+                           });
+
+    if (it != _polServiceChars.end()) {
+        return (*it)->getRawCharacteristic();
+    }
+
+    Serial.println("[BLE] Characteristic with UUID not found in managed list.");
+    return nullptr;
 }
 
 void BleServer::setEncryptedDataProcessor(std::unique_ptr<IEncryptedDataProcessor> processor) {
     _encryptedDataProcessor = std::move(processor);
-}
-
-BLECharacteristic* BleServer::getEncryptedIndicationCharacteristic() const {
-    return _encryptedIndicateCharacteristic;
 }
 
 BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
@@ -436,7 +374,6 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
         Serial.println("[BLE] Failed to set legacy advertising parameters.");
         return false;
     }
-    Serial.println("[BLE] Legacy advertising parameters set.");
 
     // Advertising Data
     BLEAdvertisementData advData;
@@ -455,7 +392,6 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
         Serial.println("[BLE] Failed to set legacy advertising data.");
         return false;
     }
-    Serial.println("[BLE] Legacy advertising data set.");
 
     // Scan Response Data
     BLEAdvertisementData scanRspData;
@@ -503,7 +439,6 @@ bool BleServer::configureExtendedAdvertisement() {
         Serial.println("[BLE] Failed to set extended advertising parameters.");
         return false;
     }
-    Serial.println("[BLE] Extended advertising parameters set.");
 
     // The BeaconAdvertiser will overwrite this with the actual dynamic data.
     uint8_t placeholder_data[] = {0x02, 0x01, 0x06};
@@ -513,7 +448,6 @@ bool BleServer::configureExtendedAdvertisement() {
         Serial.println("[BLE] Failed to set extended advertising data.");
         return false;
     }
-    Serial.println("[BLE] Extended advertising data set.");
 
     _multiAdvertiserPtr->setDuration(EXTENDED_BROADCAST_ADV_INSTANCE, 0, 0);
     Serial.printf("[BLE] Extended Advertisement (Instance %u) configured successfully.\n",
