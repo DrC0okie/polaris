@@ -6,11 +6,13 @@
 
 class MinuteCounter {
 public:
+    // Constructor with optional NVS namespace
+    MinuteCounter(const char* nvsKeyName = "counter");
+
+    void begin(Preferences& prefs);
+
     // Callback
     typedef void (*IncrementCallback_t)(void*);
-
-    // Constructor with optional NVS namespace
-    MinuteCounter(Preferences& prefs, const char* nvsKeyName = "counter");
 
     uint64_t getValue() const;  // Read current counter
     void reset();               // Optional: reset counter to 0

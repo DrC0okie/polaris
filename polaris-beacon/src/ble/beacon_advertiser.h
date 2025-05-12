@@ -14,6 +14,7 @@ public:
     BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[Ed25519_SK_SIZE], MinuteCounter& counter,
                      BLEMultiAdvertising& advertiser);
 
+    void begin();
     void updateAdvertisement();  // Public method to trigger an update
 
 private:

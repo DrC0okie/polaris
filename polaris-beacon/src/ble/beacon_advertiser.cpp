@@ -11,7 +11,11 @@ const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[Ed25519_SK_SIZE],
                                    MinuteCounter& counter, BLEMultiAdvertising& advertiser)
     : _beacon_id(beacon_id), _sk(sk), _counterRef(counter), _advertiserRef(advertiser) {
-    // Set the callback in MinuteCounter
+}
+
+void BeaconAdvertiser::begin() {
+    Serial.println("[BeaconAdv] Beginning initial advertisement setup.");
+
     _counterRef.setIncrementCallback(BeaconAdvertiser::onCounterIncremented, this);
 
     // Perform an initial update to set the first advertisement

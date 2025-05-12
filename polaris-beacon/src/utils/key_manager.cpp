@@ -6,13 +6,12 @@
 #include "protocol/crypto.h"
 #include "protocol/pol_constants.h"
 
-KeyManager::KeyManager(Preferences& prefs, const uint8_t (&serverX25519Pk)[X25519_PK_SIZE])
-    : _prefs(prefs) {
+KeyManager::KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE]) {
     memcpy(_serverX25519Pk, serverX25519Pk, X25519_PK_SIZE);
-    init();
 }
 
-void KeyManager::init() {
+void KeyManager::begin(Preferences& prefs) {
+    _prefs = prefs;
     // Manage Ed25519 keys using KeyManager
     if (!manageEd25519KeyPair(_ed25519Pk, _ed25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage Ed25519 keys! Restarting...\n", TAG);

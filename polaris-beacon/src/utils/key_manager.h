@@ -13,8 +13,8 @@ static constexpr const uint8_t HARDCODED_SERVER_X25519_PK[X25519_PK_SIZE] = {
 
 class KeyManager {
 public:
-    KeyManager(Preferences& prefs,
-               const uint8_t (&serverX25519Pk)[X25519_PK_SIZE] = HARDCODED_SERVER_X25519_PK);
+    KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE] = HARDCODED_SERVER_X25519_PK);
+    void begin(Preferences& prefs);
 
     const uint8_t* getEd25519Pk() const;
     const uint8_t* getEd25519Sk() const;
@@ -24,7 +24,6 @@ public:
     const uint8_t* getAeadKey() const;
 
 private:
-    void init();
     // Manages Ed25519 key pair
     // Loads SK & PK from NVS. If not found or inconsistent, generates a new pair and stores both.
     // Returns true on success (keys are populated), false on critical NVS failure.
@@ -48,7 +47,7 @@ private:
     // Helper to print a key
     void printKey(const size_t keyLength, const uint8_t* key) const;
 
-    Preferences& _prefs;
+    Preferences _prefs;
     static constexpr const char* TAG = "[KeyManager]";
     uint8_t _ed25519Sk[Ed25519_SK_SIZE];
     uint8_t _ed25519Pk[Ed25519_PK_SIZE];

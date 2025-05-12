@@ -15,8 +15,8 @@
 const char* TAG = "[MAIN]";
 BleServer server;
 Preferences prefs;
-MinuteCounter counter(prefs, "counter");
-KeyManager km(prefs);
+MinuteCounter counter;
+KeyManager keyManager;
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 
 void setup() {
@@ -38,6 +38,9 @@ void setup() {
     Serial.printf("%s NVS Initialized.\n", TAG);
     // WARNING: Do not close the NVS namespace, we need it opened wot the minute counter operations
 
+    counter.begin(prefs);
+    keyManager.begin(prefs);
+
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
     server.begin(BLE_DEVICE_NAME);
 
@@ -49,11 +52,13 @@ void setup() {
 
     // create an advertizer to broadcast signed data
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
-        new BeaconAdvertiser(BEACON_ID, km.getEd25519Sk(), counter, *multiAdv));
+        new BeaconAdvertiser(BEACON_ID, keyManager.getEd25519Sk(), counter, *multiAdv));
+
+    beaconExtAdvertiser->begin();
 
     // Assign message handler to manage incoming Pol requests
     auto tokenProcessor = std::unique_ptr<TokenMessageHandler>(new TokenMessageHandler(
-        BEACON_ID, km.getEd25519Sk(), counter,
+        BEACON_ID, keyManager.getEd25519Sk(), counter,
         server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE))));
 
     if (!tokenProcessor) {
