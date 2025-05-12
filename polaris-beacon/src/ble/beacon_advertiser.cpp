@@ -23,7 +23,6 @@ void BeaconAdvertiser::begin() {
 }
 
 void BeaconAdvertiser::onCounterIncremented(void* context) {
-    Serial.println("[BeaconAdv] Counter increment detected.");
     if (context) {
         static_cast<BeaconAdvertiser*>(context)->handleCounterIncrement();
     }
@@ -34,8 +33,6 @@ void BeaconAdvertiser::handleCounterIncrement() {
 }
 
 void BeaconAdvertiser::updateAdvertisement() {
-    Serial.println("[BeaconAdv] Updating extended advertisement data...");
-
     uint64_t current_counter = _counterRef.getValue();
     BroadcastPayload payload_content;
     payload_content.beacon_id = _beacon_id;
