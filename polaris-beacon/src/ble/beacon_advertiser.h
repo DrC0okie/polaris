@@ -7,15 +7,13 @@
 #include "../protocol/pol_constants.h"
 #include "../utils/counter.h"
 
-
 class BLEMultiAdvertising;
 
 class BeaconAdvertiser {
 public:
-    BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
-                      MinuteCounter& counter, BLEMultiAdvertising& advertiser);
+    BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[Ed25519_SK_SIZE], MinuteCounter& counter,
+                     BLEMultiAdvertising& advertiser);
 
-    void begin();                // Call to set initial advertisement and link counter callback
     void updateAdvertisement();  // Public method to trigger an update
 
 private:
@@ -33,10 +31,10 @@ private:
     struct BroadcastPayload {
         uint32_t beacon_id;
         uint64_t counter;
-        uint8_t signature[POL_SIG_SIZE];
+        uint8_t signature[SIG_SIZE];
 
         static constexpr size_t packedSize() {
-            return sizeof(beacon_id) + sizeof(counter) + POL_SIG_SIZE;
+            return sizeof(beacon_id) + sizeof(counter) + SIG_SIZE;
         }
     };
 };

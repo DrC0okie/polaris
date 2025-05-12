@@ -5,7 +5,8 @@
 // Initialize static instance pointer
 MinuteCounter* MinuteCounter::instance = nullptr;
 
-MinuteCounter::MinuteCounter(Preferences& prefs, const char* key) : _prefs(prefs), _nvsKeyName(key), _counter(0) {
+MinuteCounter::MinuteCounter(Preferences& prefs, const char* key)
+    : _prefs(prefs), _nvsKeyName(key), _counter(0) {
     _counter = _prefs.getULong64(_nvsKeyName, 0);
     Serial.printf("[Counter] Initialized from NVS: %llu\n", _counter);
 

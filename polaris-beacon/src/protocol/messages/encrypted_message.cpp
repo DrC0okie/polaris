@@ -1,8 +1,8 @@
 #include "encrypted_message.h"
 
 #include <HardwareSerial.h>
-#include <string.h>
 #include <sodium.h>
+#include <string.h>
 
 #include "../crypto.h"
 
@@ -64,12 +64,12 @@ EncryptedMessage::EncryptedMessage() : ciphertext_with_tag_len(0) {
 }
 
 bool EncryptedMessage::seal(const InnerPlaintext& inner_pt, uint32_t sender_beacon_id_ad,
-                            const uint8_t my_x25519_sk[POL_X25519_SK_SIZE],
-                            const uint8_t their_x25519_pk[POL_X25519_PK_SIZE]) {
+                            const uint8_t my_x25519_sk[X25519_SK_SIZE],
+                            const uint8_t their_x25519_pk[X25519_PK_SIZE]) {
     this->beacon_id_ad = sender_beacon_id_ad;
 
     // Derive shared key
-    uint8_t shared_key[POL_SHARED_KEY_SIZE];
+    uint8_t shared_key[SHARED_KEY_SIZE];
     if (!deriveAEADSharedKey(shared_key, my_x25519_sk, their_x25519_pk)) {
         Serial.println("[EncMsg] Seal: Failed to derive shared key.");
         return false;
@@ -105,13 +105,13 @@ bool EncryptedMessage::seal(const InnerPlaintext& inner_pt, uint32_t sender_beac
 }
 
 bool EncryptedMessage::unseal(InnerPlaintext& inner_pt_out,
-                              const uint8_t my_x25519_sk[POL_X25519_SK_SIZE],
-                              const uint8_t their_x25519_pk[POL_X25519_PK_SIZE]) {
+                              const uint8_t my_x25519_sk[X25519_SK_SIZE],
+                              const uint8_t their_x25519_pk[X25519_PK_SIZE]) {
     // Assumes beacon_id_ad, nonce, ciphertext_with_tag, and ciphertext_with_tag_len
     // have been populated by fromBytes()
 
     // Derive shared key
-    uint8_t shared_key[POL_SHARED_KEY_SIZE];
+    uint8_t shared_key[SHARED_KEY_SIZE];
     if (!deriveAEADSharedKey(shared_key, my_x25519_sk, their_x25519_pk)) {
         Serial.println("[EncMsg] Unseal: Failed to derive shared key.");
         return false;

@@ -8,13 +8,9 @@
 // Defined in ble_server.h or a common header
 const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 
-BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[POL_Ed25519_SK_SIZE],
+BeaconAdvertiser::BeaconAdvertiser(uint32_t beacon_id, const uint8_t sk[Ed25519_SK_SIZE],
                                    MinuteCounter& counter, BLEMultiAdvertising& advertiser)
     : _beacon_id(beacon_id), _sk(sk), _counterRef(counter), _advertiserRef(advertiser) {
-}
-
-void BeaconAdvertiser::begin() {
-    Serial.println("[BeaconAdv] Beginning initial advertisement setup.");
     // Set the callback in MinuteCounter
     _counterRef.setIncrementCallback(BeaconAdvertiser::onCounterIncremented, this);
 

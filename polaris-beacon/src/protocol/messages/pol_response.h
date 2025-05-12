@@ -9,11 +9,11 @@
 // Proof-of-Location response from the beacon
 class PoLResponse {
 public:
-    uint8_t flags;                           // Message type flags
-    uint32_t beacon_id;                      // ID of the responding beacon
-    uint64_t counter;                        // Monotonic counter value
-    uint8_t nonce[POL_PROTOCOL_NONCE_SIZE];  // Echoed nonce from the request
-    uint8_t beacon_sig[POL_SIG_SIZE];        // Signature by beacon's private key
+    uint8_t flags;                       // Message type flags
+    uint32_t beacon_id;                  // ID of the responding beacon
+    uint64_t counter;                    // Monotonic counter value
+    uint8_t nonce[PROTOCOL_NONCE_SIZE];  // Echoed nonce from the request
+    uint8_t beacon_sig[SIG_SIZE];        // Signature by beacon's private key
 
     // Deserialize from raw buffer
     bool fromBytes(const uint8_t* data, size_t len);
@@ -23,11 +23,11 @@ public:
 
     // size of the fields that are signed
     static constexpr size_t SIGNED_SIZE =
-        sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint64_t) + POL_PROTOCOL_NONCE_SIZE;
+        sizeof(uint8_t) + sizeof(uint32_t) + sizeof(uint64_t) + PROTOCOL_NONCE_SIZE;
 
     // Total packed size of the message
     static constexpr size_t packedSize() {
-        return SIGNED_SIZE + POL_SIG_SIZE;
+        return SIGNED_SIZE + SIG_SIZE;
     }
 
     size_t getSignedSize() const;

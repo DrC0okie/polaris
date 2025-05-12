@@ -121,7 +121,7 @@ void BleServer::begin(const std::string& deviceName) {
 
     // Add characteristics to the service
     for (const auto& charWrapper : _polServiceChars) {
-        Serial.printf("Adding %s characteristic.\n", charWrapper->getName());
+        Serial.printf("[BLE] Adding %s characteristic...\n", charWrapper->getName().c_str());
         if (!charWrapper->configure(*polService)) {
             Serial.printf(
                 "[BLE] CRITICAL: Failed to configure a characteristic for PoL service.\n");
@@ -400,14 +400,10 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
     }
 
     _multiAdvertiserPtr->setDuration(instanceNum, 0, 0);
-    Serial.printf("[BLE] Legacy Advertisement (Instance %u) configured successfully.\n",
-                  instanceNum);
     return true;
 }
 
 bool BleServer::configureExtendedAdvertisement() {
-    Serial.println("[BLE] Configuring Extended Advertisement...");
-
     esp_ble_gap_ext_adv_params_t ext_params = {
         // Non-Connectable and Non-Scannable Undirected advertising
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_NONCONN_NONSCANNABLE_UNDIRECTED,
@@ -438,7 +434,5 @@ bool BleServer::configureExtendedAdvertisement() {
     }
 
     _multiAdvertiserPtr->setDuration(EXTENDED_BROADCAST_ADV_INSTANCE, 0, 0);
-    Serial.printf("[BLE] Extended Advertisement (Instance %u) configured successfully.\n",
-                  EXTENDED_BROADCAST_ADV_INSTANCE);
     return true;
 }

@@ -1,4 +1,5 @@
 #include "pol_response.h"
+
 #include <string.h>
 
 size_t PoLResponse::getSignedSize() const {
@@ -6,7 +7,8 @@ size_t PoLResponse::getSignedSize() const {
 }
 
 bool PoLResponse::fromBytes(const uint8_t* data, size_t len) {
-    if (len < packedSize()) return false;
+    if (len < packedSize())
+        return false;
 
     size_t offset = 0;
 
@@ -17,10 +19,10 @@ bool PoLResponse::fromBytes(const uint8_t* data, size_t len) {
     memcpy(&counter, data + offset, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(nonce, data + offset, POL_PROTOCOL_NONCE_SIZE);
-    offset += POL_PROTOCOL_NONCE_SIZE;
+    memcpy(nonce, data + offset, PROTOCOL_NONCE_SIZE);
+    offset += PROTOCOL_NONCE_SIZE;
 
-    memcpy(beacon_sig, data + offset, POL_SIG_SIZE);
+    memcpy(beacon_sig, data + offset, SIG_SIZE);
     return true;
 }
 
@@ -34,10 +36,10 @@ void PoLResponse::toBytes(uint8_t* out) const {
     memcpy(out + offset, &counter, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
-    offset += POL_PROTOCOL_NONCE_SIZE;
+    memcpy(out + offset, nonce, PROTOCOL_NONCE_SIZE);
+    offset += PROTOCOL_NONCE_SIZE;
 
-    memcpy(out + offset, beacon_sig, POL_SIG_SIZE);
+    memcpy(out + offset, beacon_sig, SIG_SIZE);
 }
 
 void PoLResponse::getSignedData(uint8_t* out) const {
@@ -50,5 +52,5 @@ void PoLResponse::getSignedData(uint8_t* out) const {
     memcpy(out + offset, &counter, sizeof(counter));
     offset += sizeof(counter);
 
-    memcpy(out + offset, nonce, POL_PROTOCOL_NONCE_SIZE);
+    memcpy(out + offset, nonce, PROTOCOL_NONCE_SIZE);
 }

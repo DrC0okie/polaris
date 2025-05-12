@@ -41,13 +41,13 @@ public:
     // Prepare message for sending: encrypts inner_pt, populates fields
     bool seal(const InnerPlaintext& inner_pt,
               uint32_t sender_beacon_id_ad,  // For AD
-              const uint8_t my_x25519_sk[POL_X25519_SK_SIZE],
-              const uint8_t their_x25519_pk[POL_X25519_PK_SIZE]);
+              const uint8_t my_x25519_sk[X25519_SK_SIZE],
+              const uint8_t their_x25519_pk[X25519_PK_SIZE]);
 
     // Process received message: decrypts, populates inner_pt if successful
     bool unseal(InnerPlaintext& inner_pt_out,  // Output for decrypted data
-                const uint8_t my_x25519_sk[POL_X25519_SK_SIZE],
-                const uint8_t their_x25519_pk[POL_X25519_PK_SIZE]);
+                const uint8_t my_x25519_sk[X25519_SK_SIZE],
+                const uint8_t their_x25519_pk[X25519_PK_SIZE]);
 
     // Serialize the entire EncryptedMessage to a buffer for sending over BLE
     // Returns total bytes written or 0 on error

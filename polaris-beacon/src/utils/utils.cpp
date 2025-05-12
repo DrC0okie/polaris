@@ -1,6 +1,8 @@
+#include "utils.h"
+
 #include <HardwareSerial.h>
 
-void printHex(const uint8_t *data, size_t len) {
+void printHex(const uint8_t* data, size_t len) {
     Serial.print("HEX DUMP (");
     Serial.print(len);
     Serial.println(" bytes):");
