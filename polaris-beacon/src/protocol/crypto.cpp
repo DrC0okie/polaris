@@ -4,9 +4,9 @@
 #include <sodium.h>
 #include <string.h>
 
-#include "pol_constants.h"
 #include "messages/pol_request.h"
 #include "messages/pol_response.h"
+#include "pol_constants.h"
 
 // --- Ed25519 Signature Functions ---
 void generateEd25519KeyPair(uint8_t public_key_out[POL_Ed25519_PK_SIZE],
@@ -25,8 +25,14 @@ bool verifyPoLRequestSignature(const PoLRequest& req) {
     }
     uint8_t signed_data[PoLRequest::SIGNED_SIZE];
     req.getSignedData(signed_data);
-    return crypto_sign_ed25519_verify_detached(req.phone_sig, signed_data, PoLRequest::SIGNED_SIZE,
+    unsigned long startTimeUs = micros();
+    bool ok = crypto_sign_ed25519_verify_detached(req.phone_sig, signed_data, PoLRequest::SIGNED_SIZE,
                                                req.phone_pk) == 0;
+    unsigned long endTimeUs = micros();                             // Get end time in microseconds
+    float durationMs = (float)(endTimeUs - startTimeUs) / 1000.0f;  // Convert to milliseconds
+
+    Serial.printf("[Crypto] Signature verification took %.3f ms\n", durationMs); // Approx 16 ms
+    return ok;
 }
 
 void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[POL_Ed25519_SK_SIZE]) {
@@ -38,11 +44,16 @@ void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[POL_Ed25519_SK_
     uint8_t buffer[PoLResponse::SIGNED_SIZE];
     resp.getSignedData(buffer);
     unsigned long long sig_len;
+    unsigned long startTimeUs = micros();
     if (crypto_sign_ed25519_detached(resp.beacon_sig, &sig_len, buffer, resp.getSignedSize(),
                                      secret_key) != 0) {
         Serial.println("[Crypto] Error: signing PoLResponse failed.");
         memset(resp.beacon_sig, 0, POL_SIG_SIZE);
     }
+    unsigned long endTimeUs = micros();                             // Get end time in microseconds
+    float durationMs = (float)(endTimeUs - startTimeUs) / 1000.0f;  // Convert to milliseconds
+
+    Serial.printf("[Crypto] Signature took %.3f ms\n", durationMs);  // approx 7ms
 }
 
 void signBeaconBroadcast(uint8_t signature_out[POL_SIG_SIZE], uint32_t beacon_id, uint64_t counter,
@@ -112,9 +123,8 @@ bool decryptAEAD(uint8_t plaintext_out[], size_t& actual_plaintext_len_out,
     unsigned long long pt_len_ull;
     if (crypto_aead_chacha20poly1305_ietf_decrypt(
             plaintext_out, &pt_len_ull, NULL, ciphertext_and_tag,
-            (unsigned long long)ciphertext_and_tag_len,
-            associated_data, (unsigned long long)associated_data_len,
-            public_nonce, shared_key) != 0) {
+            (unsigned long long)ciphertext_and_tag_len, associated_data,
+            (unsigned long long)associated_data_len, public_nonce, shared_key) != 0) {
         Serial.println("[Crypto] Error: AEAD decryption failed (tag mismatch or bad data).");
         actual_plaintext_len_out = 0;
         return false;
