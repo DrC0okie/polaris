@@ -53,7 +53,7 @@ void signPoLResponse(PoLResponse& resp, const uint8_t secret_key[Ed25519_SK_SIZE
     unsigned long endTimeUs = micros();                             // Get end time in microseconds
     float durationMs = (float)(endTimeUs - startTimeUs) / 1000.0f;  // Convert to milliseconds
 
-    Serial.printf("[Crypto] Signature took %.3f ms\n", durationMs);  // approx 7ms
+    Serial.printf("[Crypto] Signature took %.3f ms\n", durationMs);  // approx 7ms (137ms on arduino -> x20 better)
 }
 
 void signBeaconBroadcast(uint8_t signature_out[SIG_SIZE], uint32_t beacon_id, uint64_t counter,
