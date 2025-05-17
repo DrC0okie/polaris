@@ -10,22 +10,31 @@ import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import ch.drcookie.polaris_app.Utils.hexStringToUByteArray
+import ch.drcookie.polaris_app.Utils.toHexString
 import ch.drcookie.polaris_app.databinding.ActivityMainBinding
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalUnsignedTypes::class)
 class MainActivity : AppCompatActivity(), BleManager.Listener {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var bleManager: BleManager
+    private var lastSentRequest: PoLRequest? = null // To verify response against
+    private val targetBeaconEd25519Pk: UByteArray by lazy {
+        hexStringToUByteArray("A3540D31912B89B101B4FA69F37ACFA49E3B1BAA0D1D04C8202BFD1B20B741D3")
+    }
 
-    private val permissions = mutableListOf(
-        Manifest.permission.BLUETOOTH_SCAN,
-        Manifest.permission.BLUETOOTH_CONNECT
-    ).apply {
+    private val permissions = mutableListOf<String>().apply {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
             add(Manifest.permission.BLUETOOTH)
             add(Manifest.permission.BLUETOOTH_ADMIN)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            add(Manifest.permission.BLUETOOTH_SCAN)
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
             add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }.toTypedArray()
@@ -43,6 +52,11 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        lifecycleScope.launch {
+            Crypto.initialize()
+            appendLog("Crypto Initialized: ${Crypto.isInitialized}") // Verify init
+        }
 
         bleManager = BleManager(this, this)
 
@@ -89,10 +103,32 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
 
     override fun onMessageReceived(data: ByteArray) {
         runOnUiThread {
-            val hexString = data.joinToString(separator = " ") { "%02X".format(it) }
-            val messageText = "Message from beacon (${data.size} bytes): $hexString"
-            binding.messageBox.text = messageText
-            appendLog("Message Received: $hexString")
+            val hexString = data.toHexString()
+            appendLog("Message Received (${data.size} bytes): $hexString")
+            binding.messageBox.text = "Raw: $hexString"
+
+            val response = PoLResponse.fromBytes(data)
+            if (response != null) {
+                appendLog("Parsed PoLResponse: $response")
+                val originalRequest = lastSentRequest
+                if (originalRequest != null) {
+                    if (!Crypto.isInitialized) {
+                        appendLog("ERROR: Crypto not initialized. Cannot verify response.")
+                        return@runOnUiThread
+                    }
+                    val isValid = Crypto.verifyPoLResponse(response, originalRequest, targetBeaconEd25519Pk)
+                    appendLog("Response signature valid: $isValid")
+                    if (isValid) {
+                        binding.messageBox.text = "Beacon Counter: ${response.counter}, Sig Valid: $isValid"
+                    } else {
+                        binding.messageBox.text = "INVALID SIG! Counter: ${response.counter}"
+                    }
+                } else {
+                    appendLog("Error: No original request found to verify response against.")
+                }
+            } else {
+                appendLog("Failed to parse PoLResponse.")
+            }
         }
     }
 
@@ -104,7 +140,7 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
 
     override fun onConnectionFailed(status: Int) {
         runOnUiThread {
-            val statusText = when(status) {
+            val statusText = when (status) {
                 BluetoothGatt.GATT_SUCCESS -> "Disconnected normally"
                 8 -> "Connection failed: Insufficient Encryption (Bonding required?)"
                 15 -> "Connection failed: Insufficient Authentication (Bonding required?)"
@@ -128,12 +164,35 @@ class MainActivity : AppCompatActivity(), BleManager.Listener {
     @SuppressLint("MissingPermission")
     override fun onIndicationEnabled() {
         runOnUiThread {
-            appendLog("Indications enabled. Sending message...")
+            appendLog("Indications enabled. Preparing and sending PoLRequest...")
+            if (!Crypto.isInitialized) {
+                appendLog("ERROR: Crypto not initialized. Cannot send request.")
+                bleManager.close()
+                return@runOnUiThread
+            }
             try {
-                val dataToSend = Payload.data
+                val (phonePk, phoneSk) = Crypto.getOrGeneratePhoneKeyPair()
+                val requestNonce = Crypto.generateNonce()
+
+                val targetBeaconId = 0x00000001u
+
+                var request = PoLRequest(
+                    flags = 0x00u,
+                    phoneId = 1234567890UL,
+                    beaconId = targetBeaconId,
+                    nonce = requestNonce,
+                    phonePk = phonePk
+                )
+                request = Crypto.signPoLRequest(request, phoneSk)
+                lastSentRequest = request
+
+                val dataToSend = request.toBytes()
+                appendLog("Sending PoLRequest (${dataToSend.size} bytes): ${dataToSend.toHexString()}")
                 bleManager.send(dataToSend)
+
             } catch (e: Exception) {
-                appendLog("Error preparing data to send: ${e.message}")
+                appendLog("Error preparing/sending PoLRequest: ${e.message}")
+                e.printStackTrace()
                 bleManager.close()
             }
         }

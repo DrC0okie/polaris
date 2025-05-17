@@ -10,7 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
-import android.util.Log // Added for logging consistency
+import android.util.Log
 import androidx.annotation.RequiresPermission
 import java.util.*
 
@@ -42,7 +42,7 @@ class BleManager(
     private val cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
     private var scanTimeoutRunnable: Runnable? = null
     private val scanTimeout = 10000L
-    private val REQUESTED_MTU = 517
+    private val requestedMtu = 517
     @Volatile private var isScanning = false
     private val TAG = "BleManager"
 
@@ -108,9 +108,8 @@ class BleManager(
         logDebug("Starting BLE scan...")
         isScanning = true
         val filters = listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(serviceUuid)).build())
-        // Using LOW_LATENCY for faster discovery, balanced is also fine
         val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH) // More efficient if you only need one
             .build()
 
@@ -259,8 +258,8 @@ class BleManager(
                             }
                             bluetoothGatt = gatt
 
-                            logDebug("Attempting to request MTU of $REQUESTED_MTU for beacon...")
-                            if (!gatt.requestMtu(REQUESTED_MTU)) {
+                            logDebug("Attempting to request MTU of $requestedMtu for beacon...")
+                            if (!gatt.requestMtu(requestedMtu)) {
                                 logError("Failed to initiate MTU request for beacon.")
                                 // If MTU request fails to even start, treat as connection failure
                                 listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)

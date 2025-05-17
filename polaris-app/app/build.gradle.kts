@@ -46,7 +46,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    implementation (libs.google.tink.android)
+    implementation("com.ionspin.kotlin:multiplatform-crypto-libsodium-bindings:0.9.2")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
