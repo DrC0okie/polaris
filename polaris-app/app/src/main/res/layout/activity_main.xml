@@ -39,6 +39,7 @@
             android:lineSpacingExtra="4dp"
             android:padding="8dp"
             android:text="Debug log will appear here..."
+            android:textColor="@color/black"
             android:textAppearance="?android:attr/textAppearanceSmall" />
 
     </ScrollView>
