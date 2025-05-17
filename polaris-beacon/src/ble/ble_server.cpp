@@ -153,16 +153,16 @@ void BleServer::begin(const std::string& deviceName) {
 
     Serial.println("[BLE] Starting PoL processor task...");
     _shutdownRequested = false;
-    BaseType_t task_res = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
-                                                  &_tokenProcessorTask, tskNO_AFFINITY);
-    if (task_res != pdPASS) {
+    BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
+                                                 &_tokenProcessorTask, tskNO_AFFINITY);
+    if (taskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create PoL processor task!");
     }
 
     Serial.println("[BLE] Starting Encrypted Data processor task...");
-    BaseType_t enc_task_res = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this,
-                                                      1, &_encryptedProcessorTask, tskNO_AFFINITY);
-    if (enc_task_res != pdPASS) {
+    BaseType_t encTaskRes = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this,
+                                                    1, &_encryptedProcessorTask, tskNO_AFFINITY);
+    if (encTaskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
     }
 
@@ -343,7 +343,7 @@ BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
 
 bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
                                                 const char* serviceUuid) {
-    esp_ble_gap_ext_adv_params_t legacy_params = {
+    esp_ble_gap_ext_adv_params_t legacyParams = {
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Legacy advertising (BLE 4.2)
         .interval_min = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
         .interval_max = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
@@ -357,7 +357,7 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
         .scan_req_notif = false,
     };
 
-    if (!_multiAdvertiserPtr->setAdvertisingParams(instanceNum, &legacy_params)) {
+    if (!_multiAdvertiserPtr->setAdvertisingParams(instanceNum, &legacyParams)) {
         Serial.println("[BLE] Failed to set legacy advertising parameters.");
         return false;
     }
@@ -404,7 +404,7 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
 }
 
 bool BleServer::configureExtendedAdvertisement() {
-    esp_ble_gap_ext_adv_params_t ext_params = {
+    esp_ble_gap_ext_adv_params_t extParams = {
         // Non-Connectable and Non-Scannable Undirected advertising
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_NONCONN_NONSCANNABLE_UNDIRECTED,
         .interval_min = 0x320,  // 1s (intervals must be multiplied by 1.25 to get seconds)
@@ -419,7 +419,7 @@ bool BleServer::configureExtendedAdvertisement() {
         .scan_req_notif = false,
     };
 
-    if (!_multiAdvertiserPtr->setAdvertisingParams(EXTENDED_BROADCAST_ADV_INSTANCE, &ext_params)) {
+    if (!_multiAdvertiserPtr->setAdvertisingParams(EXTENDED_BROADCAST_ADV_INSTANCE, &extParams)) {
         Serial.println("[BLE] Failed to set extended advertising parameters.");
         return false;
     }

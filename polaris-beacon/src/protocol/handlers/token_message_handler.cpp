@@ -6,9 +6,9 @@
 #include "../messages/pol_request.h"
 #include "../messages/pol_response.h"
 
-TokenMessageHandler::TokenMessageHandler(uint32_t beacon_id, const uint8_t sk[Ed25519_SK_SIZE],
+TokenMessageHandler::TokenMessageHandler(uint32_t beaconId, const uint8_t sk[Ed25519_SK_SIZE],
                                          MinuteCounter& counter, BLECharacteristic* indicationChar)
-    : _beacon_id(beacon_id), _counter(counter), _indicateChar(indicationChar) {
+    : _beaconId(beaconId), _counter(counter), _indicateChar(indicationChar) {
     memcpy(_sk, sk, Ed25519_SK_SIZE);
 }
 
@@ -33,11 +33,13 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     Serial.println("[Processor] Valid request signature");
 
     PoLResponse resp;
-    resp.flags = 0x01;
-    resp.beacon_id = _beacon_id;
+    resp.flags = 0x00;
+    resp.beaconId = _beaconId;
     resp.counter = _counter.getValue();
-    memcpy(resp.nonce, req.nonce, PROTOCOL_NONCE_SIZE);
-    signPoLResponse(resp, _sk);
+    memcpy(resp.nonce, req.nonce, PROTOCOL_NONCE_SIZE);  // Echo the nonce
+
+    // Sign the response, including context from the original request
+    signPoLResponse(resp, req, _sk);
 
     uint8_t buffer[PoLResponse::packedSize()];
     resp.toBytes(buffer);
