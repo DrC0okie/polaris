@@ -31,7 +31,7 @@ size_t InnerPlaintext::serialize(uint8_t* buffer) const {
 
 bool InnerPlaintext::deserialize(const uint8_t* buffer, size_t len) {
     size_t expectedMinLen = sizeof(msgId) + sizeof(msgType) + sizeof(opType) + sizeof(beaconCnt) +
-                              sizeof(actualPayloadLength);
+                            sizeof(actualPayloadLength);
     if (len < expectedMinLen)
         return false;
 
@@ -64,16 +64,8 @@ EncryptedMessage::EncryptedMessage() : ciphertextWithTagLen(0) {
 }
 
 bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd,
-                            const uint8_t x25519Sk[X25519_SK_SIZE],
-                            const uint8_t serverX25519Pk[X25519_PK_SIZE]) {
+                            const uint8_t sharedKey[SHARED_KEY_SIZE]) {
     this->beaconIdAd = senderBeaconIdAd;
-
-    // Derive shared key
-    uint8_t sharedKey[SHARED_KEY_SIZE];
-    if (!deriveAEADSharedKey(sharedKey, x25519Sk, serverX25519Pk)) {
-        Serial.println("[EncMsg] Seal: Failed to derive shared key.");
-        return false;
-    }
 
     // Generate a unique 12-byte nonce for this message
     //    IMPORTANT: This nonce MUST be unique for each message encrypted with the same key.
@@ -94,9 +86,8 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     memcpy(adBuffer, &this->beaconIdAd, sizeof(this->beaconIdAd));
 
     // Encrypt
-    if (!encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen,
-                     innerPlaintextBuffer, innerPlaintextLen, adBuffer, sizeof(adBuffer),
-                     this->nonce, sharedKey)) {
+    if (!encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen, innerPlaintextBuffer,
+                     innerPlaintextLen, adBuffer, sizeof(adBuffer), this->nonce, sharedKey)) {
         Serial.println("[EncMsg] Seal: AEAD encryption failed.");
         return false;
     }
@@ -105,17 +96,9 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
 }
 
 bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
-                              const uint8_t x25519Sk[X25519_SK_SIZE],
-                              const uint8_t serverX25519Pk[X25519_PK_SIZE]) {
+                              const uint8_t sharedKey[SHARED_KEY_SIZE]) {
     // Assumes beaconIdAd, nonce, ciphertextWithTag, and ciphertextWithTagLen
     // have been populated by fromBytes()
-
-    // Derive shared key
-    uint8_t sharedKey[SHARED_KEY_SIZE];
-    if (!deriveAEADSharedKey(sharedKey, x25519Sk, serverX25519Pk)) {
-        Serial.println("[EncMsg] Unseal: Failed to derive shared key.");
-        return false;
-    }
 
     // Prepare Associated Data
     uint8_t adBuffer[sizeof(uint32_t)];
@@ -133,8 +116,7 @@ bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
     }
 
     // Deserialize InnerPlaintext
-    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer,
-                                  decryptedInnerPlaintextLen)) {
+    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen)) {
         Serial.println("[EncMsg] Unseal: Failed to deserialize inner plaintext.");
         return false;
     }

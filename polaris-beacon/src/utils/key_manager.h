@@ -14,7 +14,7 @@ static constexpr const uint8_t HARDCODED_SERVER_X25519_PK[X25519_PK_SIZE] = {
 class KeyManager {
 public:
     KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE] = HARDCODED_SERVER_X25519_PK);
-    void begin(Preferences& prefs);
+    bool begin(Preferences& prefs);
 
     const uint8_t* getEd25519Pk() const;
     const uint8_t* getEd25519Sk() const;

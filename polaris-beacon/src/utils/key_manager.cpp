@@ -10,12 +10,12 @@ KeyManager::KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE]) {
     memcpy(_serverX25519Pk, serverX25519Pk, X25519_PK_SIZE);
 }
 
-void KeyManager::begin(Preferences& prefs) {
+bool KeyManager::begin(Preferences& prefs) {
     _prefs = prefs;
     // Manage Ed25519 keys using KeyManager
     if (!manageEd25519KeyPair(_ed25519Pk, _ed25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage Ed25519 keys! Restarting...\n", TAG);
-        ESP.restart();
+        return false;
     }
     Serial.printf("%s Beacon Ed25519 Public Key: ", TAG);
     printKey(Ed25519_PK_SIZE, _ed25519Pk);
@@ -23,7 +23,7 @@ void KeyManager::begin(Preferences& prefs) {
     // Manage beacon's X25519 keys using KeyManager
     if (!manageX25519KeyPair(_x25519Pk, _x25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage X25519 keys! Restarting...\n", TAG);
-        ESP.restart();
+        return false;
     }
     Serial.printf("%s X25519 Public Key: ", TAG);
     printKey(X25519_PK_SIZE, _x25519Pk);
@@ -31,16 +31,16 @@ void KeyManager::begin(Preferences& prefs) {
     // Manage Server's X25519 Public Key using KeyManager
     if (!manageServerX25519PublicKey(_serverX25519Pk, HARDCODED_SERVER_X25519_PK)) {
         Serial.printf("%s CRITICAL: Failed to manage Server's X25519 PK! Restarting...\n", TAG);
-        ESP.restart();
+        return false;
     }
     Serial.printf("%s Server X25519 Public Key: ", TAG);
     printKey(X25519_PK_SIZE, _serverX25519Pk);
 
     if (!deriveAEADSharedKey(_aeadKey, _x25519Sk, _serverX25519Pk)) {
         Serial.printf("%s CRITICAL: Failed to derive shared AEAD key with server!\n", TAG);
-        ESP.restart();
+        return false;
     }
-    Serial.printf("%s Shared AEAD key with server derived successfully.\n", TAG);
+    return true;
 }
 
 bool KeyManager::loadKey(const char* nvs_key_name, uint8_t* key_buffer, size_t expected_len) {
