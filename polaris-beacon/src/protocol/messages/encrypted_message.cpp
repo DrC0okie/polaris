@@ -4,8 +4,6 @@
 #include <sodium.h>
 #include <string.h>
 
-#include "../crypto.h"
-
 // --- InnerPlaintext Implementation ---
 size_t InnerPlaintext::getTotalSerializedSize() const {
     return sizeof(msgId) + sizeof(msgType) + sizeof(opType) + sizeof(beaconCnt) +
@@ -31,7 +29,7 @@ size_t InnerPlaintext::serialize(uint8_t* buffer) const {
 
 bool InnerPlaintext::deserialize(const uint8_t* buffer, size_t len) {
     size_t expectedMinLen = sizeof(msgId) + sizeof(msgType) + sizeof(opType) + sizeof(beaconCnt) +
-                              sizeof(actualPayloadLength);
+                            sizeof(actualPayloadLength);
     if (len < expectedMinLen)
         return false;
 
@@ -57,23 +55,15 @@ bool InnerPlaintext::deserialize(const uint8_t* buffer, size_t len) {
 }
 
 // --- EncryptedMessage Implementation ---
-EncryptedMessage::EncryptedMessage() : ciphertextWithTagLen(0) {
+EncryptedMessage::EncryptedMessage(const CryptoService& cryptoService)
+    : _cryptoService(cryptoService), ciphertextWithTagLen(0) {
     memset(nonce, 0, sizeof(nonce));
     memset(ciphertextWithTag, 0, sizeof(ciphertextWithTag));
     beaconIdAd = 0;
 }
 
-bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd,
-                            const uint8_t x25519Sk[X25519_SK_SIZE],
-                            const uint8_t serverX25519Pk[X25519_PK_SIZE]) {
+bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd) {
     this->beaconIdAd = senderBeaconIdAd;
-
-    // Derive shared key
-    uint8_t sharedKey[SHARED_KEY_SIZE];
-    if (!deriveAEADSharedKey(sharedKey, x25519Sk, serverX25519Pk)) {
-        Serial.println("[EncMsg] Seal: Failed to derive shared key.");
-        return false;
-    }
 
     // Generate a unique 12-byte nonce for this message
     //    IMPORTANT: This nonce MUST be unique for each message encrypted with the same key.
@@ -94,9 +84,9 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     memcpy(adBuffer, &this->beaconIdAd, sizeof(this->beaconIdAd));
 
     // Encrypt
-    if (!encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen,
-                     innerPlaintextBuffer, innerPlaintextLen, adBuffer, sizeof(adBuffer),
-                     this->nonce, sharedKey)) {
+    if (!_cryptoService.encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen,
+                                    innerPlaintextBuffer, innerPlaintextLen, adBuffer,
+                                    sizeof(adBuffer), this->nonce)) {
         Serial.println("[EncMsg] Seal: AEAD encryption failed.");
         return false;
     }
@@ -104,18 +94,9 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     return true;
 }
 
-bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
-                              const uint8_t x25519Sk[X25519_SK_SIZE],
-                              const uint8_t serverX25519Pk[X25519_PK_SIZE]) {
+bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut) {
     // Assumes beaconIdAd, nonce, ciphertextWithTag, and ciphertextWithTagLen
     // have been populated by fromBytes()
-
-    // Derive shared key
-    uint8_t sharedKey[SHARED_KEY_SIZE];
-    if (!deriveAEADSharedKey(sharedKey, x25519Sk, serverX25519Pk)) {
-        Serial.println("[EncMsg] Unseal: Failed to derive shared key.");
-        return false;
-    }
 
     // Prepare Associated Data
     uint8_t adBuffer[sizeof(uint32_t)];
@@ -125,16 +106,15 @@ bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
     uint8_t decryptedInnerPlaintextBuffer[MAX_INNER_PLAINTEXT_SIZE];
     size_t decryptedInnerPlaintextLen = 0;
 
-    if (!decryptAEAD(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen,
-                     this->ciphertextWithTag, this->ciphertextWithTagLen, adBuffer,
-                     sizeof(adBuffer), this->nonce, sharedKey)) {
+    if (!_cryptoService.decryptAEAD(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen,
+                                    this->ciphertextWithTag, this->ciphertextWithTagLen, adBuffer,
+                                    sizeof(adBuffer), this->nonce)) {
         Serial.println("[EncMsg] Unseal: AEAD decryption failed (bad tag or data).");
         return false;
     }
 
     // Deserialize InnerPlaintext
-    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer,
-                                  decryptedInnerPlaintextLen)) {
+    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen)) {
         Serial.println("[EncMsg] Unseal: Failed to deserialize inner plaintext.");
         return false;
     }

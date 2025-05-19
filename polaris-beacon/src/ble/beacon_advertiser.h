@@ -6,12 +6,13 @@
 
 #include "../protocol/pol_constants.h"
 #include "../utils/counter.h"
+#include "../utils/crypto_service.h"
 
 class BLEMultiAdvertising;
 
 class BeaconAdvertiser {
 public:
-    BeaconAdvertiser(uint32_t beaconId, const uint8_t sk[Ed25519_SK_SIZE], MinuteCounter& counter,
+    BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService, MinuteCounter& counter,
                      BLEMultiAdvertising& advertiser);
 
     void begin();
@@ -22,9 +23,8 @@ private:
     static void onCounterIncremented(void* context);
     void handleCounterIncrement();
 
-    uint32_t _beaconId;
-    const uint8_t* _sk;  // Store as pointer, ensure lifetime
-    const uint8_t* _pk;  // Store as pointer, ensure lifetime
+    const uint32_t _beaconId;
+    const CryptoService& _cryptoService;
     MinuteCounter& _counterRef;
     BLEMultiAdvertising& _advertiserRef;
 

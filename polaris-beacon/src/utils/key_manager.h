@@ -14,7 +14,7 @@ static constexpr const uint8_t HARDCODED_SERVER_X25519_PK[X25519_PK_SIZE] = {
 class KeyManager {
 public:
     KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE] = HARDCODED_SERVER_X25519_PK);
-    void begin(Preferences& prefs);
+    bool begin(Preferences& prefs);
 
     const uint8_t* getEd25519Pk() const;
     const uint8_t* getEd25519Sk() const;
@@ -39,6 +39,20 @@ private:
     // Returns true on success (key is populated), false on critical NVS failure.
     bool manageServerX25519PublicKey(uint8_t pk_out[X25519_PK_SIZE],
                                      const uint8_t hardcoded_pk[X25519_PK_SIZE]);
+
+    // Generate a new Ed25519 key pair
+    void generateEd25519KeyPair(uint8_t publicKeyOut[Ed25519_PK_SIZE],
+                                uint8_t secretKeyOut[Ed25519_SK_SIZE]);
+
+    // Generate a new X25519 key pair (for encryption/decryption)
+    void generateX25519KeyPair(uint8_t publicKeyOut[X25519_PK_SIZE],
+                               uint8_t secretKeyOut[X25519_SK_SIZE]);
+
+    // Derive a shared secret using our X25519 secret key and their X25519 public key
+    // This raw shared secret will be used as the AEAD key.
+    bool deriveAEADSharedKey(uint8_t sharedKeyOut[SHARED_KEY_SIZE],
+                             const uint8_t x25519SecretKey[X25519_SK_SIZE],
+                             const uint8_t serverX25519PublicKey[X25519_PK_SIZE]);
 
     // Helper to load a key from NVS
     bool loadKey(const char* nvs_key_name, uint8_t* key_buffer, size_t expected_len);
