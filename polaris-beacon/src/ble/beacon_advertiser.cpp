@@ -1,16 +1,16 @@
 #include "beacon_advertiser.h"
 
-#include <BLEAdvertising.h>  // For BLEMultiAdvertising methods, ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE
-#include <HardwareSerial.h>  // For Serial
+#include <BLEAdvertising.h>
+#include <HardwareSerial.h>
 
-#include "../protocol/crypto.h"  // For signBeaconBroadcast
-
-// Defined in ble_server.h or a common header
 const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 
-BeaconAdvertiser::BeaconAdvertiser(uint32_t beaconId, const uint8_t sk[Ed25519_SK_SIZE],
+BeaconAdvertiser::BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService,
                                    MinuteCounter& counter, BLEMultiAdvertising& advertiser)
-    : _beaconId(beaconId), _sk(sk), _counterRef(counter), _advertiserRef(advertiser) {
+    : _beaconId(beaconId),
+      _cryptoService(cryptoService),
+      _counterRef(counter),
+      _advertiserRef(advertiser) {
 }
 
 void BeaconAdvertiser::begin() {
@@ -39,7 +39,7 @@ void BeaconAdvertiser::updateAdvertisement() {
     payloadContent.counter = currentCounter;
 
     // Sign beaconId and counter
-    signBeaconBroadcast(payloadContent.signature, _beaconId, currentCounter, _sk);
+    _cryptoService.signBeaconBroadcast(payloadContent.signature, _beaconId, currentCounter);
 
     // Construct the actual advertising data (e.g., Manufacturer Specific Data)
     // Format: [Len1][Type1][ManufID_LSB][ManufID_MSB][BroadcastPayload_Bytes]

@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "../../utils/crypto_service.h"
 #include "../pol_constants.h"
 
 // Max size for ciphertext + tag
@@ -33,14 +34,13 @@ public:
     uint8_t ciphertextWithTag[MAX_CIPHERTEXT_WITH_TAG_SIZE];  // Ciphertext + Tag
     size_t ciphertextWithTagLen;                              // Actual length of ciphertextWithTag
 
-    EncryptedMessage();
+    EncryptedMessage(const CryptoService& cryptoService);
 
     // Prepare message for sending: encrypts innerPt, populates fields
-    bool seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd,
-              const uint8_t sharedKey[SHARED_KEY_SIZE]);
+    bool seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd);
 
     // Process received message: decrypts, populates innerPt if successful
-    bool unseal(InnerPlaintext& innerPtOut, const uint8_t sharedKey[SHARED_KEY_SIZE]);
+    bool unseal(InnerPlaintext& innerPtOut);
 
     // Serialize the entire EncryptedMessage to a buffer for sending over BLE
     // Returns total bytes written or 0 on error
@@ -52,6 +52,9 @@ public:
 
     // Helper to get total packed size for current message
     size_t packedSize() const;
+
+private:
+    const CryptoService& _cryptoService;
 };
 
 #endif  // ENCRYPTED_MESSAGE_H

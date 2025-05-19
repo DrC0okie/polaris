@@ -2,14 +2,13 @@
 
 #include <HardwareSerial.h>
 
-#include "../crypto.h"
 #include "../messages/pol_request.h"
 #include "../messages/pol_response.h"
 
-TokenMessageHandler::TokenMessageHandler(uint32_t beaconId, const uint8_t sk[Ed25519_SK_SIZE],
-                                         MinuteCounter& counter, BLECharacteristic* indicationChar)
-    : _beaconId(beaconId), _counter(counter), _indicateChar(indicationChar) {
-    memcpy(_sk, sk, Ed25519_SK_SIZE);
+TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
+                                         const MinuteCounter& counter,
+                                         BLECharacteristic* indicationChar)
+    : _cryptoService(cryptoService), _counter(counter), _indicateChar(indicationChar) {
 }
 
 void TokenMessageHandler::process(const uint8_t* data, size_t len) {
@@ -25,7 +24,7 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     }
 
     Serial.println("[processor] Verifiying signatures");
-    if (!verifyPoLRequestSignature(req)) {
+    if (!_cryptoService.verifyPoLRequestSignature(req)) {
         Serial.println("[Processor] Invalid signature");
         return;
     }
@@ -34,12 +33,12 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
 
     PoLResponse resp;
     resp.flags = 0x00;
-    resp.beaconId = _beaconId;
+    resp.beaconId = BEACON_ID;
     resp.counter = _counter.getValue();
     memcpy(resp.nonce, req.nonce, PROTOCOL_NONCE_SIZE);  // Echo the nonce
 
     // Sign the response, including context from the original request
-    signPoLResponse(resp, req, _sk);
+    _cryptoService.signPoLResponse(resp, req);
 
     uint8_t buffer[PoLResponse::packedSize()];
     resp.toBytes(buffer);

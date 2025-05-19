@@ -1,9 +1,9 @@
 #include "key_manager.h"
 
 #include <HardwareSerial.h>
+#include <Sodium.h>
 #include <string.h>
 
-#include "protocol/crypto.h"
 #include "protocol/pol_constants.h"
 
 KeyManager::KeyManager(const uint8_t (&serverX25519Pk)[X25519_PK_SIZE]) {
@@ -126,6 +126,38 @@ bool KeyManager::manageServerX25519PublicKey(uint8_t pk_out[X25519_PK_SIZE],
         // Still return true because we have the hardcoded key available for use.
     }
     return true;  // Success because pk_out is populated (either from NVS or hardcoded)
+}
+
+void KeyManager::generateEd25519KeyPair(uint8_t publicKeyOut[Ed25519_PK_SIZE],
+                            uint8_t secretKeyOut[Ed25519_SK_SIZE]) {
+    if (crypto_sign_ed25519_keypair(publicKeyOut, secretKeyOut) != 0) {
+        Serial.println("[Crypto] Error: Ed25519 keypair generation failed.");
+        memset(publicKeyOut, 0, Ed25519_PK_SIZE);
+        memset(secretKeyOut, 0, Ed25519_SK_SIZE);
+    }
+}
+
+void KeyManager::generateX25519KeyPair(uint8_t publicKeyOut[X25519_PK_SIZE],
+                                       uint8_t secretKeyOut[X25519_SK_SIZE]) {
+    // Generate 32 random bytes for the secret key
+    randombytes_buf(secretKeyOut, X25519_SK_SIZE);
+    // Derive the public key from the secret key
+    if (crypto_scalarmult_curve25519_base(publicKeyOut, secretKeyOut) != 0) {
+        Serial.println("[Crypto] Error: X25519 public key derivation failed.");
+        memset(publicKeyOut, 0, X25519_PK_SIZE);
+        // The secret_key_out is still random, which is fine for an X25519 sk.
+    }
+}
+
+bool KeyManager::deriveAEADSharedKey(uint8_t sharedKeyOut[SHARED_KEY_SIZE],
+                                     const uint8_t X25519SecretKey[X25519_SK_SIZE],
+                                     const uint8_t serverX25519PublicKey[X25519_PK_SIZE]) {
+    if (crypto_scalarmult_curve25519(sharedKeyOut, X25519SecretKey, serverX25519PublicKey) != 0) {
+        Serial.println("[Crypto] Error: X25519 key agreement failed (possibly low-order key).");
+        memset(sharedKeyOut, 0, SHARED_KEY_SIZE);
+        return false;
+    }
+    return true;
 }
 
 void KeyManager::printKey(const size_t keyLength, const uint8_t* key) const {

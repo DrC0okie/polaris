@@ -4,10 +4,10 @@
 
 #include "ble/beacon_advertiser.h"
 #include "ble/ble_server.h"
-#include "protocol/crypto.h"
 #include "protocol/handlers/encrypted_message_handler.h"
 #include "protocol/handlers/token_message_handler.h"
 #include "utils/counter.h"
+#include "utils/crypto_service.h"
 #include "utils/key_manager.h"
 #include "utils/utils.h"
 
@@ -17,6 +17,7 @@ BleServer server;
 Preferences prefs;
 MinuteCounter counter;
 KeyManager keyManager;
+CryptoService cryptoService(keyManager);
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 
 void setup() {
@@ -56,13 +57,13 @@ void setup() {
 
     // create an advertizer to broadcast signed data
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
-        new BeaconAdvertiser(BEACON_ID, keyManager.getEd25519Sk(), counter, *multiAdv));
+        new BeaconAdvertiser(BEACON_ID, cryptoService, counter, *multiAdv));
 
     beaconExtAdvertiser->begin();
 
     // Assign message handler to manage incoming Pol requests
     auto tokenProcessor = std::unique_ptr<TokenMessageHandler>(new TokenMessageHandler(
-        BEACON_ID, keyManager.getEd25519Sk(), counter,
+        cryptoService, counter,
         server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE))));
 
     if (!tokenProcessor) {
@@ -74,7 +75,7 @@ void setup() {
     // Assign message handler for encrypted payloads from server (through the phones)
     auto indication = server.getCharacteristicByUUID(BLEUUID(BleServer::ENCRYPTED_INDICATE));
     auto encryptedProcessor = std::unique_ptr<EncryptedMessageHandler>(
-        new EncryptedMessageHandler(keyManager, counter, prefs, indication));
+        new EncryptedMessageHandler(cryptoService, counter, prefs, indication));
     if (!encryptedProcessor) {
         Serial.printf("%s CRITICAL: Failed to allocate EncryptedMessageHandler! Restarting...\n",
                       TAG);

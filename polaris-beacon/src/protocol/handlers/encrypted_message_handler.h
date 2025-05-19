@@ -5,23 +5,24 @@
 #include <Preferences.h>  // For NVS
 
 #include "../../utils/counter.h"
-#include "../../utils/key_manager.h"
+#include "../../utils/crypto_service.h"
 #include "../pol_constants.h"
 #include "imessage_handler.h"
 
 class EncryptedMessageHandler : public IMessageHandler {
 public:
-    EncryptedMessageHandler(const KeyManager& keyManager, const MinuteCounter& beaconEventCounter,
+    EncryptedMessageHandler(const CryptoService& cryptoService,
+                            const MinuteCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
                             BLECharacteristic* indicationChar);
 
     void process(const uint8_t* encryptedData, size_t len) override;
 
 private:
-    static constexpr const char* TAG = "[EncMsgHdlr]";
+    static constexpr const char* TAG = "[EncMessageHandler]";
     BLECharacteristic* _indicateChar;
     uint32_t _beaconIdForAd;
-    const KeyManager& _keyManager;
+    const CryptoService& _cryptoService;
     const MinuteCounter& _beaconEventCounter;
     Preferences& _prefs;  // Store reference to NVS
 

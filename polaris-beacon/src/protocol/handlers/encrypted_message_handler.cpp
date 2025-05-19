@@ -5,11 +5,11 @@
 #include "../crypto.h"
 #include "../messages/encrypted_message.h"
 
-EncryptedMessageHandler::EncryptedMessageHandler(const KeyManager& keyManager,
+EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
                                                  const MinuteCounter& beaconEventCounter,
                                                  Preferences& prefs,
                                                  BLECharacteristic* indicationChar)
-    : _keyManager(keyManager),
+    : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
       _prefs(prefs),  // Store NVS reference
       _indicateChar(indicationChar),
@@ -40,7 +40,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     }
     Serial.printf("%s Received %zu encrypted bytes.\n", TAG, len);
 
-    EncryptedMessage receivedMsg;
+    EncryptedMessage receivedMsg(_cryptoService);
     if (!receivedMsg.fromBytes(data, len)) {
         Serial.printf("%s Failed to parse EncryptedMessage structure.\n", TAG);
         return;
@@ -53,7 +53,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     }
 
     InnerPlaintext innerPtReceived;
-    if (!receivedMsg.unseal(innerPtReceived, _keyManager.getAeadKey())) {
+    if (!receivedMsg.unseal(innerPtReceived)) {
         Serial.printf("%s Failed to unseal/decrypt message.\n", TAG);
         return;
     }
@@ -92,8 +92,8 @@ void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOp
     ackInnerPt.beaconCnt = _beaconEventCounter.getValue();
     ackInnerPt.actualPayloadLength = 0;  // No payload for a simple ACK
 
-    EncryptedMessage ackMsgToSend;
-    if (ackMsgToSend.seal(ackInnerPt, _beaconIdForAd, _keyManager.getAeadKey())) {
+    EncryptedMessage ackMsgToSend(_cryptoService);
+    if (ackMsgToSend.seal(ackInnerPt, _beaconIdForAd)) {
         size_t ackLen = ackMsgToSend.packedSize();
         if (ackLen > 0 && ackLen < MAX_BLE_PAYLOAD_SIZE) {
             uint8_t ackBuffer[MAX_BLE_PAYLOAD_SIZE];                // Use max size buffer
@@ -124,8 +124,8 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
     errInnerPt.payload[0] = errorCode;  // Simple error code as payload
     errInnerPt.actualPayloadLength = 1;
 
-    EncryptedMessage errMsgToSend;
-    if (errMsgToSend.seal(errInnerPt, _beaconIdForAd, _keyManager.getAeadKey())) {
+    EncryptedMessage errMsgToSend(_cryptoService);
+    if (errMsgToSend.seal(errInnerPt, _beaconIdForAd)) {
         size_t errLen = errMsgToSend.packedSize();
         if (errLen > 0 && errLen < MAX_BLE_PAYLOAD_SIZE) {
             uint8_t errBuffer[MAX_BLE_PAYLOAD_SIZE];

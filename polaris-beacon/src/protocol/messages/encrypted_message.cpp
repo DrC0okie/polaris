@@ -4,8 +4,6 @@
 #include <sodium.h>
 #include <string.h>
 
-#include "../crypto.h"
-
 // --- InnerPlaintext Implementation ---
 size_t InnerPlaintext::getTotalSerializedSize() const {
     return sizeof(msgId) + sizeof(msgType) + sizeof(opType) + sizeof(beaconCnt) +
@@ -57,14 +55,14 @@ bool InnerPlaintext::deserialize(const uint8_t* buffer, size_t len) {
 }
 
 // --- EncryptedMessage Implementation ---
-EncryptedMessage::EncryptedMessage() : ciphertextWithTagLen(0) {
+EncryptedMessage::EncryptedMessage(const CryptoService& cryptoService)
+    : _cryptoService(cryptoService), ciphertextWithTagLen(0) {
     memset(nonce, 0, sizeof(nonce));
     memset(ciphertextWithTag, 0, sizeof(ciphertextWithTag));
     beaconIdAd = 0;
 }
 
-bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd,
-                            const uint8_t sharedKey[SHARED_KEY_SIZE]) {
+bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeaconIdAd) {
     this->beaconIdAd = senderBeaconIdAd;
 
     // Generate a unique 12-byte nonce for this message
@@ -86,8 +84,9 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     memcpy(adBuffer, &this->beaconIdAd, sizeof(this->beaconIdAd));
 
     // Encrypt
-    if (!encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen, innerPlaintextBuffer,
-                     innerPlaintextLen, adBuffer, sizeof(adBuffer), this->nonce, sharedKey)) {
+    if (!_cryptoService.encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen,
+                                    innerPlaintextBuffer, innerPlaintextLen, adBuffer,
+                                    sizeof(adBuffer), this->nonce)) {
         Serial.println("[EncMsg] Seal: AEAD encryption failed.");
         return false;
     }
@@ -95,8 +94,7 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     return true;
 }
 
-bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
-                              const uint8_t sharedKey[SHARED_KEY_SIZE]) {
+bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut) {
     // Assumes beaconIdAd, nonce, ciphertextWithTag, and ciphertextWithTagLen
     // have been populated by fromBytes()
 
@@ -108,9 +106,9 @@ bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut,
     uint8_t decryptedInnerPlaintextBuffer[MAX_INNER_PLAINTEXT_SIZE];
     size_t decryptedInnerPlaintextLen = 0;
 
-    if (!decryptAEAD(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen,
-                     this->ciphertextWithTag, this->ciphertextWithTagLen, adBuffer,
-                     sizeof(adBuffer), this->nonce, sharedKey)) {
+    if (!_cryptoService.decryptAEAD(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen,
+                                    this->ciphertextWithTag, this->ciphertextWithTagLen, adBuffer,
+                                    sizeof(adBuffer), this->nonce)) {
         Serial.println("[EncMsg] Unseal: AEAD decryption failed (bad tag or data).");
         return false;
     }
