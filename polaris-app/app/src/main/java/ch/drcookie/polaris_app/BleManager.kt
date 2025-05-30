@@ -16,17 +16,8 @@ import java.util.*
 
 class BleManager(
     private val context: Context,
-    private val listener: Listener
+    private val bleListener: BleListener
 ) {
-
-    interface Listener {
-        fun onDebugMessage(message: String)
-        fun onMessageReceived(data: ByteArray)
-        fun onDeviceNotFound()
-        fun onConnectionFailed(status: Int)
-        fun onReady() // Signifies services discovered, ready to enable indications
-        fun onIndicationEnabled() // Signifies CCCD write success
-    }
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter = bluetoothManager.adapter
@@ -48,17 +39,17 @@ class BleManager(
 
     private fun logDebug(message: String) {
         Log.d(TAG, message)
-        listener.onDebugMessage(message)
+        bleListener.onDebugMessage(message)
     }
 
     private fun logError(message: String, throwable: Throwable? = null) {
         Log.e(TAG, message, throwable)
-        listener.onDebugMessage("ERROR: $message")
+        bleListener.onDebugMessage("ERROR: $message")
     }
 
     private fun logWarn(message: String) {
         Log.w(TAG, message)
-        listener.onDebugMessage("WARN: $message")
+        bleListener.onDebugMessage("WARN: $message")
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -81,7 +72,7 @@ class BleManager(
             // Make sure to remove the timeout callback if scan fails
             scanTimeoutRunnable?.let { handler.removeCallbacks(it) }
             scanTimeoutRunnable = null
-            listener.onDeviceNotFound() // Notify listener
+            bleListener.onDeviceNotFound() // Notify listener
         }
     }
 
@@ -95,13 +86,13 @@ class BleManager(
         // Check if Bluetooth is enabled
         if (bluetoothAdapter?.isEnabled != true) {
             logError("Cannot start scan, Bluetooth is disabled.")
-            listener.onDebugMessage("Bluetooth is disabled.") // Inform listener
+            bleListener.onDebugMessage("Bluetooth is disabled.") // Inform listener
             return
         }
         // Check if scanner is available (can be null if adapter is off)
         if (scanner == null) {
             logError("Cannot start scan, BluetoothLeScanner is unavailable.")
-            listener.onDebugMessage("BLE Scanner unavailable.")
+            bleListener.onDebugMessage("BLE Scanner unavailable.")
             return
         }
 
@@ -119,12 +110,12 @@ class BleManager(
         } catch (e: SecurityException) {
             logError("Missing BLUETOOTH_SCAN permission?", e)
             isScanning = false
-            listener.onDebugMessage("Permission denied for scanning.")
+            bleListener.onDebugMessage("Permission denied for scanning.")
             return // Exit early
         } catch (e: IllegalStateException) {
             logError("Could not start scan (adapter disabled?)", e)
             isScanning = false
-            listener.onDebugMessage("Could not start scan (Bluetooth off?).")
+            bleListener.onDebugMessage("Could not start scan (Bluetooth off?).")
             return // Exit early
         }
 
@@ -134,7 +125,7 @@ class BleManager(
             if (isScanning) {
                 logWarn("Scan timed out.")
                 stopScan() // Ensure scan is stopped
-                listener.onDeviceNotFound() // Notify listener
+                bleListener.onDeviceNotFound() // Notify listener
             }
         }
         handler.postDelayed(scanTimeoutRunnable!!, scanTimeout)
@@ -183,11 +174,11 @@ class BleManager(
                 if (bluetoothGatt == null) {
                     logError("device.connectGatt returned null for ${device.address}. Potential BT adapter issue.")
                     // Notify failure if connectGatt itself fails immediately
-                    listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
+                    bleListener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
                 }
             } catch (e: SecurityException) {
                 logError("Missing BLUETOOTH_CONNECT permission for connectGatt?", e)
-                listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
+                bleListener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
             }
         }
     }
@@ -262,7 +253,7 @@ class BleManager(
                             if (!gatt.requestMtu(requestedMtu)) {
                                 logError("Failed to initiate MTU request for beacon.")
                                 // If MTU request fails to even start, treat as connection failure
-                                listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
+                                bleListener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
                                 closeGattAndCleanup(gatt)
                             } else {
                                 logDebug("MTU request initiated.")
@@ -272,7 +263,7 @@ class BleManager(
                             logDebug("Disconnected from GATT server $deviceAddress.")
                             // Clean up resources when disconnected
                             // Pass 'gatt' to ensure we close the specific instance that disconnected
-                            listener.onConnectionFailed(status) // Notify listener about disconnection
+                            bleListener.onConnectionFailed(status) // Notify listener about disconnection
                             closeGattAndCleanup(gatt)
                         }
                     }
@@ -290,7 +281,7 @@ class BleManager(
                     logError("GATT connection error on $deviceAddress: status=$status ($errorMsg)")
                     // CRITICAL: Close the GATT object to release resources on any failure
                     // Pass 'gatt' to ensure we close the specific instance that failed
-                    listener.onConnectionFailed(status) // Notify listener about the failure
+                    bleListener.onConnectionFailed(status) // Notify listener about the failure
                     closeGattAndCleanup(gatt)
                 }
             }
@@ -315,24 +306,24 @@ class BleManager(
                         if (writeCharacteristic == null || indicateCharacteristic == null) {
                             logError("Required characteristics not found on $deviceAddress. WriteFound=${writeCharacteristic != null}, IndicateFound=${indicateCharacteristic != null}")
                             // Close connection if essential characteristics are missing
-                            listener.onConnectionFailed(status) // Indicate failure reason
+                            bleListener.onConnectionFailed(status) // Indicate failure reason
                             closeGattAndCleanup(gatt)
                             return@post
                         }
 
                         logDebug("Required characteristics found on $deviceAddress. Ready.")
                         // Notify listener that the device is ready for interaction
-                        listener.onReady()
+                        bleListener.onReady()
                     } else {
                         logError("Required service $serviceUuid not found on $deviceAddress.")
                         // Close connection if essential service is missing
-                        listener.onConnectionFailed(status) // Indicate failure reason
+                        bleListener.onConnectionFailed(status) // Indicate failure reason
                         closeGattAndCleanup(gatt)
                     }
                 } else {
                     logError("Service discovery failed for $deviceAddress with status: $status")
                     // Close connection on discovery failure
-                    listener.onConnectionFailed(status) // Indicate failure reason
+                    bleListener.onConnectionFailed(status) // Indicate failure reason
                     closeGattAndCleanup(gatt)
                 }
             }
@@ -359,14 +350,14 @@ class BleManager(
                 try {
                     if (!gatt.discoverServices()) {
                         logError("Failed to initiate service discovery for beacon after MTU change.")
-                        listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE) // Generic failure
+                        bleListener.onConnectionFailed(BluetoothGatt.GATT_FAILURE) // Generic failure
                         closeGattAndCleanup(gatt)
                     } else {
                         logDebug("Service discovery initiated after MTU negotiation.")
                     }
                 } catch (e: SecurityException) {
                     logError("Missing BLUETOOTH_CONNECT permission for discoverServices?", e)
-                    listener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
+                    bleListener.onConnectionFailed(BluetoothGatt.GATT_FAILURE)
                     closeGattAndCleanup(gatt)
                 }
             }
@@ -400,7 +391,7 @@ class BleManager(
             val valueHex = value.joinToString(separator = " ") { "%02X".format(it) }
             logDebug("Characteristic $uuid changed (Indication/Notification): RECEIVED ${value.size} bytes -> $valueHex")
             if (uuid == indicateCharUuid) {
-                handler.post { listener.onMessageReceived(value) }
+                handler.post { bleListener.onMessageReceived(value) }
                 handler.post { close() }
             } else {
                 logWarn("Change received for unexpected characteristic: $uuid")
@@ -435,7 +426,7 @@ class BleManager(
                     logDebug("Write to descriptor ${descriptor.uuid} (for char $charUuid) successful for $deviceAddress.")
                     if (descriptor.uuid == cccdUuid && descriptor.characteristic.uuid == indicateCharUuid) {
                         logDebug("Indications enabled successfully (CCCD write acknowledged).")
-                        listener.onIndicationEnabled()
+                        bleListener.onIndicationEnabled()
                     }
                 } else {
                     logError("Write to descriptor ${descriptor.uuid} (for char $charUuid) failed for $deviceAddress, status: $status")
