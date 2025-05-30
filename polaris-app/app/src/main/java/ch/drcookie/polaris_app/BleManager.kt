@@ -12,12 +12,10 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import ch.drcookie.polaris_app.BleUtils.isConnected
 import java.util.*
 
-class BleManager(
-    private val context: Context,
-    private val bleListener: BleListener
-) {
+class BleManager(private val context: Context, private val bleListener: BleListener) {
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     private val bluetoothAdapter = bluetoothManager.adapter
@@ -72,7 +70,7 @@ class BleManager(
             // Make sure to remove the timeout callback if scan fails
             scanTimeoutRunnable?.let { handler.removeCallbacks(it) }
             scanTimeoutRunnable = null
-            bleListener.onDeviceNotFound() // Notify listener
+            bleListener.onDeviceNotFound()
         }
     }
 
@@ -134,7 +132,6 @@ class BleManager(
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun stopScan() {
         if (!isScanning) {
-//            logDebug("Scan already stopped.") // Optional: can be noisy
             return
         }
         logDebug("Stopping scan...")
@@ -224,13 +221,12 @@ class BleManager(
     private val gattCallback = object : BluetoothGattCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            val deviceAddress = gatt.device?.address ?: "Unknown" // Use gatt.device.address safely
+            val deviceAddress = gatt.device?.address ?: "Unknown"
             logDebug("onConnectionStateChange: device=$deviceAddress, status=$status, newState=$newState")
 
             handler.post {
                 if (this@BleManager.bluetoothGatt == null && newState != BluetoothProfile.STATE_CONNECTED) {
-                    // Ignore callbacks for GATT instances that we've already cleaned up,
-                    // unless it's the initial connection callback itself.
+                    // Ignore callbacks for GATT instances that we've already cleaned up, unless it's the initial connection callback itself.
                     logWarn("onConnectionStateChange received for a cleaned-up GATT instance. Ignoring.")
                     // Make sure to close the passed gatt instance if it's not null and not the one we expect
                     if (gatt != this@BleManager.bluetoothGatt) {
@@ -262,7 +258,6 @@ class BleManager(
                         BluetoothProfile.STATE_DISCONNECTED -> {
                             logDebug("Disconnected from GATT server $deviceAddress.")
                             // Clean up resources when disconnected
-                            // Pass 'gatt' to ensure we close the specific instance that disconnected
                             bleListener.onConnectionFailed(status) // Notify listener about disconnection
                             closeGattAndCleanup(gatt)
                         }
@@ -275,11 +270,9 @@ class BleManager(
                         15 -> "GATT_INSUFFICIENT_AUTHENTICATION (Bonding/authentication required?)"
                         257 -> "GATT_INTERNAL_ERROR (Stack error?)"
                         5 -> "GATT_INSUFFICIENT_AUTHORIZATION"
-                        // Add other relevant codes from BluetoothGatt constants if needed
                         else -> "Unknown error status"
                     }
                     logError("GATT connection error on $deviceAddress: status=$status ($errorMsg)")
-                    // CRITICAL: Close the GATT object to release resources on any failure
                     // Pass 'gatt' to ensure we close the specific instance that failed
                     bleListener.onConnectionFailed(status) // Notify listener about the failure
                     closeGattAndCleanup(gatt)
@@ -530,7 +523,7 @@ class BleManager(
     }
 
 
-    // Simplified send using byte array directly
+    // Send using byte array directly
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun send(data: ByteArray) {
         val gatt = bluetoothGatt
@@ -551,7 +544,7 @@ class BleManager(
             return
         }
 
-        // Determine write type (prefer default write with response)
+        // Determine write type
         val writeType = if (props and BluetoothGattCharacteristic.PROPERTY_WRITE != 0) {
             BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
         } else {
@@ -584,7 +577,6 @@ class BleManager(
         }
     }
 
-    // isReady check remains useful
     fun isReady(): Boolean {
         // Check gatt connection state as well
         val gattConnected = bluetoothGatt?.let { gatt ->
@@ -594,28 +586,16 @@ class BleManager(
                 logError("Permission missing for getConnectionState", e)
                 false
             }
-        } ?: false
+        } == true
         return gattConnected && writeCharacteristic != null && indicateCharacteristic != null
     }
 
-    // Helper to check connection state (requires BLUETOOTH_CONNECT)
+    // Helper to check connection state
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun isConnected(): Boolean {
         return bluetoothGatt?.device?.let { device ->
             bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
-        } ?: false
+        } == true
     }
 
-}
-
-// Helper extension function (place outside BleManager or in a separate utility file)
-@SuppressLint("MissingPermission")
-fun BluetoothDevice.isConnected(context: Context): Boolean {
-    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    return try {
-        bluetoothManager.getConnectionState(this, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
-    } catch (e: SecurityException) {
-        Log.e("DeviceExt", "Permission missing for getConnectionState", e)
-        false
-    }
 }

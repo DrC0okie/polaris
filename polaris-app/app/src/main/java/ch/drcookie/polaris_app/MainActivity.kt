@@ -120,6 +120,19 @@ class MainActivity : AppCompatActivity(), BleListener {
                     appendLog("Response signature valid: $isValid")
                     if (isValid) {
                         binding.messageBox.text = "Beacon Counter: ${response.counter}, Sig Valid: $isValid"
+                        // Create and send the PoLToken
+                        val polToken = PoLToken.create(originalRequest, response)
+                        appendLog("Created PoLToken: $polToken")
+                        lifecycleScope.launch { // Network call on a background thread
+                            val success = ApiService.sendPoLToken(polToken)
+                            runOnUiThread { // Update UI back on main thread
+                                if (success) {
+                                    appendLog("PoLToken successfully sent to server.")
+                                } else {
+                                    appendLog("Failed to send PoLToken to server.")
+                                }
+                            }
+                        }
                     } else {
                         binding.messageBox.text = "INVALID SIG! Counter: ${response.counter}"
                     }
@@ -157,7 +170,6 @@ class MainActivity : AppCompatActivity(), BleListener {
         runOnUiThread {
             appendLog("Device ready. Enabling indications...")
             bleManager.enableIndication()
-            appendLog("Sent ${Payload.data.size} bytes.")
         }
     }
 
