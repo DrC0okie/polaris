@@ -17,7 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalUnsignedTypes::class)
-class MainActivity : AppCompatActivity(), BleManager.Listener {
+class MainActivity : AppCompatActivity(), BleListener {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var bleManager: BleManager
