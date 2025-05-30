@@ -11,11 +11,11 @@ class PoLRequest {
 public:
     // Message fields
     uint8_t flags;                       // Bit flags for message type or options
-    uint64_t phone_id;                   // Unique phone identifier
-    uint32_t beacon_id;                  // Intended beacon recipient
+    uint64_t phoneId;                    // Unique phone identifier
+    uint32_t beaconId;                   // Intended beacon recipient
     uint8_t nonce[PROTOCOL_NONCE_SIZE];  // Random nonce to prevent replay
-    uint8_t phone_pk[Ed25519_PK_SIZE];   // Phone's Ed25519 public key
-    uint8_t phone_sig[SIG_SIZE];         // Signature of the message
+    uint8_t phonePk[Ed25519_PK_SIZE];    // Phone's Ed25519 public key
+    uint8_t phoneSig[SIG_SIZE];          // Signature of the message
 
     // Parses fields from a raw binary buffer (BLE payload)
     // Returns false if the size is incorrect
@@ -36,7 +36,7 @@ public:
     size_t getSignedSize() const;
 
     // Copies only the fields that are signed into `out` buffer
-    // Used by cryptographic verification (excludes `phone_sig`)
+    // Used by cryptographic verification (excludes `phoneSig`)
     void getSignedData(uint8_t* out) const;
 };
 
