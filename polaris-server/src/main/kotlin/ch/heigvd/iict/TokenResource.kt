@@ -9,18 +9,19 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
+@Path("/")
+class ExampleResource {
+
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    fun hello() = "Hello from POLARIS Server"
+}
+
 @Path("/token")
 class TokenResource {
     @Inject
     lateinit var verificationService: SignatureVerificationService
 
-    @Path("/")
-    class ExampleResource {
-
-        @GET
-        @Produces(MediaType.TEXT_PLAIN)
-        fun hello() = "Hello from POLARIS Server"
-    }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -33,12 +34,11 @@ class TokenResource {
         return if (isValid) {
             println("PoLToken successfully validated.")
             // TODO: Store the token, update database, trigger further actions, etc.
-            Response.ok(mapOf("status" to "success", "message" to "Token validated")).build()
+            Response.ok(GenericResponse("Success", "Token validated")).build()
         } else {
             println("PoLToken validation failed.")
             Response.status(Response.Status.BAD_REQUEST)
-                .entity(mapOf("status" to "error", "message" to "Token validation failed"))
-                .build()
+                .entity(GenericResponse("Failure", "Token validation failed")).build()
         }
     }
 }
