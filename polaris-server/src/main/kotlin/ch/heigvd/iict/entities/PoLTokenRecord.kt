@@ -26,16 +26,16 @@ class PoLTokenRecord : PanacheEntity() {
     @Column(name = "nonce_hex", length = 32, nullable = false)
     lateinit var nonceHex: String
 
-    @Lob @Column(name = "phone_pk_used", columnDefinition = "BYTEA", nullable = false)
+    @Column(name = "phone_pk_used", columnDefinition = "BYTEA", nullable = false)
     lateinit var phonePkUsed: ByteArray
 
-    @Lob @Column(name = "beacon_pk_used", columnDefinition = "BYTEA", nullable = false)
+    @Column(name = "beacon_pk_used", columnDefinition = "BYTEA", nullable = false)
     lateinit var beaconPkUsed: ByteArray
 
-    @Lob @Column(name = "phone_sig", columnDefinition = "BYTEA", nullable = false)
+    @Column(name = "phone_sig", columnDefinition = "BYTEA", nullable = false)
     lateinit var phoneSig: ByteArray
 
-    @Lob @Column(name = "beacon_sig", columnDefinition = "BYTEA", nullable = false)
+    @Column(name = "beacon_sig", columnDefinition = "BYTEA", nullable = false)
     lateinit var beaconSig: ByteArray
 
     var isValid: Boolean = false

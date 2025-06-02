@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional
 import java.time.Instant
 
 @ApplicationScoped
+@OptIn(ExperimentalUnsignedTypes::class)
 class RegisteredPhoneRepository : PanacheRepository<RegisteredPhone>  {
     fun findByPhoneTechnicalId(technicalId: Long): RegisteredPhone? {
         return find("phoneTechnicalId", technicalId).firstResult()
@@ -16,6 +17,7 @@ class RegisteredPhoneRepository : PanacheRepository<RegisteredPhone>  {
         return find("publicKey", publicKey).firstResult()
     }
 
+    @OptIn(ExperimentalStdlibApi::class)
     @Transactional
     fun findOrCreate(id: Long, publicKey: ByteArray, userAgent: String?, now: Instant = Instant.now() ): RegisteredPhone {
         var phone = findByPhoneTechnicalId(id)

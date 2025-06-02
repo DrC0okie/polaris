@@ -11,7 +11,6 @@ class Beacon : PanacheEntity() {
     @Column(unique = true, nullable = false)
     var beaconId: Int = 0
 
-    @Lob
     @Column(nullable = false, columnDefinition = "BYTEA")
     lateinit var publicKey: ByteArray
 

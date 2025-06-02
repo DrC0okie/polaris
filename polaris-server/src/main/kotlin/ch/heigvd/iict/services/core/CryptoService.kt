@@ -26,7 +26,7 @@ class CryptoService {
     private fun ensureCoreInitialized() {
         if (!LibsodiumBridge.isInitialized) {
             Log.warn("LibsodiumBridge was not initialized prior to use. This should not happen if onStart worked.")
-            runBlocking { LibsodiumBridge.initialize(logInfo = {Log.info(it)}, logError = {msg,t -> Log.error(msg,t)}) }
+            runBlocking { LibsodiumBridge.initialize({Log.info(it)}, {msg,t -> Log.error(msg,t)}) }
             if (!LibsodiumBridge.isInitialized) {
                 throw IllegalStateException("LibsodiumBridge not initialized. Cryptographic operations cannot proceed.")
             }

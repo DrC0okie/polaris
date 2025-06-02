@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Add New Beacon</title>
+    <style>
+        .container {
+            width: 50%;
+            margin: 20px auto;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+
+        input[type=text], input[type=number], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+
+        input[type=submit] {
+            margin-top: 20px;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .error {
+            color: red;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Add New Beacon</h1>
+    {#if errorMessage}
+        <p class="error">{errorMessage}</p>
+    {/if}
+    <form method="POST" action="/admin/beacons/create">
+        <div>
+            <label for="beaconId">Technical ID (Integer):</label>
+            <input type="number" id="beaconId" name="beaconId" value="{beacon.technicalId}" required>
+        </div>
+        <div>
+            <label for="name">Friendly Name:</label>
+            <input type="text" id="name" name="name" value="{beacon.name}" required>
+        </div>
+        <div>
+            <label for="locationDescription">Location Description:</label>
+            <textarea id="locationDescription" name="locationDescription"
+                      rows="3">{beacon.locationDescription}</textarea>
+        </div>
+        <div>
+            <label for="publicKeyHex">Public Key (Ed25519, 32 bytes as Hex String - 64 chars):</label>
+            <input type="text" id="publicKeyHex" name="publicKeyHex" pattern="[0-9a-fA-F]\{64\}"
+                   title="64 hexadecimal characters" value="{beacon.publicKeyHex}" required>
+        </div>
+        <input type="submit" value="Add Beacon">
+    </form>
+    <p><a href="/admin/beacons">Back to Beacon List</a></p>
+</div>
+</body>
+</html>
+
+    

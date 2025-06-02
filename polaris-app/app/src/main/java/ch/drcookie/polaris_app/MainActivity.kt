@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -15,6 +16,7 @@ import ch.drcookie.polaris_app.Utils.toHexString
 import ch.drcookie.polaris_app.databinding.ActivityMainBinding
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class MainActivity : AppCompatActivity(), BleListener {
@@ -122,17 +124,19 @@ class MainActivity : AppCompatActivity(), BleListener {
                         binding.messageBox.text = "Beacon Counter: ${response.counter}, Sig Valid: $isValid"
                         // Create and send the PoLToken
                         val polToken = PoLToken.create(originalRequest, response)
-                        appendLog("Created PoLToken: $polToken")
-                        lifecycleScope.launch { // Network call on a background thread
-                            val success = ApiService.sendPoLToken(polToken)
-                            runOnUiThread { // Update UI back on main thread
-                                if (success) {
-                                    appendLog("PoLToken successfully sent to server.")
-                                } else {
-                                    appendLog("Failed to send PoLToken to server.")
-                                }
-                            }
-                        }
+                        val jsonFormat = Json { prettyPrint = true }
+                        val polTokenJsonString = jsonFormat.encodeToString(PoLToken.serializer(), polToken)
+                        Log.i("MainActivity", "Created PoLToken: $polTokenJsonString")
+//                        lifecycleScope.launch { // Network call on a background thread
+//                            val success = ApiService.sendPoLToken(polToken)
+//                            runOnUiThread { // Update UI back on main thread
+//                                if (success) {
+//                                    appendLog("PoLToken successfully sent to server.")
+//                                } else {
+//                                    appendLog("Failed to send PoLToken to server.")
+//                                }
+//                            }
+//                        }
                     } else {
                         binding.messageBox.text = "INVALID SIG! Counter: ${response.counter}"
                     }

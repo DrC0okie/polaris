@@ -13,13 +13,13 @@ class ProvisioningApiService {
     private lateinit var beaconRepository: BeaconRepository
 
     fun getBeaconsForProvisioning(): List<BeaconProvisioningDto> {
-        return beaconRepository.listAllForProvisioning().map { beacon ->
+        return beaconRepository.listAllForProvisioning().map {
             BeaconProvisioningDto(
-                beaconId = beacon.beaconId.toUInt(),
-                name = beacon.name,
-                locationDescription = beacon.locationDescription,
-                publicKey = beacon.publicKey,
-                lastKnownCounter = beacon.lastKnownCounter.toULong()
+                it.beaconId.toUInt(),
+                it.name,
+                it.locationDescription,
+                it.publicKey.asUByteArray(),
+                it.lastKnownCounter.toULong()
             )
         }
     }

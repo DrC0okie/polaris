@@ -9,8 +9,8 @@ import ch.heigvd.iict.repositories.RegisteredPhoneRepository
 import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.dto.api.PoLTokenValidationResultDto
 import ch.heigvd.iict.services.core.CryptoService
-import ch.heigvd.iict.services.core.PoLUtils.toUByteArrayLE
-import ch.heigvd.iict.services.core.PoLUtils.toHexString
+import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE
+import ch.heigvd.iict.util.PoLUtils.toHexString
 import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
@@ -38,89 +38,83 @@ class TokenApiService {
         val receivedAt = Instant.now()
         var validationError: String? = null
         var isValidOverall = true
+        with(tokenDto) {
+            val phoneEntity: RegisteredPhone = try {
+                phoneRepository.findOrCreate(phoneId.toLong(), phonePk.asByteArray(), clientUserAgent, receivedAt)
+            } catch (e: IllegalStateException) {
+                Log.warn("Failed to find/create phone: ${e.message}")
+                return PoLTokenValidationResultDto(false, "Phone registration conflict: ${e.message}", null)
+            }
 
-        val phoneEntity: RegisteredPhone = try {
-            phoneRepository.findOrCreate(tokenDto.phoneId.toLong(), tokenDto.phonePk, clientUserAgent, receivedAt)
-        } catch (e: IllegalStateException) {
-            Log.warn("Failed to find/create phone: ${e.message}")
-            return PoLTokenValidationResultDto(false, "Phone registration conflict: ${e.message}", null)
+            val beacon: Beacon? = beaconRepository.findByBeaconTechnicalId(beaconId.toInt())
+            if (beacon == null) {
+                Log.warn("Beacon not found with technical ID: $beaconId")
+                return PoLTokenValidationResultDto(false, "Beacon not found", null)
+            }
+
+            val phoneSignedData = reconstructPhoneSignedData(this)
+
+            val isPhoneSignatureValid = cryptoService.verifyEd25519Signature(phoneSig, phoneSignedData, phonePk)
+
+            if (!isPhoneSignatureValid) {
+                Log.warn("Phone signature verification failed for token from phoneId: $phoneId")
+                validationError = appendError(validationError, "Invalid phone signature.")
+                isValidOverall = false
+            }
+
+            val beaconSignedData = reconstructBeaconSignedData(this)
+
+            if (!beaconPk.contentEquals(beacon.publicKey.asUByteArray())) {
+                Log.warn("Beacon public key mismatch for beaconId: $beaconId. Token PK: ${beaconPk.toHexString()}, DB PK: ${beacon.publicKey.toHexString()}")
+                validationError = appendError(validationError, "Beacon public key mismatch.")
+                isValidOverall = false
+            }
+
+
+            val isBeaconSignatureValid = cryptoService.verifyEd25519Signature(beaconSig, beaconSignedData, beaconPk)
+            if (!isBeaconSignatureValid) {
+                Log.warn("Beacon signature verification failed for token from beaconId: $beaconId")
+                validationError = appendError(validationError, "Invalid beacon signature.")
+                isValidOverall = false
+            }
+
+            if (beaconCounter < beacon.lastKnownCounter.toULong()) {
+                Log.warn("Stale beacon counter for beaconId: $beaconId. Token: $beaconCounter} DB: ${beacon.lastKnownCounter}")
+                validationError = appendError(validationError, "Stale beacon counter.")
+                isValidOverall = false
+            }
+
+            val nonceAsHex = nonce.toHexString()
+            if (tokenRecordRepository.exists(beacon, beaconCounter.toLong(), nonceAsHex)) {
+                Log.warn("Duplicate PoLToken detected for beaconId: $beaconId, counter: $beaconCounter, nonce: $nonceAsHex")
+                validationError = appendError(validationError, "Duplicate token (replay).")
+                isValidOverall = false
+            }
+
+            val tokenRecord = PoLTokenRecord().apply {
+                this.flags = this@with.flags.toByte()
+                this.phone = phoneEntity
+                this.beacon = beacon
+                this.beaconCounter = beaconCounter.toLong()
+                this.nonceHex = nonceAsHex
+                this.phonePkUsed = phonePk.asByteArray()
+                this.beaconPkUsed = beaconPk.asByteArray()
+                this.phoneSig = this@with.phoneSig.asByteArray()
+                this.beaconSig = this@with.beaconSig.asByteArray()
+                this.isValid = isValidOverall
+                this.validationError = validationError
+                this.receivedAt = receivedAt
+            }
+            tokenRecordRepository.persist(tokenRecord)
+
+            Log.info("Processed PoLToken for phoneId: $phoneId, beaconId: $beaconId. Valid: $isValidOverall")
+
+            if (isValidOverall && beaconCounter.toLong() > beacon.lastKnownCounter) {
+                beacon.lastKnownCounter = beaconCounter.toLong()
+            }
+
+            return PoLTokenValidationResultDto(isValidOverall, validationError, tokenRecord.id)
         }
-
-        val beaconEntity: Beacon? = beaconRepository.findByBeaconTechnicalId(tokenDto.beaconId.toInt()) // Assumant beaconId DTO est UInt
-        if (beaconEntity == null) {
-            Log.warn("Beacon not found with technical ID: ${tokenDto.beaconId}")
-            return PoLTokenValidationResultDto(false, "Beacon not found", null)
-        }
-
-        val phoneSignedData = reconstructPhoneSignedData(tokenDto)
-
-        val isPhoneSignatureValid = cryptoService.verifyEd25519Signature(
-            signature = tokenDto.phoneSig.asUByteArray(),
-            message = phoneSignedData,
-            publicKey = tokenDto.phonePk.asUByteArray()
-        )
-        if (!isPhoneSignatureValid) {
-            Log.warn("Phone signature verification failed for token from phoneId: ${tokenDto.phoneId}")
-            validationError = appendError(validationError, "Invalid phone signature.")
-            isValidOverall = false
-        }
-
-        val beaconSignedData = reconstructBeaconSignedData(tokenDto)
-
-        if (!tokenDto.beaconPk.contentEquals(beaconEntity.publicKey)) {
-            Log.warn("Beacon public key mismatch for beaconId: ${tokenDto.beaconId}. Token PK: ${tokenDto.beaconPk.toUByteArray().toHexString()}, DB PK: ${beaconEntity.publicKey.toUByteArray().toHexString()}")
-            validationError = appendError(validationError, "Beacon public key mismatch.")
-            isValidOverall = false
-        }
-
-        val isBeaconSignatureValid = cryptoService.verifyEd25519Signature(
-            signature = tokenDto.beaconSig.asUByteArray(),
-            message = beaconSignedData,
-            publicKey = tokenDto.beaconPk.asUByteArray()
-        )
-        if (!isBeaconSignatureValid) {
-            Log.warn("Beacon signature verification failed for token from beaconId: ${tokenDto.beaconId}")
-            validationError = appendError(validationError, "Invalid beacon signature.")
-            isValidOverall = false
-        }
-
-        if (tokenDto.beaconCounter < beaconEntity.lastKnownCounter.toULong()) {
-            Log.warn("Stale beacon counter for beaconId: ${tokenDto.beaconId}. Token: ${tokenDto.beaconCounter}, DB: ${beaconEntity.lastKnownCounter}")
-            validationError = appendError(validationError, "Stale beacon counter.")
-            isValidOverall = false
-        }
-
-        val nonceAsHex = tokenDto.nonce.toUByteArray().toHexString() // Convertir le nonce binaire en hex pour la recherche
-        if (tokenRecordRepository.exists(beaconEntity, tokenDto.beaconCounter.toLong(), nonceAsHex)) {
-            Log.warn("Duplicate PoLToken detected for beaconId: ${tokenDto.beaconId}, counter: ${tokenDto.beaconCounter}, nonce: $nonceAsHex")
-            validationError = appendError(validationError, "Duplicate token (replay).")
-            isValidOverall = false
-        }
-
-        val tokenRecord = PoLTokenRecord().apply {
-            this.flags = tokenDto.flags.toByte()
-            this.phone = phoneEntity
-            this.beacon = beaconEntity
-            this.beaconCounter = tokenDto.beaconCounter.toLong()
-            this.nonceHex = nonceAsHex
-            this.phonePkUsed = tokenDto.phonePk
-            this.beaconPkUsed = tokenDto.beaconPk
-            this.phoneSig = tokenDto.phoneSig
-            this.beaconSig = tokenDto.beaconSig
-            this.isValid = isValidOverall
-            this.validationError = validationError
-            this.receivedAt = receivedAt
-        }
-        tokenRecordRepository.persist(tokenRecord)
-
-        Log.info("Processed PoLToken for phoneId: ${tokenDto.phoneId}, beaconId: ${tokenDto.beaconId}. Valid: $isValidOverall")
-
-        if (isValidOverall && tokenDto.beaconCounter.toLong() > beaconEntity.lastKnownCounter) {
-            beaconEntity.lastKnownCounter = tokenDto.beaconCounter.toLong()
-            // beaconRepository.persist(beaconEntity) // Panache gère la persistance des entités managées dans une transaction
-        }
-
-        return PoLTokenValidationResultDto(isValidOverall, validationError, tokenRecord.id)
     }
 
     private fun appendError(existingError: String?, newError: String): String {
@@ -128,28 +122,30 @@ class TokenApiService {
     }
 
     private fun reconstructPhoneSignedData(tokenDto: PoLTokenDto): UByteArray {
-        val buffer = UByteArray(1 + 8 + 4 + tokenDto.nonce.size + tokenDto.phonePk.size)
-        var offset = 0
-        buffer[offset] = tokenDto.flags; offset += 1
-        tokenDto.phoneId.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        tokenDto.beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
-        tokenDto.nonce.toUByteArray().copyInto(buffer, offset); offset += tokenDto.nonce.size
-        tokenDto.phonePk.toUByteArray().copyInto(buffer, offset)
-        return buffer
+        with(tokenDto) {
+            val buffer = UByteArray(1 + 8 + 4 + nonce.size + phonePk.size)
+            var offset = 0
+            buffer[offset] = flags; offset += 1
+            phoneId.toUByteArrayLE().copyInto(buffer, offset); offset += 8
+            beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
+            nonce.copyInto(buffer, offset); offset += nonce.size
+            phonePk.copyInto(buffer, offset)
+            return buffer
+        }
     }
 
     private fun reconstructBeaconSignedData(tokenDto: PoLTokenDto): UByteArray {
-        val buffer = UByteArray(1 + 4 + 8 + tokenDto.nonce.size + 8 + tokenDto.phonePk.size + tokenDto.phoneSig.size)
-        var offset = 0
-
-        buffer[offset] = tokenDto.flags; offset += 1
-        tokenDto.beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
-        tokenDto.beaconCounter.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        tokenDto.nonce.toUByteArray().copyInto(buffer, offset); offset += tokenDto.nonce.size
-
-        tokenDto.phoneId.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        tokenDto.phonePk.toUByteArray().copyInto(buffer, offset); offset += tokenDto.phonePk.size
-        tokenDto.phoneSig.toUByteArray().copyInto(buffer, offset)
-        return buffer
+        with(tokenDto) {
+            val buffer = UByteArray(1 + 4 + 8 + nonce.size + 8 + phonePk.size + phoneSig.size)
+            var offset = 0
+            buffer[offset] = flags; offset += 1
+            beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
+            beaconCounter.toUByteArrayLE().copyInto(buffer, offset); offset += 8
+            nonce.copyInto(buffer, offset); offset += nonce.size
+            phoneId.toUByteArrayLE().copyInto(buffer, offset); offset += 8
+            phonePk.copyInto(buffer, offset); offset += phonePk.size
+            phoneSig.copyInto(buffer, offset)
+            return buffer
+        }
     }
 }

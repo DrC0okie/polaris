@@ -13,12 +13,11 @@ class RegisteredPhone : PanacheEntity() {
     @Column(unique = true, nullable = false)
     var phoneTechnicalId: Long = 0L
 
-    @Lob
-    @Column(name = "public_key", nullable = false, columnDefinition = "BYTEA", unique = true) // La clé publique du téléphone doit être unique
+    @Column(name = "public_key", columnDefinition = "BYTEA", nullable = false, unique = true)
     lateinit var publicKey: ByteArray
 
-    var userAgent: String? = null // Information optionnelle sur le client
-    var lastSeenAt: Instant? = null // Mis à jour à chaque interaction valide
+    var userAgent: String? = null
+    var lastSeenAt: Instant? = null
 
     @Column(nullable = false, updatable = false)
     lateinit var createdAt: Instant

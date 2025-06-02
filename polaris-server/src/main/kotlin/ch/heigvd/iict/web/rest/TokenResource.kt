@@ -1,5 +1,6 @@
 package ch.heigvd.iict.web.rest
 
+import ch.heigvd.iict.dto.api.ErrorResponseDto
 import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.services.api.TokenApiService
 import io.quarkus.logging.Log
@@ -45,7 +46,7 @@ class TokenResource {
             }
         } catch (e: IllegalArgumentException) {
             Log.warn("Invalid PoLToken submission: ${e.message}")
-            Response.status(Response.Status.BAD_REQUEST).entity(mapOf("error" to e.message)).build()
+            Response.status(Response.Status.BAD_REQUEST).entity(ErrorResponseDto(e.message ?: "Invalid PoLToken submission.")).build()
         }
         catch (e: Exception) {
             Log.error("Error processing PoLToken", e)

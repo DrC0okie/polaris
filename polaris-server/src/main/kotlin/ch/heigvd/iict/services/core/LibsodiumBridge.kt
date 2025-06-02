@@ -44,13 +44,11 @@ object LibsodiumBridge {
 
     fun signDetached(message: UByteArray, secretKey: UByteArray): UByteArray {
         ensureInitialized()
-        // Ici, on pourrait ajouter des vérifications sur la taille de sk, etc.
         return Signature.detached(message, secretKey)
     }
 
     fun verifyDetached(signature: UByteArray, message: UByteArray, publicKey: UByteArray): Boolean {
         ensureInitialized()
-        // Ici, on pourrait ajouter des vérifications sur la taille de signature, pk, etc.
         return try {
             Signature.verifyDetached(signature, message, publicKey)
             true

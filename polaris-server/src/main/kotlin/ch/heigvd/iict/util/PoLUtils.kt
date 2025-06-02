@@ -1,4 +1,4 @@
-package ch.heigvd.iict.services.core
+package ch.heigvd.iict.util
 
 @OptIn(ExperimentalUnsignedTypes::class)
 object PoLUtils {
