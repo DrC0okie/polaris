@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class PhoneRegistrationResponseDto(
     val message: String,
     val assignedPhoneId: Long?,
+    val apiKey: String,
     val beacons: BeaconProvisioningListDto
 )

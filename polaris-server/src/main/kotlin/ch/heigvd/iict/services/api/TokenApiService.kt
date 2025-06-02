@@ -34,35 +34,34 @@ class TokenApiService {
     private lateinit var cryptoService: CryptoService
 
     @Transactional
-    fun processAndValidatePoLToken(tokenDto: PoLTokenDto, clientUserAgent: String?): PoLTokenValidationResultDto {
+    fun processAndValidatePoLToken(tokenDto: PoLTokenDto, clientUserAgent: String?, apiKey: String): PoLTokenValidationResultDto {
         val receivedAt = Instant.now()
         var validationError: String? = null
         var isValidOverall = true
+
         with(tokenDto) {
-            val phoneEntity: RegisteredPhone = try {
-                phoneRepository.findOrCreate(phoneId.toLong(), phonePk.asByteArray(), clientUserAgent, receivedAt)
-            } catch (e: IllegalStateException) {
-                Log.warn("Failed to find/create phone: ${e.message}")
-                return PoLTokenValidationResultDto(false, "Phone registration conflict: ${e.message}", null)
+            val phoneEntity: RegisteredPhone = phoneRepository.findByApiKey(apiKey) // Nouvelle méthode dans RegisteredPhoneRepository
+                ?: return PoLTokenValidationResultDto(false, "Invalid API Key or phone not registered.", null)
+
+            if (!phonePk.contentEquals(phoneEntity.publicKey.asUByteArray())) {
+                Log.warn("PoLToken's phonePk does not match registered PK for phoneId ${phoneEntity.phoneTechnicalId} authenticated via API key.")
+                validationError = appendError(validationError, "Token public key does not match registered key.")
+                isValidOverall = false
+                return PoLTokenValidationResultDto(false, "Phone public key and Api key mismatch", null)
             }
 
             val beacon: Beacon? = beaconRepository.findByBeaconTechnicalId(beaconId.toInt())
             if (beacon == null) {
-                Log.warn("Beacon not found with technical ID: $beaconId")
+                Log.warn("Beacon not found with ID: $beaconId")
                 return PoLTokenValidationResultDto(false, "Beacon not found", null)
             }
 
             val phoneSignedData = reconstructPhoneSignedData(this)
-
-            val isPhoneSignatureValid = cryptoService.verifyEd25519Signature(phoneSig, phoneSignedData, phonePk)
-
-            if (!isPhoneSignatureValid) {
+            if (!cryptoService.verifyEd25519Signature(phoneSig, phoneSignedData, phonePk)) {
                 Log.warn("Phone signature verification failed for token from phoneId: $phoneId")
                 validationError = appendError(validationError, "Invalid phone signature.")
                 isValidOverall = false
             }
-
-            val beaconSignedData = reconstructBeaconSignedData(this)
 
             if (!beaconPk.contentEquals(beacon.publicKey.asUByteArray())) {
                 Log.warn("Beacon public key mismatch for beaconId: $beaconId. Token PK: ${beaconPk.toHexString()}, DB PK: ${beacon.publicKey.toHexString()}")
@@ -70,7 +69,7 @@ class TokenApiService {
                 isValidOverall = false
             }
 
-
+            val beaconSignedData = reconstructBeaconSignedData(this)
             val isBeaconSignatureValid = cryptoService.verifyEd25519Signature(beaconSig, beaconSignedData, beaconPk)
             if (!isBeaconSignatureValid) {
                 Log.warn("Beacon signature verification failed for token from beaconId: $beaconId")
@@ -89,13 +88,14 @@ class TokenApiService {
                 Log.warn("Duplicate PoLToken detected for beaconId: $beaconId, counter: $beaconCounter, nonce: $nonceAsHex")
                 validationError = appendError(validationError, "Duplicate token (replay).")
                 isValidOverall = false
+                return PoLTokenValidationResultDto(isValidOverall, validationError, null)
             }
 
             val tokenRecord = PoLTokenRecord().apply {
                 this.flags = this@with.flags.toByte()
                 this.phone = phoneEntity
                 this.beacon = beacon
-                this.beaconCounter = beaconCounter.toLong()
+                this.beaconCounter = this@with.beaconCounter.toLong()
                 this.nonceHex = nonceAsHex
                 this.phonePkUsed = phonePk.asByteArray()
                 this.beaconPkUsed = beaconPk.asByteArray()
@@ -105,15 +105,24 @@ class TokenApiService {
                 this.validationError = validationError
                 this.receivedAt = receivedAt
             }
-            tokenRecordRepository.persist(tokenRecord)
+            try {
+                tokenRecordRepository.persist(tokenRecord)
+                Log.info("Processed PoLToken. phoneId: $phoneId, beaconId: $beaconId. Valid: $isValidOverall. Record ID: ${tokenRecord.id}")
 
-            Log.info("Processed PoLToken for phoneId: $phoneId, beaconId: $beaconId. Valid: $isValidOverall")
+                if (isValidOverall && beaconCounter.toLong() > beacon.lastKnownCounter) {
+                    beacon.lastKnownCounter = beaconCounter.toLong()
+                }
 
-            if (isValidOverall && beaconCounter.toLong() > beacon.lastKnownCounter) {
-                beacon.lastKnownCounter = beaconCounter.toLong()
+                return PoLTokenValidationResultDto(isValidOverall, validationError, tokenRecord.id)
+
+            } catch (e: Exception) {
+                Log.error("Failed to persist PoLTokenRecord: ${e.message}", e)
+                if (e.message?.contains("idx_poltoken_unique_proof") == true || e.cause?.message?.contains("idx_poltoken_unique_proof") == true ) {
+                    validationError = appendError(validationError, "Duplicate token (database constraint).")
+                    return PoLTokenValidationResultDto(false, validationError, null)
+                }
+                throw e
             }
-
-            return PoLTokenValidationResultDto(isValidOverall, validationError, tokenRecord.id)
         }
     }
 

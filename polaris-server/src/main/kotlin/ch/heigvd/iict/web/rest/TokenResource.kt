@@ -27,16 +27,16 @@ class TokenResource {
     @Produces(MediaType.APPLICATION_JSON)
     fun submitPoLToken(
         @Valid tokenDto: PoLTokenDto,
-        @HeaderParam("User-Agent") userAgent: String?
+        @HeaderParam("User-Agent") userAgent: String?,
+        @HeaderParam("x-api-key") apiKey: String?,
     ): Response {
-        // TODO: later implement API keys
-        // val apiKey = headers.getHeaderString("X-API-Key")
-        // if (!isValidApiKey(apiKey)) {
-        //     return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid or missing API Key.").build()
-        // }
+
+        if (apiKey == null) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity(ErrorResponseDto("Missing API Key.")).build()
+        }
 
         return try {
-            val result = tokenApiService.processAndValidatePoLToken(tokenDto, userAgent)
+            val result = tokenApiService.processAndValidatePoLToken(tokenDto, userAgent, apiKey)
             if (result.isValid) {
                 Response.status(Response.Status.CREATED).entity(result).build()
             } else {

@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity(), BleListener {
     private val targetBeaconEd25519Pk: UByteArray by lazy {
         hexStringToUByteArray("A3540D31912B89B101B4FA69F37ACFA49E3B1BAA0D1D04C8202BFD1B20B741D3")
     }
+    private val apiKey = "cd5f8f3f26204693a9bb4d3e8dbe0e0969d9a318a4c64b0b99bcbba41e462070"
 
     private val permissions = mutableListOf<String>().apply {
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
@@ -194,7 +195,7 @@ class MainActivity : AppCompatActivity(), BleListener {
 
                 var request = PoLRequest(
                     flags = 0x00u,
-                    phoneId = 1234567890UL,
+                    phoneId = 123456789UL,
                     beaconId = targetBeaconId,
                     nonce = requestNonce,
                     phonePk = phonePk

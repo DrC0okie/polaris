@@ -16,6 +16,7 @@ CREATE TABLE registered_phones (
                                    id BIGINT NOT NULL PRIMARY KEY,
                                    phone_technical_id BIGINT NOT NULL UNIQUE,
                                    public_key BYTEA NOT NULL UNIQUE,
+                                   api_key VARCHAR(70) NOT NULL UNIQUE,
                                    user_agent VARCHAR(255),
                                    last_seen_at TIMESTAMP WITH TIME ZONE,
                                    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE registered_phones (
 );
 
 CREATE INDEX idx_phone_public_key ON registered_phones (public_key);
+CREATE INDEX idx_phone_api_key ON registered_phones (api_key);
 CREATE SEQUENCE registered_phones_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE pol_token_records (
