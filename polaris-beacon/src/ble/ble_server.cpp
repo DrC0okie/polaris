@@ -366,6 +366,15 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
     BLEAdvertisementData advData;
     advData.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
 
+    uint8_t manufDataPayload[6];
+    uint16_t manufId = 0xFFFF;
+    // Manufacturer id for development/testing
+    memcpy(manufDataPayload, &manufId, sizeof(manufId));
+
+    // Here we specify the beacon id in the adv data
+    memcpy(manufDataPayload + sizeof(manufId), &BEACON_ID, sizeof(BEACON_ID));
+    advData.setManufacturerData(
+        std::string(reinterpret_cast<const char*>(manufDataPayload), sizeof(manufDataPayload)));
     advData.setCompleteServices(BLEUUID(serviceUuid));
 
     std::string advPayload = advData.getPayload();
