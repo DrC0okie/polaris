@@ -14,7 +14,6 @@ CREATE SEQUENCE beacons_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE registered_phones (
                                    id BIGINT NOT NULL PRIMARY KEY,
-                                   phone_technical_id BIGINT NOT NULL UNIQUE,
                                    public_key BYTEA NOT NULL UNIQUE,
                                    api_key VARCHAR(70) NOT NULL UNIQUE,
                                    user_agent VARCHAR(255),

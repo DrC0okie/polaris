@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
 @Serializable
 data class PhoneRegistrationRequestDto(
-
-    val phoneTechnicalId: ULong,
-
     @Serializable(with = UByteArrayAsBase64StringSerializer::class)
     val publicKey: UByteArray,
 

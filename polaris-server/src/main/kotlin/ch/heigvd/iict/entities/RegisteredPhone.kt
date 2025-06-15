@@ -11,9 +11,6 @@ import java.time.Instant
 ])
 class RegisteredPhone : PanacheEntity() {
 
-    @Column(unique = true, nullable = false)
-    var phoneTechnicalId: Long = 0L
-
     @Column(name = "public_key", columnDefinition = "BYTEA", nullable = false, unique = true)
     lateinit var publicKey: ByteArray
 

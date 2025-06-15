@@ -4,12 +4,11 @@ import ch.heigvd.iict.dto.api.BeaconProvisioningListDto
 import ch.heigvd.iict.repositories.RegisteredPhoneRepository
 import ch.heigvd.iict.dto.api.PhoneRegistrationRequestDto
 import ch.heigvd.iict.dto.api.PhoneRegistrationResponseDto
-import io.quarkus.logging.Log
+import ch.heigvd.iict.entities.RegisteredPhone
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.transaction.Transactional
 import java.time.Instant
-import ch.heigvd.iict.util.PoLUtils.toHexString
 import java.util.UUID
 
 @ApplicationScoped
@@ -17,38 +16,41 @@ import java.util.UUID
 class PhoneRegistrationService {
 
     @Inject
-    private lateinit var phoneRepository: RegisteredPhoneRepository
+    private lateinit var repo: RegisteredPhoneRepository
 
     @Inject
     private lateinit var provisioningApiService: ProvisioningApiService
 
-    class RegistrationConflictException(message: String) : RuntimeException(message)
-
     @Transactional
-    fun registerPhoneAndGetBeacons(request: PhoneRegistrationRequestDto): PhoneRegistrationResponseDto {
-        val technicalId = request.phoneTechnicalId.toLong()
-        val publicKeyBytes = request.publicKey.asByteArray()
+    fun register(request: PhoneRegistrationRequestDto): PhoneRegistrationResponseDto {
         val now = Instant.now()
 
-        var phone = phoneRepository.findOrCreate( technicalId, publicKeyBytes, buildUserAgent(request), now )
-        var generatedApiKey: String? = null
-
-        if (phone.id == null) {
-            Log.info("Registering new phone. ID: $technicalId, PK: ${request.publicKey.toHexString()}")
-            generatedApiKey = generateNewApiKey()
-            phone.apiKey = generatedApiKey
-            phoneRepository.persist(phone)
+        // lookup by public key only
+        val existing = repo.findByPublicKey(request.publicKey.asByteArray())
+        val phone = if (existing != null) {
+            existing.apply {
+                lastSeenAt = now
+                userAgent  = buildUserAgent(request)
+                updatedAt  = now
+            }
         } else {
-            Log.info("Phone $technicalId (PK: ${request.publicKey.toHexString()}) re-registering or updating info.")
+            RegisteredPhone().apply {
+                publicKey = request.publicKey.asByteArray()
+                apiKey    = generateNewApiKey()
+                userAgent = buildUserAgent(request)
+                createdAt = now
+                updatedAt = now
+            }.also {
+                repo.persist(it)
+            }
         }
 
-        val beacons = BeaconProvisioningListDto(provisioningApiService.getBeaconsForProvisioning())
-
+        val beacons = provisioningApiService.getBeaconsForProvisioning()
         return PhoneRegistrationResponseDto(
-            if (generatedApiKey != null) "Phone registered successfully." else "Phone information updated.",
-            phone.phoneTechnicalId,
-            generatedApiKey ?: phone.apiKey,
-            beacons
+            message          = if (existing == null) "Phone registered successfully." else "Phone information updated.",
+            assignedPhoneId  = phone.id!!,
+            apiKey           = phone.apiKey,
+            beacons          = BeaconProvisioningListDto(beacons)
         )
     }
 

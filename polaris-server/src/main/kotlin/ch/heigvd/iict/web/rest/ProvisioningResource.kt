@@ -2,6 +2,7 @@ package ch.heigvd.iict.web.rest
 
 import ch.heigvd.iict.dto.api.BeaconProvisioningListDto
 import ch.heigvd.iict.services.api.ProvisioningApiService
+import ch.heigvd.iict.web.rest.auth.Secured
 import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
@@ -11,6 +12,7 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 
+@Secured
 @Path("/api/v1/beacons")
 @ApplicationScoped
 class ProvisioningResource {

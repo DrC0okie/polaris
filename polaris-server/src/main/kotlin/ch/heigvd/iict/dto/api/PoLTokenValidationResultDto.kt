@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 data class PoLTokenValidationResultDto(
     val isValid: Boolean,
     val message: String?,
-    val polTokenRecordId: Long?
+    val id: Long?
 )
