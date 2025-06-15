@@ -13,6 +13,8 @@ import android.os.ParcelUuid
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import ch.drcookie.polaris_app.BleUtils.isConnected
+import ch.drcookie.polaris_app.PoLConstants.MANUFACTURER_ID
+import ch.drcookie.polaris_app.Utils.toUIntLE
 import java.util.*
 
 class BleManager(private val context: Context, private val bleListener: BleListener) {
@@ -21,7 +23,8 @@ class BleManager(private val context: Context, private val bleListener: BleListe
     private val bluetoothAdapter = bluetoothManager.adapter
     private val scanner = bluetoothAdapter.bluetoothLeScanner
     private var lastWrittenValue: ByteArray? = null
-    @Volatile private var bluetoothGatt: BluetoothGatt? = null
+    @Volatile
+    private var bluetoothGatt: BluetoothGatt? = null
     private val handler = Handler(Looper.getMainLooper())
     private var writeCharacteristic: BluetoothGattCharacteristic? = null
     private var indicateCharacteristic: BluetoothGattCharacteristic? = null
@@ -32,7 +35,8 @@ class BleManager(private val context: Context, private val bleListener: BleListe
     private var scanTimeoutRunnable: Runnable? = null
     private val scanTimeout = 10000L
     private val requestedMtu = 517
-    @Volatile private var isScanning = false
+    @Volatile
+    private var isScanning = false
     private val TAG = "BleManager"
 
     private fun logDebug(message: String) {
@@ -50,18 +54,30 @@ class BleManager(private val context: Context, private val bleListener: BleListe
         bleListener.onDebugMessage("WARN: $message")
     }
 
+    @OptIn(ExperimentalUnsignedTypes::class)
     private val scanCallback = object : ScanCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             // Ignore results if not scanning anymore
-            if (!isScanning) {
-                logWarn("Scan result received after scan stopped for ${result.device.address}")
-                return
+            if (!isScanning) return
+
+            val scanRecord = result.scanRecord
+            var detectedPolarisBeaconId: UInt? = null
+            if (scanRecord != null) {
+                // Get the specific manufacturer id of the beacons
+                val manufacturerData = scanRecord.getManufacturerSpecificData(MANUFACTURER_ID)
+                if (manufacturerData != null && manufacturerData.size >= 4) {
+                    val beaconIdBytes = manufacturerData.sliceArray(0..3)
+                    detectedPolarisBeaconId = beaconIdBytes.toUByteArray().toUIntLE()
+                    logDebug("Polaris Beacon candidate: Addr=${result.device.address}, Adv ID=${detectedPolarisBeaconId}")
+                }
             }
-            stopScan() // Stop scanning as soon as a device is found
-            logDebug("Device found: ${result.device.name ?: "Unnamed"} (${result.device.address})")
-            connectToDevice(result.device)
+            bleListener.onBeaconAdvertised(result, detectedPolarisBeaconId)
+
+//            stopScan() // Stop scanning as soon as a device is found
+//            logDebug("Device found: ${result.device.name ?: "Unnamed"} (${result.device.address})")
+//            connectToDevice(result.device)
         }
 
         override fun onScanFailed(errorCode: Int) {
@@ -151,12 +167,9 @@ class BleManager(private val context: Context, private val bleListener: BleListe
     }
 
     @SuppressLint("MissingPermission")
-    private fun connectToDevice(device: BluetoothDevice) {
+    fun connectToDevice(device: BluetoothDevice) {
         // Ensure scan is stopped before connecting
-        if (isScanning) {
-            logWarn("Scan was still active when connectToDevice called. Stopping scan.")
-            stopScan()
-        }
+        if (isScanning) stopScan()
 
         // Prevent multiple connection attempts
         if (bluetoothGatt != null) {
@@ -230,7 +243,10 @@ class BleManager(private val context: Context, private val bleListener: BleListe
                     logWarn("onConnectionStateChange received for a cleaned-up GATT instance. Ignoring.")
                     // Make sure to close the passed gatt instance if it's not null and not the one we expect
                     if (gatt != this@BleManager.bluetoothGatt) {
-                        try { gatt.close() } catch (e: Exception) { /* Ignore */ }
+                        try {
+                            gatt.close()
+                        } catch (e: Exception) { /* Ignore */
+                        }
                     }
                     return@post
                 }
@@ -255,6 +271,7 @@ class BleManager(private val context: Context, private val bleListener: BleListe
                                 logDebug("MTU request initiated.")
                             }
                         }
+
                         BluetoothProfile.STATE_DISCONNECTED -> {
                             logDebug("Disconnected from GATT server $deviceAddress.")
                             // Clean up resources when disconnected
@@ -264,7 +281,7 @@ class BleManager(private val context: Context, private val bleListener: BleListe
                     }
                 } else {
                     // Connection attempt failed or existing connection lost with an error
-                    val errorMsg = when(status) {
+                    val errorMsg = when (status) {
                         133 -> "GATT_ERROR (Generic failure, timeout, resource issue, bonding?)" // Most common vague error
                         8 -> "GATT_INSUFFICIENT_ENCRYPTION (Bonding/encryption required?)"
                         15 -> "GATT_INSUFFICIENT_AUTHENTICATION (Bonding/authentication required?)"
@@ -581,7 +598,10 @@ class BleManager(private val context: Context, private val bleListener: BleListe
         // Check gatt connection state as well
         val gattConnected = bluetoothGatt?.let { gatt ->
             try {
-                bluetoothManager.getConnectionState(gatt.device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
+                bluetoothManager.getConnectionState(
+                    gatt.device,
+                    BluetoothProfile.GATT
+                ) == BluetoothProfile.STATE_CONNECTED
             } catch (e: SecurityException) {
                 logError("Permission missing for getConnectionState", e)
                 false

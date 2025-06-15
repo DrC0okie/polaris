@@ -1,7 +1,11 @@
 package ch.drcookie.polaris_app
 
 import android.util.Log
+import ch.drcookie.polaris_app.dto.BeaconProvisioningListDto
+import ch.drcookie.polaris_app.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_app.dto.PhoneRegistrationResponseDto
 import io.ktor.client.*
+import io.ktor.client.call.body
 import io.ktor.client.engine.android.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.defaultRequest
@@ -41,9 +45,31 @@ object ApiService {
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
 
-         defaultRequest {
-             contentType(ContentType.Application.Json)
-         }
+        defaultRequest {
+            contentType(ContentType.Application.Json)
+        }
+    }
+
+    suspend fun registerPhone(request: PhoneRegistrationRequestDto)
+            : PhoneRegistrationResponseDto =
+        client.post("$BASE_URL/api/v1/register") {
+            setBody(request)
+        }.body<PhoneRegistrationResponseDto>()
+
+    suspend fun fetchBeacons(apiKey: String)
+            : BeaconProvisioningListDto =
+        client.get("$BASE_URL/api/v1/beacons") {
+            header("x-api-key", apiKey)
+        }.body<BeaconProvisioningListDto>()
+
+    suspend fun sendPoLToken(token: PoLToken, apiKey: String): Boolean {
+        val resp = client.post("$BASE_URL/api/v1/tokens") {
+            header("x-api-key", apiKey)
+            contentType(ContentType.Application.Json)
+            setBody(token)
+        }
+        Log.d(TAG, "Sending PoLToken to $BASE_URL/api/v1/tokens")
+        return resp.status.isSuccess()
     }
 
     suspend fun sendPoLToken(token: PoLToken): Boolean {
@@ -55,8 +81,8 @@ object ApiService {
                 setBody(token)
             }
             Log.d(TAG, "Server response status: ${response.status}")
-             val responseBody: String = response.bodyAsText()
-             Log.d(TAG, "Server response body: $responseBody")
+            val responseBody: String = response.bodyAsText()
+            Log.d(TAG, "Server response body: $responseBody")
             return response.status.isSuccess()
         } catch (e: Exception) {
             Log.e(TAG, "Error sending PoLToken", e)

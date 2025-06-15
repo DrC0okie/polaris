@@ -6,15 +6,43 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <!-- Start Button -->
+    <Button
+        android:id="@+id/registerButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Register"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/fetchBeaconsButton"/>
+
+    <Button
+        android:id="@+id/fetchBeaconsButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Fetch Beacons"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/registerButton"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
     <Button
         android:id="@+id/startButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="Start"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@+id/registerButton"
+        app:layout_constraintEnd_toStartOf="@+id/sendTokenButton"/>
+
+    <Button
+        android:id="@+id/sendTokenButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Send Token"
+        app:layout_constraintTop_toTopOf="@+id/startButton"
+        app:layout_constraintStart_toEndOf="@+id/startButton"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+
 
     <ScrollView
         android:id="@+id/scrollView"
