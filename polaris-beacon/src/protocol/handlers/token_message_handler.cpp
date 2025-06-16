@@ -6,9 +6,8 @@
 #include "../messages/pol_response.h"
 
 TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
-                                         const MinuteCounter& counter,
-                                         BLECharacteristic* indicationChar)
-    : _cryptoService(cryptoService), _counter(counter), _indicateChar(indicationChar) {
+                                         const MinuteCounter& counter, IMessageTransport& transport)
+    : _cryptoService(cryptoService), _counter(counter), _transport(transport) {
 }
 
 void TokenMessageHandler::process(const uint8_t* data, size_t len) {
@@ -43,8 +42,10 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     uint8_t buffer[PoLResponse::packedSize()];
     resp.toBytes(buffer);
 
-    _indicateChar->setValue(buffer, sizeof(buffer));
-    _indicateChar->indicate();
+    // Delegate sending the full message to the transport layer
+    if (!_transport.sendMessage(buffer, sizeof(buffer))) {
+        Serial.println("[Processor] Failed to send response via transport layer.");
+    }
 
-    Serial.println("[Processor] Response sent");
+    Serial.println("[Processor] Response dispatched to transport layer.");
 }

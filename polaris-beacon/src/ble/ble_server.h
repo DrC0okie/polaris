@@ -11,17 +11,15 @@
 #include <string>
 #include <vector>
 
-// Forward declaration for BLEMultiAdvertising
-class BLEMultiAdvertising;
-
 #include "../protocol/handlers/imessage_handler.h"
 #include "../protocol/messages/encrypted_message.h"
 #include "../protocol/messages/pol_request.h"
 #include "characteristics/icharacteristic.h"
+#include "protocol/transport/fragmentation_transport.h"
 
-static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
-static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
-static constexpr uint8_t NUM_ADV_INSTANCES = 2;
+// Forward declarations
+class BLEMultiAdvertising;
+class FragmentationTransport;
 
 class BleServer {
 public:
@@ -32,19 +30,12 @@ public:
     void stop();
     void queueTokenRequest(const uint8_t* data, size_t len);
     void queueEncryptedRequest(const uint8_t* data, size_t len);
+    void setTokenRequestProcessor(IMessageHandler* processor);
+    void setEncryptedDataProcessor(IMessageHandler* processor);
+    void registerTransportForMtuUpdates(FragmentationTransport* transport);
 
     BLECharacteristic* getCharacteristicByUUID(const BLEUUID& targetUuid) const;
-
-    void setTokenRequestProcessor(std::unique_ptr<IMessageHandler> processor);
-    void setEncryptedDataProcessor(std::unique_ptr<IMessageHandler> processor);
-
     BLEMultiAdvertising* getMultiAdvertiser();
-
-    static constexpr const char* POL_SERVICE = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
-    static constexpr const char* TOKEN_WRITE = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
-    static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
-    static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
-    static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 
 private:
     BleServer(const BleServer&) = delete;
@@ -73,14 +64,15 @@ private:
         size_t len;
     };
 
-    std::unique_ptr<IMessageHandler> _tokenRequestProcessor;
+    IMessageHandler* _tokenRequestProcessor = nullptr;
     TaskHandle_t _tokenProcessorTask = nullptr;
     QueueHandle_t _tokenQueue = nullptr;
 
-    std::unique_ptr<IMessageHandler> _encryptedDataProcessor;
+    IMessageHandler* _encryptedDataProcessor = nullptr;
     TaskHandle_t _encryptedProcessorTask = nullptr;
     QueueHandle_t _encryptedQueue = nullptr;
 
+    std::vector<FragmentationTransport*> _transportsForMtuUpdate;
     BLEServer* _pServer = nullptr;
     std::unique_ptr<ServerCallbacks> _serverCallbacks;
     volatile bool _shutdownRequested = false;
@@ -98,6 +90,17 @@ private:
     bool configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
                                          const char* serviceUuid);
     bool configureExtendedAdvertisement();
+
+    void updateMtu(uint16_t newMtu);
+
+    static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
+    static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
+    static constexpr uint8_t NUM_ADV_INSTANCES = 2;
+    static constexpr const char* POL_SERVICE = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
+    static constexpr const char* TOKEN_WRITE = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
+    static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
+    static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
+    static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 };
 
 #endif  // BLE_SERVER_H

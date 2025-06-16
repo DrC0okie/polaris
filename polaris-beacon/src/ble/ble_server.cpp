@@ -16,12 +16,14 @@
 BleServer::ServerCallbacks::ServerCallbacks(BleServer* parentServer) : _parentServer(parentServer) {
 }
 
-void BleServer::ServerCallbacks::onMtuChanged(BLEServer* /*pServer*/,
-                                              esp_ble_gatts_cb_param_t* param) {
+void BleServer::ServerCallbacks::onMtuChanged(BLEServer* _, esp_ble_gatts_cb_param_t* param) {
     Serial.printf("[BLE] Negotiated MTU: %u bytes\n", param->mtu.mtu);
+    if (_parentServer) {
+        _parentServer->updateMtu(param->mtu.mtu);
+    }
 }
 
-void BleServer::ServerCallbacks::onConnect(BLEServer* /*pServer*/) {
+void BleServer::ServerCallbacks::onConnect(BLEServer* _) {
     if (_parentServer && _parentServer->getMultiAdvertiser()) {
         Serial.println("[BLE] Client connected.");
         if (!_parentServer->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE)) {
@@ -330,11 +332,28 @@ BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const
 }
 
 void BleServer::setTokenRequestProcessor(std::unique_ptr<IMessageHandler> processor) {
-    _tokenRequestProcessor = std::move(processor);
+    auto indicateChar = getCharacteristicByUUID(BLEUUID(TOKEN_INDICATE));
+    if (!indicateChar) { /* handle error */
+        return;
+    }
+
+    auto transport = std::unique_ptr<FragmentationTransport>(
+        new FragmentationTransport(std::move(processor), indicateChar));
+    _tokenRequestProcessor =
+        transport.get();  // The task uses a raw pointer to the IMessageHandler interface
+    _transports.push_back(std::move(transport));  // We store the owner
 }
 
 void BleServer::setEncryptedDataProcessor(std::unique_ptr<IMessageHandler> processor) {
-    _encryptedDataProcessor = std::move(processor);
+    auto indicateChar = getCharacteristicByUUID(BLEUUID(ENCRYPTED_INDICATE));
+    if (!indicateChar) { /* handle error */
+        return;
+    }
+
+    auto transport = std::unique_ptr<FragmentationTransport>(
+        new FragmentationTransport(std::move(processor), indicateChar));
+    _encryptedDataProcessor = transport.get();
+    _transports.push_back(std::move(transport));
 }
 
 BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
@@ -444,4 +463,11 @@ bool BleServer::configureExtendedAdvertisement() {
 
     _multiAdvertiserPtr->setDuration(EXTENDED_BROADCAST_ADV_INSTANCE, 0, 0);
     return true;
+}
+
+//  Informs the transport layers
+void BleServer::updateMtu(uint16_t newMtu) {
+    for (auto const& transport : _transports) {
+        transport->onMtuChanged(newMtu);
+    }
 }

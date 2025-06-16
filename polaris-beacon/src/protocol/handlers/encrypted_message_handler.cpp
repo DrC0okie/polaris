@@ -7,12 +7,11 @@
 
 EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
                                                  const MinuteCounter& beaconEventCounter,
-                                                 Preferences& prefs,
-                                                 BLECharacteristic* indicationChar)
+                                                 Preferences& prefs, IMessageTransport& transport)
     : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
       _prefs(prefs),  // Store NVS reference
-      _indicateChar(indicationChar),
+      _transport(transport),
       _beaconIdForAd(BEACON_ID),
       _nextResponseMsgId(0) {
     loadNextResponseMsgId();  // Load from NVS or initialize
@@ -99,8 +98,10 @@ void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOp
             uint8_t ackBuffer[MAX_BLE_PAYLOAD_SIZE];                // Use max size buffer
             ackMsgToSend.toBytes(ackBuffer, MAX_BLE_PAYLOAD_SIZE);  // Pass buffer size
 
-            _indicateChar->setValue(ackBuffer, ackLen);  // Send actual length
-            _indicateChar->indicate();
+            // Delegate sending the full message to the transport layer
+            if (!_transport.sendMessage(ackBuffer, ackLen)) {
+                Serial.println("[Processor] Failed to send response via transport layer.");
+            }
             Serial.printf("%s ACK sent (msgId %u for original req_msgId %u).\n", TAG,
                           ackInnerPt.msgId, originalMsgId);
 
@@ -131,8 +132,9 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
             uint8_t errBuffer[MAX_BLE_PAYLOAD_SIZE];
             errMsgToSend.toBytes(errBuffer, MAX_BLE_PAYLOAD_SIZE);
 
-            _indicateChar->setValue(errBuffer, errLen);
-            _indicateChar->indicate();
+            if (!_transport.sendMessage(errBuffer, errLen)) {
+                Serial.println("[Processor] Failed to send response via transport layer.");
+            }
             Serial.printf("%s ERR (code %u) sent for req_msgId %u.\n", TAG, errorCode,
                           originalMsgId);
 

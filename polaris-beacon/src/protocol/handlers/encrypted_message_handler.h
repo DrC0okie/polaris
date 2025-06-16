@@ -1,26 +1,26 @@
 #ifndef ENCRYPTED_MESSAGE_HANDLER_H
 #define ENCRYPTED_MESSAGE_HANDLER_H
 
-#include <BLECharacteristic.h>
 #include <Preferences.h>  // For NVS
 
 #include "../../utils/counter.h"
 #include "../../utils/crypto_service.h"
 #include "../pol_constants.h"
 #include "imessage_handler.h"
+#include "protocol/transport/imessage_transport.h"
 
 class EncryptedMessageHandler : public IMessageHandler {
 public:
     EncryptedMessageHandler(const CryptoService& cryptoService,
                             const MinuteCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
-                            BLECharacteristic* indicationChar);
+                            IMessageTransport& transport);
 
     void process(const uint8_t* encryptedData, size_t len) override;
 
 private:
     static constexpr const char* TAG = "[EncMessageHandler]";
-    BLECharacteristic* _indicateChar;
+    IMessageTransport& _transport;
     uint32_t _beaconIdForAd;
     const CryptoService& _cryptoService;
     const MinuteCounter& _beaconEventCounter;
