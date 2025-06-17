@@ -62,17 +62,6 @@ void setup() {
 
     beaconExtAdvertiser->begin();
 
-    // Assign message handler to manage incoming Pol requests
-    // auto tokenProcessor = std::unique_ptr<TokenMessageHandler>(new TokenMessageHandler(
-    //     cryptoService, counter,
-    //     server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE))));
-
-    // if (!tokenProcessor) {
-    //     Serial.printf("%s CRITICAL: Failed to allocate token processor! Restarting...\n", TAG);
-    //     ESP.restart();
-    // }
-    // server.setTokenRequestProcessor(std::move(tokenProcessor));
-
     auto tokenIndicateChar = server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE));
     auto tokenTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         tokenIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {

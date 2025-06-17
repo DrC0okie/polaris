@@ -21,6 +21,10 @@
 class BLEMultiAdvertising;
 class FragmentationTransport;
 
+static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
+static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
+static constexpr uint8_t NUM_ADV_INSTANCES = 2;
+
 class BleServer {
 public:
     explicit BleServer();
@@ -36,6 +40,12 @@ public:
 
     BLECharacteristic* getCharacteristicByUUID(const BLEUUID& targetUuid) const;
     BLEMultiAdvertising* getMultiAdvertiser();
+
+    static constexpr const char* POL_SERVICE = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
+    static constexpr const char* TOKEN_WRITE = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
+    static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
+    static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
+    static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 
 private:
     BleServer(const BleServer&) = delete;
@@ -92,15 +102,6 @@ private:
     bool configureExtendedAdvertisement();
 
     void updateMtu(uint16_t newMtu);
-
-    static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
-    static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
-    static constexpr uint8_t NUM_ADV_INSTANCES = 2;
-    static constexpr const char* POL_SERVICE = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6";
-    static constexpr const char* TOKEN_WRITE = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b";
-    static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
-    static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
-    static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 };
 
 #endif  // BLE_SERVER_H
