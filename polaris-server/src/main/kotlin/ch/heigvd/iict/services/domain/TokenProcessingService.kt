@@ -19,6 +19,7 @@ class TokenProcessingService @Inject constructor(
     private val validator: PoLTokenValidator,
     private val assembler: PoLTokenAssembler
 ) {
+    @Transactional
     fun process(dto: PoLTokenDto, phone: RegisteredPhone): PoLTokenValidationResultDto {
         val beacon = beaconRepo.findByBeaconTechnicalId(dto.beaconId.toInt())
             ?: throw NotFoundException("Beacon ${dto.beaconId} not found")
@@ -26,21 +27,19 @@ class TokenProcessingService @Inject constructor(
         val errors = validator.validate(dto, phone, beacon)
         val isValid = errors.isEmpty()
         val record = assembler.assemble(dto, phone, beacon, isValid, errors)
+        val newCounter = dto.beaconCounter.toLong()
 
-        persistRecordAndUpdateCounter(record, beacon, dto.beaconCounter.toLong())
+        recordRepo.persist(record)
+
+        // Now beacon is still managed, so this will trigger an UPDATE on commit:
+        if (isValid && newCounter > beacon.lastKnownCounter) {
+            beacon.lastKnownCounter = newCounter
+        }
 
         return PoLTokenValidationResultDto(
             isValid = isValid,
             message = if (isValid) null else errors.joinToString("; "),
             id = record.id
         )
-    }
-
-    @Transactional
-    fun persistRecordAndUpdateCounter( record: PoLTokenRecord,  beacon: Beacon, newCounter: Long ) {
-        recordRepo.persist(record)
-        if (record.isValid && newCounter > beacon.lastKnownCounter) {
-            beacon.lastKnownCounter = newCounter
-        }
     }
 }
