@@ -1,20 +1,33 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.data.remote
 
 import android.util.Log
-import ch.drcookie.polaris_app.dto.BeaconProvisioningListDto
-import ch.drcookie.polaris_app.dto.PhoneRegistrationRequestDto
-import ch.drcookie.polaris_app.dto.PhoneRegistrationResponseDto
-import io.ktor.client.*
+import ch.drcookie.polaris_app.data.model.PoLToken
+import ch.drcookie.polaris_app.data.model.dto.BeaconProvisioningListDto
+import ch.drcookie.polaris_app.data.model.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_app.data.model.dto.PhoneRegistrationResponseDto
+import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.call.body
-import io.ktor.client.engine.android.*
-import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.engine.android.Android
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.plugins.logging.DEFAULT
+import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logger
+import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.plugins.logging.LoggingConfig
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
-import io.ktor.client.plugins.logging.*
 
 object ApiService {
     private const val TAG = "ApiService"
@@ -39,7 +52,7 @@ object ApiService {
                     Log.v(TAG, "KtorLog: $message")
                 }
             }
-            logger = Logger.DEFAULT
+            logger = Logger.Companion.DEFAULT
             level = LogLevel.ALL
 //            filter { request -> request.url.host.contains("ktor.io") }
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
@@ -69,25 +82,8 @@ object ApiService {
             setBody(token)
         }
         Log.d(TAG, "Sending PoLToken to $BASE_URL/api/v1/tokens")
+        Log.d(TAG, "Response from the server: ${resp.bodyAsText()}")
         return resp.status.isSuccess()
-    }
-
-    suspend fun sendPoLToken(token: PoLToken): Boolean {
-        val endpoint = "$BASE_URL/token"
-        Log.d(TAG, "Sending PoLToken to $endpoint")
-        try {
-            val response: HttpResponse = client.post(endpoint) {
-                contentType(ContentType.Application.Json)
-                setBody(token)
-            }
-            Log.d(TAG, "Server response status: ${response.status}")
-            val responseBody: String = response.bodyAsText()
-            Log.d(TAG, "Server response body: $responseBody")
-            return response.status.isSuccess()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error sending PoLToken", e)
-            return false
-        }
     }
 
     fun closeClient() {

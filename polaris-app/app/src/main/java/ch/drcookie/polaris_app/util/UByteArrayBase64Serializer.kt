@@ -1,6 +1,8 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.util
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlin.io.encoding.Base64
@@ -9,9 +11,9 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 // Custom serializer for UByteArray to Base64 String
 @OptIn(ExperimentalUnsignedTypes::class)
 object UByteArrayBase64Serializer : KSerializer<UByteArray> {
-    override val descriptor = kotlinx.serialization.descriptors.PrimitiveSerialDescriptor(
+    override val descriptor = PrimitiveSerialDescriptor(
         "UByteArray",
-        kotlinx.serialization.descriptors.PrimitiveKind.STRING
+        PrimitiveKind.STRING
     )
 
     @OptIn(ExperimentalEncodingApi::class) // For Base64

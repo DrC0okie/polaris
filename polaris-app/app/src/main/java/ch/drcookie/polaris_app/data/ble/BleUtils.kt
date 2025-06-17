@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.data.ble
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice

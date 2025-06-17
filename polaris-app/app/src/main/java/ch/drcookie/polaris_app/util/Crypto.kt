@@ -1,12 +1,14 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.util
 
 import android.util.Log
+import ch.drcookie.polaris_app.data.model.PoLRequest
+import ch.drcookie.polaris_app.data.model.PoLResponse
+import ch.drcookie.polaris_app.util.Utils.toHexString
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
 import com.ionspin.kotlin.crypto.signature.InvalidSignatureException
 import com.ionspin.kotlin.crypto.signature.Signature
 import com.ionspin.kotlin.crypto.signature.SignatureKeyPair
 import com.ionspin.kotlin.crypto.util.LibsodiumRandom
-import ch.drcookie.polaris_app.Utils.toHexString
 
 @OptIn(ExperimentalUnsignedTypes::class)
 object Crypto {

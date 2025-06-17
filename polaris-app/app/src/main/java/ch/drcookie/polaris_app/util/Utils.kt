@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.util
 
 @OptIn(ExperimentalUnsignedTypes::class)
 object Utils {

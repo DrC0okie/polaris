@@ -1,8 +1,9 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.data.model
 
-import ch.drcookie.polaris_app.Utils.toUByteArrayLE
-import ch.drcookie.polaris_app.Utils.toUIntLE
-import ch.drcookie.polaris_app.Utils.toULongLE
+import ch.drcookie.polaris_app.util.PoLConstants
+import ch.drcookie.polaris_app.util.Utils.toUByteArrayLE
+import ch.drcookie.polaris_app.util.Utils.toUIntLE
+import ch.drcookie.polaris_app.util.Utils.toULongLE
 
 @OptIn(ExperimentalUnsignedTypes::class)
 data class PoLRequest(

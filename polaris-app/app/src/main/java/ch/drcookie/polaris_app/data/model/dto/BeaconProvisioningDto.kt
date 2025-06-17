@@ -1,6 +1,6 @@
-package ch.drcookie.polaris_app.dto
+package ch.drcookie.polaris_app.data.model.dto
 
-import ch.drcookie.polaris_app.UByteArrayBase64Serializer
+import ch.drcookie.polaris_app.util.UByteArrayBase64Serializer
 import kotlinx.serialization.Serializable
 
 @Serializable

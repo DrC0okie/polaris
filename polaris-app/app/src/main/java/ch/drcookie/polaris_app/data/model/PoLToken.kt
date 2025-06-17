@@ -1,5 +1,7 @@
-package ch.drcookie.polaris_app
+package ch.drcookie.polaris_app.data.model
 
+import ch.drcookie.polaris_app.util.PoLConstants
+import ch.drcookie.polaris_app.util.UByteArrayBase64Serializer
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -28,7 +30,7 @@ data class PoLToken(
     }
 
     companion object {
-        fun create(request: PoLRequest, response: PoLResponse): PoLToken {
+        fun create(request: PoLRequest, response: PoLResponse, beaconPk: UByteArray): PoLToken {
             val pSig = request.phoneSig ?: throw IllegalArgumentException("PoLRequest must be signed to create a PoLToken")
             return PoLToken(
                 flags = request.flags,
@@ -37,13 +39,12 @@ data class PoLToken(
                 beaconCounter = response.counter,
                 nonce = request.nonce,
                 phonePk = request.phonePk,
-                beaconPk = ubyteArrayOf(), // TODO: Find the way to get the beacon pk from the phone DB
+                beaconPk = beaconPk,
                 phoneSig = pSig,
                 beaconSig = response.beaconSig,
             )
         }
     }
-
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
