@@ -331,29 +331,16 @@ BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const
     return nullptr;
 }
 
-void BleServer::setTokenRequestProcessor(std::unique_ptr<IMessageHandler> processor) {
-    auto indicateChar = getCharacteristicByUUID(BLEUUID(TOKEN_INDICATE));
-    if (!indicateChar) { /* handle error */
-        return;
-    }
-
-    auto transport = std::unique_ptr<FragmentationTransport>(
-        new FragmentationTransport(std::move(processor), indicateChar));
-    _tokenRequestProcessor =
-        transport.get();  // The task uses a raw pointer to the IMessageHandler interface
-    _transports.push_back(std::move(transport));  // We store the owner
+void BleServer::setTokenRequestProcessor(IMessageHandler* processor) {
+    _tokenRequestProcessor = processor;
 }
 
-void BleServer::setEncryptedDataProcessor(std::unique_ptr<IMessageHandler> processor) {
-    auto indicateChar = getCharacteristicByUUID(BLEUUID(ENCRYPTED_INDICATE));
-    if (!indicateChar) { /* handle error */
-        return;
-    }
+void BleServer::setEncryptedDataProcessor(IMessageHandler* processor) {
+    _encryptedDataProcessor = processor;
+}
 
-    auto transport = std::unique_ptr<FragmentationTransport>(
-        new FragmentationTransport(std::move(processor), indicateChar));
-    _encryptedDataProcessor = transport.get();
-    _transports.push_back(std::move(transport));
+void BleServer::registerTransportForMtuUpdates(FragmentationTransport* transport) {
+    _transportsForMtuUpdate.push_back(transport);
 }
 
 BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
@@ -467,7 +454,9 @@ bool BleServer::configureExtendedAdvertisement() {
 
 //  Informs the transport layers
 void BleServer::updateMtu(uint16_t newMtu) {
-    for (auto const& transport : _transports) {
-        transport->onMtuChanged(newMtu);
+    for (auto transport : _transportsForMtuUpdate) {
+        if (transport) {
+            transport->onMtuChanged(newMtu);
+        }
     }
 }

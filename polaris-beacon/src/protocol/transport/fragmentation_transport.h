@@ -4,6 +4,7 @@
 
 #include <BLECharacteristic.h>
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -12,8 +13,10 @@
 
 class FragmentationTransport : public IMessageHandler, public IMessageTransport {
 public:
-    FragmentationTransport(std::unique_ptr<IMessageHandler> wrappedHandler,
-                           BLECharacteristic* indicateChar);
+    // Factory used to inject the ownership to the BLE server
+    using HandlerFactory = std::function<std::unique_ptr<IMessageHandler>(IMessageTransport&)>;
+
+    FragmentationTransport(BLECharacteristic* indicateChar, HandlerFactory factory);
 
     // This method receives raw chunks from the BLE stack.
     void process(const uint8_t* chunkData, size_t len) override;
