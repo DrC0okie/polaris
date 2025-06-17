@@ -225,9 +225,11 @@ void BleServer::queueTokenRequest(const uint8_t* data, size_t len) {
         Serial.println("[BLE] Empty request received, dropping.");
         return;
     }
-    if (len > PoLRequest::packedSize()) {
-        Serial.printf("[BLE] Request too large (%zu bytes, max %zu). Dropping.\n", len,
-                      PoLRequest::packedSize());
+
+    if (len > sizeof(TokenRequestMessage::data)) {
+        Serial.printf("[BLE] Data chunk is too large for queue buffer (%zu bytes, max "
+                      "%zu). Dropping.\n",
+                      len, sizeof(TokenRequestMessage::data));
         return;
     }
 

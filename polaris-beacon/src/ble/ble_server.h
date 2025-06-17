@@ -65,7 +65,7 @@ private:
     };
 
     struct TokenRequestMessage {
-        uint8_t data[PoLRequest::packedSize()];
+        uint8_t data[512];
         size_t len;
     };
 

@@ -12,7 +12,8 @@ TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
 
 void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     if (len != PoLRequest::packedSize()) {
-        Serial.println("[Processor] Invalid length");
+        Serial.printf("[Processor] Invalid length. Got %zu, expected %zu\n", len,
+                      PoLRequest::packedSize());
         return;
     }
 
