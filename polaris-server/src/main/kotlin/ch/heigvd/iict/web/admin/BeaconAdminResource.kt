@@ -70,7 +70,6 @@ class BeaconAdminResource(
     @Path("/edit/{id}")
     @Produces(MediaType.TEXT_HTML)
     fun editBeaconForm(@PathParam("id") id: Long): Response {
-        // This now has logic (what if the beacon doesn't exist?), so we delegate.
         val beacon = beaconAdminService.findBeaconById(id)
             ?: return viewRenderer.renderEditFormWithError(null, "Beacon with ID $id not found.")
 

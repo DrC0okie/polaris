@@ -62,8 +62,8 @@
                    title="64 hexadecimal characters" value="{beacon.publicKeyHex}" required>
         </div>
         <div>
-            <label for="publicKeyX25519Hex">Public Key (X25519 - AEAD, 64 hex chars, Optional):</label>
-            <input type="text" id="publicKeyX25519Hex" name="publicKeyX25519Hex" pattern="[0-9a-fA-F]{64}"
+            <label for="publicKeyX25519Hex">Public Key (X25519, 32 bytes as Hex String - 64 chars, Optional):</label>
+            <input type="text" id="publicKeyX25519Hex" name="publicKeyX25519Hex" pattern="[0-9a-fA-F]\{64\}"
                    title="64 hexadecimal characters">
         </div>
         <input type="submit" value="Add Beacon">
