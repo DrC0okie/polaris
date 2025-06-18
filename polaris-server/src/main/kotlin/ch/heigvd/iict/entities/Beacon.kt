@@ -14,6 +14,9 @@ class Beacon : PanacheEntity() {
     @Column(nullable = false, columnDefinition = "BYTEA")
     lateinit var publicKey: ByteArray
 
+    @Column(columnDefinition = "BYTEA", nullable = true, unique = true)
+    var publicKeyX25519: ByteArray? = null
+
     @Column(nullable = false)
     var lastKnownCounter: Long = 0L
 

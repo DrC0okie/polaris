@@ -36,8 +36,8 @@ constexpr const char* NVS_SERVER_X25519_PK_NAME = "srv_x25519_pk";
 constexpr const char* NVS_ENC_MSG_ID_COUNTER = "enc_msg_id_ctr";
 
 // Encrypted message protocol constants
-constexpr uint8_t OP_TYPE_REQ = 0x01;
-constexpr uint8_t OP_TYPE_ACK = 0x02;
-constexpr uint8_t OP_TYPE_ERR = 0x03;
+constexpr uint8_t MSG_TYPE_REQ = 0x01;
+constexpr uint8_t MSG_TYPE_ACK = 0x02;
+constexpr uint8_t MSG_TYPE_ERR = 0x03;
 
 #endif  // POL_CONSTANTS_H

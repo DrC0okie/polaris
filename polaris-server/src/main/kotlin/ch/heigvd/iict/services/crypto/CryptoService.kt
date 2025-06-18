@@ -1,4 +1,4 @@
-package ch.heigvd.iict.services.core
+package ch.heigvd.iict.services.crypto
 
 import io.quarkus.logging.Log
 import io.quarkus.runtime.StartupEvent

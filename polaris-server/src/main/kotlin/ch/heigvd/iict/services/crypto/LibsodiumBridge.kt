@@ -1,6 +1,8 @@
-package ch.heigvd.iict.services.core
+package ch.heigvd.iict.services.crypto
 
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
+import com.ionspin.kotlin.crypto.aead.AuthenticatedEncryptionWithAssociatedData
+import com.ionspin.kotlin.crypto.scalarmult.ScalarMultiplication
 import com.ionspin.kotlin.crypto.signature.Signature
 import com.ionspin.kotlin.crypto.signature.SignatureKeyPair
 import com.ionspin.kotlin.crypto.util.LibsodiumRandom
@@ -57,5 +59,28 @@ object LibsodiumBridge {
         } catch (e: Exception) {
             throw e
         }
+    }
+
+    // Key Exchange & Scalar Multiplication
+    fun scalarMultBase(secretKey: UByteArray): UByteArray {
+        ensureInitialized()
+        return ScalarMultiplication.scalarMultiplicationBase(secretKey)
+    }
+
+    fun scalarMult(secretKey: UByteArray, publicKey: UByteArray): UByteArray {
+        ensureInitialized()
+        return ScalarMultiplication.scalarMultiplication(secretKey, publicKey)
+    }
+
+    // AEAD Encryption (ChaCha20-Poly1305 IETF)
+    fun aeadEncrypt(message: UByteArray, associatedData: UByteArray, nonce: UByteArray, key: UByteArray): UByteArray {
+        ensureInitialized()
+        // This function from the lib returns ciphertext and tag combined
+        return AuthenticatedEncryptionWithAssociatedData.chaCha20Poly1305IetfEncrypt(message, associatedData, nonce, key)
+    }
+
+    fun aeadDecrypt(ciphertextWithTag: UByteArray, associatedData: UByteArray, nonce: UByteArray, key: UByteArray): UByteArray {
+        ensureInitialized()
+        return AuthenticatedEncryptionWithAssociatedData.chaCha20Poly1305IetfDecrypt(ciphertextWithTag, associatedData, nonce, key)
     }
 }

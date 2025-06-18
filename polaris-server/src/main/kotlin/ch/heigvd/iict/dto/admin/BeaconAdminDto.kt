@@ -8,6 +8,7 @@ data class BeaconAdminDto(
     val name: String,
     val locationDescription: String,
     val publicKeyHex: String,
+    val publicKeyX25519Hex: String?,
     val lastKnownCounter: Long,
     val createdAt: Instant,
     val updatedAt: Instant

@@ -23,7 +23,8 @@
                 <th>Technical ID</th>
                 <th>Name</th>
                 <th>Location</th>
-                <th>Public Key (Hex)</th>
+                <th>Public Key (hex ed25519)</th>
+                <th>Public Key (hex X25519)</th>
                 <th>Last Counter</th>
                 <th>Created At</th>
                 <th>Updated At</th>
@@ -38,6 +39,13 @@
                     <td>{beacon.name}</td>
                     <td>{beacon.locationDescription}</td>
                     <td>{beacon.publicKeyHex}</td>
+                    <td>
+                        {#if beacon.publicKeyX25519Hex}
+                            <span title="{beacon.publicKeyX25519Hex}">{beacon.publicKeyX25519Hex.substring(0, 10)}...</span>
+                        {#else}
+                            <span style="color: grey;">Not Set</span>
+                        {/if}
+                    </td>
                     <td>{beacon.lastKnownCounter}</td>
                     <td>{beacon.createdAt}</td>
                     <td>{beacon.updatedAt}</td>

@@ -1,0 +1,51 @@
+package ch.heigvd.iict.web.rest
+
+import ch.heigvd.iict.dto.api.AckRequestDto
+import ch.heigvd.iict.dto.api.PayloadListDto
+import ch.heigvd.iict.entities.RegisteredPhone
+import ch.heigvd.iict.services.payload.PayloadService
+import ch.heigvd.iict.web.rest.auth.Secured
+import jakarta.enterprise.context.RequestScoped
+import jakarta.validation.Valid
+import jakarta.ws.rs.GET
+import jakarta.ws.rs.POST
+import jakarta.ws.rs.Path
+import jakarta.ws.rs.Produces
+import jakarta.ws.rs.Consumes
+import jakarta.ws.rs.core.Context
+import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.container.ContainerRequestContext
+
+@Path("/api/v1/payloads")
+@RequestScoped
+@Secured // All endpoints here require a valid API key
+class PayloadResource(
+    private val payloadService: PayloadService
+) {
+    @Context
+    private lateinit var requestContext: ContainerRequestContext
+
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    fun getPendingPayloads(): Response {
+        // The ApiKeyFilter has already authenticated the phone and put it in the context.
+        val phone = requestContext.getProperty("authenticatedPhone") as RegisteredPhone
+
+        // Call the service to get any available jobs for this phone.
+        val payloads = payloadService.getPendingPayloadsForPhone(phone)
+
+        // Wrap the list in our DTO for a clean JSON structure.
+        val responseWrapper = PayloadListDto(payloads)
+
+        return Response.ok(responseWrapper).build()
+    }
+
+    @POST
+    @Path("/ack")
+    @Consumes(MediaType.APPLICATION_JSON)
+    fun submitAck(@Valid request: AckRequestDto): Response {
+        payloadService.processAck(request)
+        return Response.accepted().build()
+    }
+}

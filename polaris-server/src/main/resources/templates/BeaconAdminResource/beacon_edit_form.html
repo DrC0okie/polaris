@@ -33,8 +33,13 @@
                 <textarea id="locationDescription" name="locationDescription" rows="3">{beacon.locationDescription}</textarea>
             </div>
             <div>
-                <label for="publicKeyHex">Public Key (Hex):</label>
+                <label for="publicKeyHex">Public Key (Ed25519 - Signing, Read-Only):</label>
                 <input type="text" id="publicKeyHex" name="publicKeyHex" value="{beacon.publicKeyHex}" readonly title="Public key cannot be changed during edit.">
+            </div>
+            <div>
+                <label for="publicKeyX25519Hex">Public Key (X25519 - AEAD, 64 hex chars):</label>
+                <input type="text" id="publicKeyX25519Hex" name="publicKeyX25519Hex" pattern="[0-9a-fA-F]{64}"
+                       title="64 hexadecimal characters" value="{beacon.publicKeyX25519Hex ?: ''}">
             </div>
             <input type="submit" value="Update Beacon">
         </form>

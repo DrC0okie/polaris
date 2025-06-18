@@ -40,6 +40,14 @@ object PoLUtils {
         return bytes
     }
 
+    fun UShort.toUByteArrayLE(size: Int = 2): UByteArray {
+        val bytes = UByteArray(size)
+        for (i in 0 until size) {
+            bytes[i] = ((this.toUInt() shr (i * 8)) and 0xFFu).toUByte()
+        }
+        return bytes
+    }
+
     fun UByteArray.toHexString(): String = joinToString("") { it.toString(16).padStart(2, '0') }
 
     fun ByteArray.toHexString(): String = asUByteArray().toHexString()

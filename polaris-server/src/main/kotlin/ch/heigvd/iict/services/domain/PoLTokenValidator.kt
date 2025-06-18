@@ -4,7 +4,7 @@ import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.entities.Beacon
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.repositories.PoLTokenRecordRepository
-import ch.heigvd.iict.services.core.CryptoService
+import ch.heigvd.iict.services.crypto.CryptoService
 import com.ionspin.kotlin.crypto.util.toHexString
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject

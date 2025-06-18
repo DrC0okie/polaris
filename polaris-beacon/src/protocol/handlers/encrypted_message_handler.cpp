@@ -61,15 +61,15 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
                   TAG, innerPtReceived.msgId, innerPtReceived.msgType, innerPtReceived.opType,
                   innerPtReceived.beaconCnt, innerPtReceived.actualPayloadLength);
 
-    if (innerPtReceived.opType == OP_TYPE_REQ) {
+    if (innerPtReceived.opType == MSG_TYPE_REQ) {
         Serial.printf("%s REQ, msgId %u. Processing...\n", TAG, innerPtReceived.msgId);
         // TODO: Process logic. For the moment we just send an ACK
         sendAck(innerPtReceived.msgId, innerPtReceived.opType);
-    } else if (innerPtReceived.opType == OP_TYPE_ACK) {
+    } else if (innerPtReceived.opType == MSG_TYPE_ACK) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         // TODO: Handle ACK (e.g., confirm command completion)
-    } else if (innerPtReceived.opType == OP_TYPE_ERR) {
+    } else if (innerPtReceived.opType == MSG_TYPE_ERR) {
         Serial.printf("%s ERR for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         if (innerPtReceived.actualPayloadLength > 0) {
@@ -86,7 +86,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
 void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOpType) {
     InnerPlaintext ackInnerPt;
     ackInnerPt.msgId = _nextResponseMsgId;  // Use beacon's own unique msgId for this response
-    ackInnerPt.msgType = OP_TYPE_ACK;
+    ackInnerPt.msgType = MSG_TYPE_ACK;
     ackInnerPt.opType = originalOpType;  // Echo opType of the request it's ACKing
     ackInnerPt.beaconCnt = _beaconEventCounter.getValue();
     ackInnerPt.actualPayloadLength = 0;  // No payload for a simple ACK
@@ -119,7 +119,7 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
                                       uint8_t errorCode) {
     InnerPlaintext errInnerPt;
     errInnerPt.msgId = _nextResponseMsgId;
-    errInnerPt.msgType = OP_TYPE_ERR;
+    errInnerPt.msgType = MSG_TYPE_ERR;
     errInnerPt.opType = originalOpType;
     errInnerPt.beaconCnt = _beaconEventCounter.getValue();
     errInnerPt.payload[0] = errorCode;  // Simple error code as payload

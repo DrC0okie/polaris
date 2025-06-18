@@ -26,19 +26,29 @@ class BeaconAdminService {
     }
 
     @Transactional
-    fun addBeacon(technicalId: Int, name: String, locationDescription: String, publicKey: ByteArray): Beacon {
+    fun addBeacon(
+        technicalId: Int,
+        name: String,
+        locationDescription: String,
+        publicKeyEd25519: ByteArray,
+        publicKeyX25519: ByteArray?
+    ): Beacon {
         if (beaconRepository.findByBeaconTechnicalId(technicalId) != null) {
             throw IllegalArgumentException("Beacon with technical ID $technicalId already exists.")
         }
-        if (publicKey.size != 32) {
-            throw IllegalArgumentException("Public key must be 32 bytes.")
+        if (publicKeyEd25519.size != 32) {
+            throw IllegalArgumentException("Ed25519 public key must be 32 bytes.")
+        }
+        if (publicKeyX25519 != null && publicKeyX25519.size != 32) {
+            throw IllegalArgumentException("X25519 Public key must be 32 bytes.")
         }
 
         val beacon = Beacon().apply {
             this.beaconId = technicalId
             this.name = name
             this.locationDescription = locationDescription
-            this.publicKey = publicKey
+            this.publicKey = publicKeyEd25519
+            this.publicKeyX25519 = publicKeyX25519
             this.lastKnownCounter = 0L
         }
         beaconRepository.persist(beacon)
@@ -60,9 +70,20 @@ class BeaconAdminService {
         return beaconRepository.deleteById(id)
     }
 
-    // TODO: Méthodes pour les statistiques (nombre de tokens, etc.)
     fun getBeaconTokenCount(beaconId: Long): Long {
         val beacon = beaconRepository.findById(beaconId) ?: return 0
         return tokenRecordRepository.count("beacon", beacon)
+    }
+
+    @Transactional
+    fun updateBeaconX25519Key(id: Long, publicKeyX25519: ByteArray): Beacon? {
+        if (publicKeyX25519.size != 32) {
+            throw IllegalArgumentException("X25519 Public key must be 32 bytes.")
+        }
+        val beacon = beaconRepository.findById(id)
+        beacon?.let {
+            it.publicKeyX25519 = publicKeyX25519
+        }
+        return beacon
     }
 }
