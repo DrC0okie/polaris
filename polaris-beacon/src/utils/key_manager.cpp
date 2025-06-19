@@ -129,7 +129,7 @@ bool KeyManager::manageServerX25519PublicKey(uint8_t pk_out[X25519_PK_SIZE],
 }
 
 void KeyManager::generateEd25519KeyPair(uint8_t publicKeyOut[Ed25519_PK_SIZE],
-                            uint8_t secretKeyOut[Ed25519_SK_SIZE]) {
+                                        uint8_t secretKeyOut[Ed25519_SK_SIZE]) {
     if (crypto_sign_ed25519_keypair(publicKeyOut, secretKeyOut) != 0) {
         Serial.println("[Crypto] Error: Ed25519 keypair generation failed.");
         memset(publicKeyOut, 0, Ed25519_PK_SIZE);
