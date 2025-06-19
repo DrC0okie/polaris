@@ -42,7 +42,7 @@ class PayloadService(
 
         // Create the plaintext message with the correct structure
         val plaintext = PlaintextMessage(
-            serverMsgId = serverMsgId,
+            msgId = serverMsgId,
             msgType = MessageType.REQ,
             opType = opType,
             beaconCounter = beacon.lastKnownCounter,

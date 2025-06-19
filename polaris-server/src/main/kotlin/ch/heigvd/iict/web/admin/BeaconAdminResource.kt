@@ -51,7 +51,7 @@ class BeaconAdminResource(
                 it.name,
                 it.locationDescription,
                 it.publicKey.asUByteArray().toHexString(),
-                it.publicKeyX25519?.asUByteArray()?.toHexString() ?: "",
+                it.publicKeyX25519?.asUByteArray()?.toHexString(),
                 it.lastKnownCounter,
                 it.createdAt,
                 it.updatedAt

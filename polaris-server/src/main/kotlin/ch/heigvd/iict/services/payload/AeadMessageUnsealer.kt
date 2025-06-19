@@ -5,11 +5,8 @@ import ch.heigvd.iict.services.crypto.ISharedKeyManager
 import ch.heigvd.iict.services.crypto.LibsodiumBridge
 import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.services.crypto.model.SealedMessage
-import ch.heigvd.iict.services.protocol.MessageType
-import ch.heigvd.iict.services.protocol.OperationType
 import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE
 import jakarta.enterprise.context.ApplicationScoped
-import java.nio.ByteBuffer
 
 @ApplicationScoped
 class AeadMessageUnsealer(private val keyManager: ISharedKeyManager) : IMessageUnsealer {
@@ -25,20 +22,6 @@ class AeadMessageUnsealer(private val keyManager: ISharedKeyManager) : IMessageU
             key = sharedKey.asUByteArray()
         ).asByteArray()
 
-        // Deserialize the plaintext bytes back into our PlaintextMessage model
-        return deserializePlaintext(plaintextBytes)
-    }
-
-    private fun deserializePlaintext(bytes: ByteArray): PlaintextMessage {
-        val buffer = ByteBuffer.wrap(bytes)
-        val msgId = buffer.int.toLong()
-        val msgType = MessageType.fromCode(buffer.get().toUByte())
-        val opType = OperationType.fromCode(buffer.get().toUByte())
-        val beaconCnt = buffer.int
-        val payloadLength = buffer.short.toInt()
-        val payload = ByteArray(payloadLength)
-        buffer.get(payload)
-
-        return PlaintextMessage(msgId, msgType, opType, beaconCnt.toLong(), payload)
+        return PlaintextMessage.fromBytes(plaintextBytes)
     }
 }

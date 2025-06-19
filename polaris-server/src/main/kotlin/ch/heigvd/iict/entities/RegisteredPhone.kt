@@ -6,7 +6,6 @@ import java.time.Instant
 
 @Entity
 @Table(name = "registered_phones", indexes = [
-    Index(name = "idx_phone_technical_id", columnList = "phoneTechnicalId", unique = true),
     Index(name = "idx_phone_api_key", columnList = "apiKey", unique = true)
 ])
 class RegisteredPhone : PanacheEntity() {

@@ -3,6 +3,7 @@ package ch.heigvd.iict.web.admin
 import ch.heigvd.iict.dto.admin.PayloadCreationDto
 import ch.heigvd.iict.repositories.BeaconRepository
 import ch.heigvd.iict.services.payload.PayloadService
+import ch.heigvd.iict.services.protocol.OperationType
 import io.quarkus.logging.Log
 import io.quarkus.qute.CheckedTemplate
 import io.quarkus.qute.TemplateInstance
@@ -55,7 +56,7 @@ class PayloadAdminResource(
             val message = payloadService.createOutboundMessage(
                 beaconId = beaconId,
                 command = commandJson,
-                opType = opType.toUByte(),
+                opType = OperationType.fromCode(opType.toUByte()),
                 redundancyFactor = redundancyFactor
             )
             Log.info("Successfully created job with ID ${message.id} for beacon $beaconId.")

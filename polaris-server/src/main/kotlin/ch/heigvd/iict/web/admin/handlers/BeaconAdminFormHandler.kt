@@ -30,18 +30,8 @@ class BeaconAdminFormHandler(
 
             val locationDescription = formData.locationDescription ?: ""
 
-            val ed25519Hex = formData.publicKeyEd25519Hex
-            if (ed25519Hex.isNullOrBlank() || ed25519Hex.length != 64) {
-                throw IllegalArgumentException("Ed25519 Public Key must be 64 hex characters.")
-            }
-            val ed25519Bytes = PoLUtils.hexStringToUByteArray(ed25519Hex).asByteArray()
-
-            val x25519Bytes = formData.publicKeyX25519Hex?.let {
-                if (it.isNotBlank()) {
-                    if (it.length != 64) throw IllegalArgumentException("X25519 Public Key must be 64 hex characters.")
-                    PoLUtils.hexStringToUByteArray(it).asByteArray()
-                } else null
-            }
+            val ed25519Bytes = validateHexKey(formData.publicKeyEd25519Hex, "Ed25519 Public Key")
+            val x25519Bytes = formData.publicKeyX25519Hex?.let { validateHexKey(it, "X25519 Public Key") }
 
             beaconAdminService.addBeacon(technicalId, name, locationDescription, ed25519Bytes, x25519Bytes)
 
@@ -57,7 +47,12 @@ class BeaconAdminFormHandler(
     @OptIn(ExperimentalUnsignedTypes::class)
     fun processUpdateBeacon(id: Long, formData: BeaconFormData): FormProcessingResult {
         val existingBeacon = beaconAdminService.findBeaconById(id)
-            ?: return FormProcessingResult.Failure(viewRenderer.renderEditFormWithError(null, "Beacon not found with ID: $id"))
+            ?: return FormProcessingResult.Failure(
+                viewRenderer.renderEditFormWithError(
+                    null,
+                    "Beacon not found with ID: $id"
+                )
+            )
 
         try {
             val name = formData.name.takeIf { !it.isNullOrBlank() }
@@ -66,19 +61,16 @@ class BeaconAdminFormHandler(
             val locationDescription = formData.locationDescription ?: ""
             beaconAdminService.updateBeacon(id, name, locationDescription)
 
-            formData.publicKeyX25519Hex?.let { x25519Hex ->
-                if (x25519Hex.isNotBlank()) {
-                    if (x25519Hex.length != 64) throw IllegalArgumentException("X25519 Public Key must be 64 hex characters.")
-                    val x25519Bytes = PoLUtils.hexStringToUByteArray(x25519Hex).asByteArray()
-                    beaconAdminService.updateBeaconX25519Key(id, x25519Bytes)
-                }
+            formData.publicKeyX25519Hex?.let {
+                    beaconAdminService.updateBeaconX25519Key(id, validateHexKey(it, "X25519 Public Key"))
             }
 
             val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
             return FormProcessingResult.Success(redirect)
 
         } catch (e: Exception) {
-            val errorResponse = viewRenderer.renderEditFormWithError(existingBeacon, e.message ?: "An unknown error occurred.")
+            val errorResponse =
+                viewRenderer.renderEditFormWithError(existingBeacon, e.message ?: "An unknown error occurred.")
             return FormProcessingResult.Failure(errorResponse)
         }
     }
@@ -87,5 +79,17 @@ class BeaconAdminFormHandler(
         beaconAdminService.deleteBeacon(id)
         val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
         return FormProcessingResult.Success(redirect)
+    }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    private fun validateHexKey(key: String?, keyName: String): ByteArray {
+        if (key.isNullOrBlank() || key.length != 64) {
+            throw IllegalArgumentException("$keyName must be 64 hex characters.")
+        }
+        if (!key.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
+            throw IllegalArgumentException("$keyName must be an hexadecimal value")
+        }
+
+        return PoLUtils.hexStringToUByteArray(key).asByteArray()
     }
 }
