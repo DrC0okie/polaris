@@ -1,9 +1,7 @@
-package ch.heigvd.iict.services.domain
+package ch.heigvd.iict.services.token
 
 import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.dto.api.PoLTokenValidationResultDto
-import ch.heigvd.iict.entities.Beacon
-import ch.heigvd.iict.entities.PoLTokenRecord
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.repositories.BeaconRepository
 import ch.heigvd.iict.repositories.PoLTokenRecordRepository
@@ -28,10 +26,8 @@ class TokenProcessingService @Inject constructor(
         val isValid = errors.isEmpty()
         val record = assembler.assemble(dto, phone, beacon, isValid, errors)
         val newCounter = dto.beaconCounter.toLong()
-
         recordRepo.persist(record)
 
-        // Now beacon is still managed, so this will trigger an UPDATE on commit:
         if (isValid && newCounter > beacon.lastKnownCounter) {
             beacon.lastKnownCounter = newCounter
         }

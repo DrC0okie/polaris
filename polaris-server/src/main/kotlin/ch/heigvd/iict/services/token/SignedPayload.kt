@@ -1,4 +1,4 @@
-package ch.heigvd.iict.services.domain
+package ch.heigvd.iict.services.token
 
 import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE

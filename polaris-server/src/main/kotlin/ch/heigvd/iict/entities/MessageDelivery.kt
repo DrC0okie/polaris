@@ -1,7 +1,7 @@
 package ch.heigvd.iict.entities
 
 
-import ch.heigvd.iict.services.core.AckStatus
+import ch.heigvd.iict.services.protocol.AckStatus
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
 import jakarta.persistence.*
 import java.time.Instant

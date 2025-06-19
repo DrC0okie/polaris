@@ -3,6 +3,7 @@ package ch.heigvd.iict.repositories
 import ch.heigvd.iict.entities.OutboundMessage
 import ch.heigvd.iict.entities.RegisteredPhone
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheRepository
+import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
@@ -12,7 +13,7 @@ class OutboundMessageRepository(
     private val entityManager: EntityManager
 ) : PanacheRepository<OutboundMessage> {
 
-    fun findAndClaimAvailableJob(phone: RegisteredPhone, maxJobs: Int = 1): OutboundMessage? {
+    fun findAndClaimAvailableJob(phone: RegisteredPhone, maxJobs: Int = 1): List<OutboundMessage> {
         // The query remains the same.
         val query = """
             SELECT m FROM OutboundMessage m 
@@ -25,28 +26,30 @@ class OutboundMessageRepository(
             ORDER BY m.createdAt ASC
         """
 
+        // Find potential candidates.
         val availableMessages = entityManager.createQuery(query, OutboundMessage::class.java)
             .setParameter("phone", phone)
             .setMaxResults(maxJobs)
             .resultList
 
-        if (availableMessages.isEmpty()) {
-            return null
+        val claimedMessages = mutableListOf<OutboundMessage>()
+
+        // Loop through candidates and try to claim them one by one.
+        for (messageToClaim in availableMessages) {
+            try {
+                // Acquire lock. If another transaction has a lock, this will wait or timeout.
+                entityManager.lock(messageToClaim, LockModeType.PESSIMISTIC_WRITE)
+
+                if (messageToClaim.deliveryCount < messageToClaim.redundancyFactor) {
+                    // The job is still available. Add it to the list.
+                    claimedMessages.add(messageToClaim)
+                }
+            } catch (e: Exception) {
+                Log.warn("Failed to acquire lock on message ${messageToClaim.id}", e)
+            }
         }
 
-        val messageToClaim = availableMessages.first()
-
-        // Acquire the lock on this specific entity instance
-        entityManager.lock(messageToClaim, LockModeType.PESSIMISTIC_WRITE)
-
-        // Double-check condition post-lock
-        if (messageToClaim.deliveryCount >= messageToClaim.redundancyFactor) {
-            // Someone else claimed it.
-            return null
-        }
-
-        // Return the locked entity.
-        return messageToClaim
+        return claimedMessages
     }
 
     fun getNextServerMsgId(): Long {

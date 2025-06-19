@@ -1,4 +1,4 @@
-package ch.heigvd.iict.services.core
+package ch.heigvd.iict.services.protocol
 
 enum class MessageStatus {
     PENDING,     // Ready to be picked up

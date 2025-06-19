@@ -1,9 +1,11 @@
 package ch.heigvd.iict.entities
 
-import ch.heigvd.iict.services.core.MessageStatus
+import ch.heigvd.iict.services.protocol.MessageStatus
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
 import jakarta.persistence.*
 import java.time.Instant
+import io.hypersistence.utils.hibernate.type.json.JsonType
+import org.hibernate.annotations.Type
 
 @Entity
 @Table(name = "outbound_messages")
@@ -17,6 +19,7 @@ class OutboundMessage : PanacheEntity() {
     @Column(nullable = false)
     lateinit var status: MessageStatus
 
+    @Type(JsonType::class)
     @Column(columnDefinition = "jsonb", nullable = false)
     lateinit var commandPayload: String // Store JSON as a string
 

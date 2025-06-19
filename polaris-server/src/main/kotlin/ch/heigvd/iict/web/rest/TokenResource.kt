@@ -3,7 +3,7 @@ package ch.heigvd.iict.web.rest
 import ch.heigvd.iict.dto.api.PoLTokenDto
 import ch.heigvd.iict.dto.api.PoLTokenValidationResultDto
 import ch.heigvd.iict.entities.RegisteredPhone
-import ch.heigvd.iict.services.domain.TokenProcessingService
+import ch.heigvd.iict.services.token.TokenProcessingService
 import ch.heigvd.iict.web.rest.auth.Secured
 import jakarta.enterprise.context.RequestScoped
 import jakarta.inject.Inject

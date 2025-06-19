@@ -1,12 +1,15 @@
 package ch.heigvd.iict.services.crypto.model
 
 import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE
+import ch.heigvd.iict.services.protocol.MessageType
+import ch.heigvd.iict.services.protocol.OperationType
 
 @OptIn(ExperimentalUnsignedTypes::class)
 data class PlaintextMessage(
     val serverMsgId: Long,
-    val msgType: UByte,   // REQ, ACK, ERR
-    val opType: UByte,    // Command code
+    val msgType: MessageType,
+    val opType: OperationType,
+    val beaconCounter: Long,
     val payload: ByteArray
 ) {
     // This serialization must match the beacon's `InnerPlaintext::serialize`
@@ -21,8 +24,8 @@ data class PlaintextMessage(
         val payloadLenBytes = payload.size.toUShort().toUByteArrayLE()
 
         return msgIdBytes +
-                msgType +
-                opType +
+                msgType.code +
+                opType.code +
                 beaconCounterBytes +
                 payloadLenBytes +
                 payload.asUByteArray()

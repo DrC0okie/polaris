@@ -1,9 +1,12 @@
 package ch.heigvd.iict.web.admin
 
 import ch.heigvd.iict.dto.admin.BeaconAdminDto
+import ch.heigvd.iict.entities.OutboundMessage
+import ch.heigvd.iict.repositories.OutboundMessageRepository
 import ch.heigvd.iict.services.admin.BeaconAdminService
 import io.quarkus.qute.CheckedTemplate
 import io.quarkus.qute.TemplateInstance
+import io.quarkus.panache.common.Sort
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.MediaType
@@ -19,6 +22,7 @@ import ch.heigvd.iict.web.admin.handlers.FormProcessingResult
 @ApplicationScoped
 class BeaconAdminResource(
     private val beaconAdminService: BeaconAdminService,
+    private val outboundMessageRepository: OutboundMessageRepository,
     private val formHandler: BeaconAdminFormHandler,
     private val viewRenderer: BeaconAdminViewRenderer
 ) {
@@ -26,7 +30,7 @@ class BeaconAdminResource(
     @CheckedTemplate
     object Templates {
         @JvmStatic
-        external fun beacons(beacons: List<BeaconAdminDto>): TemplateInstance
+        external fun beacons( beacons: List<BeaconAdminDto>, payloads: List<OutboundMessage>): TemplateInstance
 
         @JvmStatic
         external fun beacon_add_form(beacon: BeaconAdminDto?, errorMessage: String? = null): TemplateInstance
@@ -53,7 +57,9 @@ class BeaconAdminResource(
                 it.updatedAt
             )
         }
-        return Templates.beacons(beaconDtos)
+        // Fetch all outbound messages, sorted by creation date
+        val payloads = outboundMessageRepository.listAll(Sort.by("createdAt").descending())
+        return Templates.beacons(beaconDtos, payloads)
     }
 
     @GET

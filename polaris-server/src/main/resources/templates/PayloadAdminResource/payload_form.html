@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Send Payload to Beacon</title>
+  <style>
+    .container { width: 60%; margin: 20px auto; font-family: sans-serif; }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    input[type=number], select, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    input[type=submit] {
+      margin-top: 20px;
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    input[type=submit]:hover { background-color: #0056b3; }
+    .message { padding: 15px; margin: 15px 0; border-radius: 4px; }
+    .success { color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; }
+    .error { color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+    small { color: #555; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Create New Payload Job</h1>
+
+  {#if successMessage}
+    <p class="message success">{successMessage}</p>
+  {/if}
+  {#if errorMessage}
+    <p class="message error">{errorMessage}</p>
+  {/if}
+
+  <form method="POST" action="/admin/payloads/create">
+    <div>
+      <label for="beaconId">Target Beacon:</label>
+      <select id="beaconId" name="beaconId" required>
+        <option value="">-- Select a Beacon --</option>
+        {#for beacon in dto.beacons}
+          {#if beacon.publicKeyX25519 != null}
+            <option value="{beacon.beaconId}" {#if beacon.beaconId == dto.selectedBeaconId}selected{/if}>
+              {beacon.name} (ID: {beacon.beaconId})
+            </option>
+          {/if}
+        {/for}
+      </select>
+    </div>
+
+    <div>
+      <label for="opType">Operation Type (opType):</label>
+      <input type="number" id="opType" name="opType" min="0" max="255" value="{dto.opType ?: '1'}" required>
+      <small>A number from 0-255 representing the command for the beacon.</small>
+    </div>
+
+    <div>
+      <label for="redundancyFactor">Redundancy Factor (N):</label>
+      <input type="number" id="redundancyFactor" name="redundancyFactor" min="1" value="{dto.redundancyFactor ?: '1'}" required>
+      <small>The number of phones that should receive this job for delivery.</small>
+    </div>
+
+    <div>
+      <label for="commandPayload">Command Payload (must be valid JSON):</label>
+      <textarea id="commandPayload" name="commandPayload" rows="8" required>{dto.commandPayload ?: '{}'}</textarea>
+      <small>The JSON data to be sent inside the encrypted payload.</small>
+    </div>
+
+    <input type="submit" value="Create Payload Job">
+  </form>
+
+  <p style="margin-top: 20px;"><a href="/admin/beacons">Back to Main Dashboard</a></p>
+</div>
+</body>
+</html>

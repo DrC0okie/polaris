@@ -50,6 +50,11 @@
             <artifactId>quarkus-hibernate-validator</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkiverse.hibernatetypes</groupId>
+            <artifactId>quarkus-hibernate-types</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-kotlin</artifactId>
         </dependency>

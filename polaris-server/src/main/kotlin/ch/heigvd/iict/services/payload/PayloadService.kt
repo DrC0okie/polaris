@@ -4,14 +4,13 @@ import ch.heigvd.iict.dto.api.AckRequestDto
 import ch.heigvd.iict.dto.api.PhonePayloadDto
 import ch.heigvd.iict.entities.*
 import ch.heigvd.iict.repositories.BeaconRepository
-import ch.heigvd.iict.repositories.MessageDeliveryRepository
-import ch.heigvd.iict.services.core.AckStatus
-import ch.heigvd.iict.services.core.MessageStatus
+import ch.heigvd.iict.services.protocol.AckStatus
+import ch.heigvd.iict.services.protocol.MessageStatus
 import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.repositories.OutboundMessageRepository
+import ch.heigvd.iict.services.protocol.MessageType
+import ch.heigvd.iict.services.protocol.OperationType
 import jakarta.enterprise.context.ApplicationScoped
-import jakarta.persistence.EntityManager
-import jakarta.persistence.LockModeType
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
 import kotlinx.serialization.encodeToString
@@ -21,23 +20,15 @@ import kotlinx.serialization.json.JsonObject
 @ApplicationScoped
 class PayloadService(
     private val sealer: IMessageSealer,
-    private val unsealer: IMessageUnsealer,
-    private val em : EntityManager,
+    private val ackProcessor: PayloadAckProcessor,
     private val beaconRepository: BeaconRepository,
-    private val outboundMessageRepository: OutboundMessageRepository,
-    private val deliveryRepository: MessageDeliveryRepository
+    private val outboundMessageRepository: OutboundMessageRepository
 ) {
-
-    companion object {
-        const val MSG_TYPE_REQ: UByte = 0x01u
-        const val OP_TYPE_GENERIC_COMMAND: UByte = 0x01u
-    }
-
     @Transactional
     fun createOutboundMessage(
         beaconId: Int,
         command: JsonObject,
-        opType: UByte,
+        opType: OperationType,
         redundancyFactor: Int = 1
     ): OutboundMessage {
         val beacon = beaconRepository.findByBeaconTechnicalId(beaconId)
@@ -52,8 +43,9 @@ class PayloadService(
         // Create the plaintext message with the correct structure
         val plaintext = PlaintextMessage(
             serverMsgId = serverMsgId,
-            msgType = MSG_TYPE_REQ, // This is a request
-            opType = opType,        // This is the specific operation code
+            msgType = MessageType.REQ,
+            opType = opType,
+            beaconCounter = beacon.lastKnownCounter,
             payload = Json.encodeToString(command).toByteArray()
         )
 
@@ -76,67 +68,38 @@ class PayloadService(
     @Transactional
     @OptIn(ExperimentalUnsignedTypes::class)
     fun getPendingPayloadsForPhone(phone: RegisteredPhone, maxJobs: Int = 1): List<PhonePayloadDto> {
-        // The service logic is now much cleaner.
-        // We ask the repository to find and lock a job for us.
-        val claimedMessage = outboundMessageRepository.findAndClaimAvailableJob(phone)
-            ?: return emptyList() // No jobs available or claim failed
+        // Ask the repository to find and lock a list of jobs
+        val claimedMessages = outboundMessageRepository.findAndClaimAvailableJob(phone, maxJobs)
+        if (claimedMessages.isEmpty()) return emptyList()
 
-        // The repository has returned a locked entity. Now we finish the business logic.
-        val delivery = MessageDelivery().apply {
-            this.outboundMessage = claimedMessage
-            this.phone = phone
-            this.ackStatus = AckStatus.PENDING_ACK
+        // Process each successfully claimed message.
+        return claimedMessages.map { claimedMessage ->
+
+            val delivery = MessageDelivery().apply {
+                this.outboundMessage = claimedMessage
+                this.phone = phone
+                this.ackStatus = AckStatus.PENDING_ACK
+            }
+            delivery.persist()
+
+            // Update the parent message's state.
+            claimedMessage.deliveryCount++
+            if (claimedMessage.status == MessageStatus.PENDING) {
+                claimedMessage.status = MessageStatus.DELIVERING
+            }
+
+            // Create the DTO to be sent back to the phone.
+            PhonePayloadDto(
+                deliveryId = delivery.id!!,
+                beaconId = claimedMessage.beacon.beaconId,
+                encryptedBlob = claimedMessage.encryptedBlob!!.asUByteArray()
+            )
         }
-        delivery.persist()
-
-        claimedMessage.deliveryCount++
-        claimedMessage.status = MessageStatus.DELIVERING
-        claimedMessage.persist()
-
-        val dto = PhonePayloadDto(
-            deliveryId = delivery.id!!,
-            beaconId = claimedMessage.beacon.beaconId,
-            encryptedBlob = claimedMessage.encryptedBlob!!.asUByteArray()
-        )
-
-        // The transaction commits here, releasing the lock.
-        return listOf(dto)
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
     @Transactional
     fun processAck(request: AckRequestDto) {
-        // 1. Find the specific delivery record this ACK corresponds to.
-        val delivery = deliveryRepository.findById(request.deliveryId)
-            ?: throw NotFoundException("Delivery record with ID ${request.deliveryId} not found.")
-
-        val message = delivery.outboundMessage
-
-        // This prevents a race condition where two ACKs for the same message are processed simultaneously.
-        em.lock(message, LockModeType.PESSIMISTIC_WRITE)
-
-        // If the message is already marked as acknowledged, we're done. Just log and exit.
-        if (message.status == MessageStatus.ACKNOWLEDGED) {
-            return
-        }
-
-        // Update the specific delivery record
-        delivery.rawAckBlob = request.ackBlob.asByteArray()
-        delivery.ackReceivedAt = java.time.Instant.now()
-        // TODO: Decrypt the blob to determine if it's an ACK or ERR
-        // For now, we'll assume it's an ACK.
-        delivery.ackStatus = AckStatus.ACK_RECEIVED
-        delivery.persist()
-
-        // Update the parent OutboundMessage
-        message.status = MessageStatus.ACKNOWLEDGED
-        message.firstAcknowledgedAt = delivery.ackReceivedAt
-        message.persist()
-
-        // DECRYPTION (Optional but recommended)
-        // You would now use the unsealer to decrypt the ackBlob and inspect its contents.
-        // val sealed = SealedMessage.fromBlob(request.ackBlob.asByteArray())
-        // val plaintextAck = unsealer.unseal(sealed, message.beacon)
-        // Log plaintextAck.opType, etc.
+        ackProcessor.process(request)
     }
 }

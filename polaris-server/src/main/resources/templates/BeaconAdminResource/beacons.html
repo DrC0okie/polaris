@@ -63,6 +63,45 @@
     {#else}
         <p>No beacons found.</p>
     {/if}
+
+    <hr style="margin-top: 40px; margin-bottom: 20px;">
+
+    <h1>Outbound Payload Jobs</h1>
+    <a href="/admin/payloads/new" class="add-link">Create New Payload Job</a>
+
+    {#if payloads.size > 0}
+        <table>
+            <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Target Beacon</th>
+                <th>Status</th>
+                <th>Redundancy (N)</th>
+                <th>Delivered</th>
+                <th>Command Payload</th>
+                <th>Created At</th>
+                <th>Acknowledged At</th>
+            </tr>
+            </thead>
+            <tbody>
+            {#for payload in payloads}
+                <tr>
+                    <td>{payload.id}</td>
+                    <td>{payload.beacon.name} (ID: {payload.beacon.beaconId})</td>
+                    <td>{payload.status}</td>
+                    <td>{payload.redundancyFactor}</td>
+                    <td>{payload.deliveryCount}</td>
+                    <td><pre style="margin: 0;">{payload.commandPayload}</pre></td>
+                    <td>{payload.createdAt}</td>
+                    <td>{payload.firstAcknowledgedAt ?: 'N/A'}</td>
+                </tr>
+            {/for}
+            </tbody>
+        </table>
+    {#else}
+        <p>No payload jobs found.</p>
+    {/if}
+
 </div>
 </body>
 </html>
