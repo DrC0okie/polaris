@@ -1,12 +1,21 @@
 package ch.heigvd.iict.entities
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.time.Instant
 
 @Entity
 @Table(name = "beacons")
-class Beacon : PanacheEntity() {
+@SequenceGenerator(
+    name = "beacons_seq",
+    sequenceName = "beacons_seq",
+    allocationSize = 50
+)
+class Beacon : PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "beacons_seq")
+    var id: Long? = null
 
     @Column(unique = true, nullable = false)
     var beaconId: Int = 0

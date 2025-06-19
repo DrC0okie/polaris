@@ -1,6 +1,7 @@
 package ch.heigvd.iict.services.payload
 
 import ch.heigvd.iict.dto.api.AckRequestDto
+import ch.heigvd.iict.dto.api.AckResponseDto
 import ch.heigvd.iict.dto.api.PhonePayloadDto
 import ch.heigvd.iict.entities.*
 import ch.heigvd.iict.repositories.BeaconRepository
@@ -99,7 +100,7 @@ class PayloadService(
 
     @OptIn(ExperimentalUnsignedTypes::class)
     @Transactional
-    fun processAck(request: AckRequestDto) {
-        ackProcessor.process(request)
+    fun processAck(request: AckRequestDto): AckResponseDto {
+        return ackProcessor.process(request)
     }
 }

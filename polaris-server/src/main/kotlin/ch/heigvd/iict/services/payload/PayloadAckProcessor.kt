@@ -1,6 +1,7 @@
 package ch.heigvd.iict.services.payload
 
 import ch.heigvd.iict.dto.api.AckRequestDto
+import ch.heigvd.iict.dto.api.AckResponseDto
 import ch.heigvd.iict.entities.MessageDelivery
 import ch.heigvd.iict.repositories.MessageDeliveryRepository
 import ch.heigvd.iict.services.protocol.AckStatus
@@ -24,19 +25,22 @@ class PayloadAckProcessor(
 ) {
 
     @OptIn(ExperimentalUnsignedTypes::class)
-    fun process(request: AckRequestDto) {
+    fun process(request: AckRequestDto): AckResponseDto {
         val delivery = deliveryRepository.findById(request.deliveryId)
             ?: throw NotFoundException("Delivery record with ID ${request.deliveryId} not found.")
 
-        // The transaction boundary is on the calling service method.
         // We acquire the lock on the parent message.
         val message = delivery.outboundMessage
         entityManager.lock(message, LockModeType.PESSIMISTIC_WRITE)
 
-        // Idempotency Check: If already acknowledged, do nothing.
+        // If already acknowledged, do nothing.
         if (message.status == MessageStatus.ACKNOWLEDGED || message.status == MessageStatus.FAILED) {
             Log.info("Ignoring redundant ACK for already completed message job ${message.id}")
-            return
+            return AckResponseDto(
+                deliveryId = delivery.id!!,
+                status = MessageStatus.REDUNDANT.name,
+                message = "ACK was ignored as the job was already completed."
+            )
         }
 
         // Store the raw blob regardless of validation outcome.
@@ -58,17 +62,22 @@ class PayloadAckProcessor(
             message.status = MessageStatus.FAILED
         } catch (e: Exception) {
             // Other errors (e.g., parsing, unexpected plaintext)
-            Log.error("An unexpected error occurred while processing ACK for delivery ${delivery.id}", e)
+            Log.warn("ACK validation failed for delivery ${delivery.id}: ${e.message}")
             delivery.ackStatus = AckStatus.PROCESSING_ERROR
             message.status = MessageStatus.FAILED
         }
 
-        // Persist all changes to delivery and its parent message
         delivery.persist()
         message.persist()
+
+        return AckResponseDto(
+            deliveryId = delivery.id!!,
+            status = delivery.ackStatus.name,
+            message = "Processed ACK for delivery ${delivery.id}. Status: ${delivery.ackStatus.name}"
+        )
     }
 
-    private fun processDecryptedAck(plaintext: PlaintextMessage, delivery: MessageDelivery) {
+    private fun processDecryptedAck(plaintext: PlaintextMessage, delivery: MessageDelivery){
         val message = delivery.outboundMessage
         val beacon = message.beacon
 
@@ -79,19 +88,15 @@ class PayloadAckProcessor(
 
         when (plaintext.msgType) {
             MessageType.ACK -> {
-                Log.info("Received valid ACK for message job ${message.id}")
                 delivery.ackStatus = AckStatus.ACK_RECEIVED
                 message.status = MessageStatus.ACKNOWLEDGED
                 message.firstAcknowledgedAt = delivery.ackReceivedAt
             }
             MessageType.ERR -> {
-                Log.warn("Received ERR from beacon for message job ${message.id}")
                 delivery.ackStatus = AckStatus.ERR_RECEIVED
                 message.status = MessageStatus.FAILED
-                // In a real system, you might inspect plaintext.payload for an error code.
             }
             else -> {
-                // This is a protocol violation.
                 throw IllegalStateException("Invalid message type received from beacon: ${plaintext.msgType}")
             }
         }

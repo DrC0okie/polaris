@@ -1,6 +1,7 @@
 package ch.heigvd.iict.web.rest
 
 import ch.heigvd.iict.dto.api.AckRequestDto
+import ch.heigvd.iict.dto.api.AckResponseDto
 import ch.heigvd.iict.dto.api.PayloadListDto
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.services.payload.PayloadService
@@ -19,7 +20,7 @@ import jakarta.ws.rs.container.ContainerRequestContext
 
 @Path("/api/v1/payloads")
 @RequestScoped
-@Secured // All endpoints here require a valid API key
+@Secured
 class PayloadResource(
     private val payloadService: PayloadService
 ) {
@@ -29,15 +30,9 @@ class PayloadResource(
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     fun getPendingPayloads(): Response {
-        // The ApiKeyFilter has already authenticated the phone and put it in the context.
         val phone = requestContext.getProperty("authenticatedPhone") as RegisteredPhone
-
-        // Call the service to get any available jobs for this phone.
         val payloads = payloadService.getPendingPayloadsForPhone(phone)
-
-        // Wrap the list in our DTO for a clean JSON structure.
         val responseWrapper = PayloadListDto(payloads)
-
         return Response.ok(responseWrapper).build()
     }
 
@@ -45,7 +40,7 @@ class PayloadResource(
     @Path("/ack")
     @Consumes(MediaType.APPLICATION_JSON)
     fun submitAck(@Valid request: AckRequestDto): Response {
-        payloadService.processAck(request)
-        return Response.accepted().build()
+        val result = payloadService.processAck(request)
+        return Response.ok(result).build()
     }
 }

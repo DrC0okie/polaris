@@ -5,5 +5,6 @@ enum class MessageStatus {
     DELIVERING,  // Picked up by at least one phone, but not N phones yet
     ACKNOWLEDGED, // The first ACK from the beacon has been received
     FAILED,      // The message processing failed
-    TIMED_OUT    // The message was not acknowledged within a certain timeframe
+    TIMED_OUT,    // The message was not acknowledged within a certain timeframe
+    REDUNDANT
 }

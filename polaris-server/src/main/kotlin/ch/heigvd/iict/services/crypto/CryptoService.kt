@@ -5,21 +5,25 @@ import io.quarkus.runtime.StartupEvent
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.enterprise.event.Observes
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 
 @OptIn(ExperimentalUnsignedTypes::class)
 @ApplicationScoped
 class CryptoService {
 
+    @OptIn(DelicateCoroutinesApi::class)
     fun onStart(@Observes ev: StartupEvent) {
-        Log.info("CryptoService: Initializing LibsodiumBridge...")
-        runBlocking {
-            LibsodiumBridge.initialize(
-                logInfo = { message -> Log.info("LibsodiumBridge: $message") },
-                logError = { message, throwable -> Log.error("LibsodiumBridge: $message", throwable) }
-            )
-        }
-        if (!LibsodiumBridge.isInitialized) {
-            throw RuntimeException("Failed to initialize LibsodiumBridge at startup.")
+        // Launch on a worker thread, so we don’t block the Vert.x event loop or Quarkus start
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                LibsodiumBridge.initialize(
+                    logInfo  = { msg   -> Log.info("LibsodiumBridge: $msg") },
+                    logError = { m, t -> Log.error("LibsodiumBridge: $m", t) }
+                )
+                Log.info("LibsodiumBridge initialized successfully.")
+            } catch (e: Exception) {
+                Log.error("LibsodiumBridge failed to initialize at startup.", e)
+            }
         }
     }
 

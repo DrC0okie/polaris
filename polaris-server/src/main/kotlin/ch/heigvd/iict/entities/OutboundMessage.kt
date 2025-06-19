@@ -1,15 +1,24 @@
 package ch.heigvd.iict.entities
 
 import ch.heigvd.iict.services.protocol.MessageStatus
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
 import jakarta.persistence.*
 import java.time.Instant
 import io.hypersistence.utils.hibernate.type.json.JsonType
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import org.hibernate.annotations.Type
 
 @Entity
 @Table(name = "outbound_messages")
-class OutboundMessage : PanacheEntity() {
+@SequenceGenerator(
+    name = "outbound_messages_seq",
+    sequenceName = "outbound_messages_seq",
+    allocationSize = 50
+)
+class OutboundMessage : PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "outbound_messages_seq")
+    var id: Long? = null
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "beacon_id", nullable = false)

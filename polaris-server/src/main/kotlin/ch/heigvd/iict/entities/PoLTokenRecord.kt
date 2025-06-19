@@ -1,15 +1,23 @@
 package ch.heigvd.iict.entities
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.time.Instant
 
 @Entity
 @Table(name = "pol_token_records", indexes = [
-    // Assure l'unicité d'une preuve (balise, compteur de la balise, nonce)
     Index(name = "idx_poltoken_unique_proof", columnList = "beacon_id, beaconCounter, nonce_hex", unique = true)
 ])
-class PoLTokenRecord : PanacheEntity() {
+@SequenceGenerator(
+    name = "pol_token_records_seq",
+    sequenceName = "pol_token_records_seq",
+    allocationSize = 50
+)
+class PoLTokenRecord : PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "pol_token_records_seq")
+    var id: Long? = null
 
     var flags: Byte = 0
 

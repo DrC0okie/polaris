@@ -1,6 +1,6 @@
 package ch.heigvd.iict.entities
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntity
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.time.Instant
 
@@ -8,7 +8,16 @@ import java.time.Instant
 @Table(name = "registered_phones", indexes = [
     Index(name = "idx_phone_api_key", columnList = "apiKey", unique = true)
 ])
-class RegisteredPhone : PanacheEntity() {
+@SequenceGenerator(
+    name = "registered_phones_seq",
+    sequenceName = "registered_phones_seq",
+    allocationSize = 50
+)
+class RegisteredPhone : PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "registered_phones_seq")
+    var id: Long? = null
 
     @Column(name = "public_key", columnDefinition = "BYTEA", nullable = false, unique = true)
     lateinit var publicKey: ByteArray
