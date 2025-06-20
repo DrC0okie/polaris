@@ -1,9 +1,15 @@
 #include "encrypted_message_handler.h"
 
+#include <ArduinoJson.h>
 #include <HardwareSerial.h>
+#include <Ticker.h>
 
 #include "../crypto.h"
-#include "../messages/encrypted_message.h"
+
+#define OP_TYPE_NO_OP 0x00
+#define OP_TYPE_REBOOT 0x01
+#define OP_TYPE_BLINK_LED 0x02
+#define OP_TYPE_STOP_BLINK 0x03
 
 EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
                                                  const MinuteCounter& beaconEventCounter,
@@ -47,7 +53,9 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
 
     // Check if beacon id is correct
     if (receivedMsg.beaconIdAd != _beaconIdForAd) {
-        Serial.printf("%s Wrong beacon id in received encrypted message, dropping.\n", TAG);
+        Serial.printf(
+            "%s Wrong beacon id (received id = %u) in received encrypted message, dropping.\n", TAG,
+            receivedMsg.beaconIdAd);
         return;
     }
 
@@ -61,15 +69,19 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
                   TAG, innerPtReceived.msgId, innerPtReceived.msgType, innerPtReceived.opType,
                   innerPtReceived.beaconCnt, innerPtReceived.actualPayloadLength);
 
-    if (innerPtReceived.opType == MSG_TYPE_REQ) {
-        Serial.printf("%s REQ, msgId %u. Processing...\n", TAG, innerPtReceived.msgId);
-        // TODO: Process logic. For the moment we just send an ACK
+    if (innerPtReceived.msgType == MSG_TYPE_REQ) {
+        Serial.printf("%s REQ received. opType: %u, msgId: %u. Processing...\n", TAG,
+                      innerPtReceived.opType, innerPtReceived.msgId);
+        // process the payload (json formatted)
+        handleIncomingCommand(innerPtReceived);
+
+        // After handling, send an ACK back to the server.
         sendAck(innerPtReceived.msgId, innerPtReceived.opType);
-    } else if (innerPtReceived.opType == MSG_TYPE_ACK) {
+    } else if (innerPtReceived.msgType == MSG_TYPE_ACK) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         // TODO: Handle ACK (e.g., confirm command completion)
-    } else if (innerPtReceived.opType == MSG_TYPE_ERR) {
+    } else if (innerPtReceived.msgType == MSG_TYPE_ERR) {
         Serial.printf("%s ERR for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         if (innerPtReceived.actualPayloadLength > 0) {
@@ -79,7 +91,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     } else {
         Serial.printf("%s Unknown opType %u. Ignoring.\n", TAG, innerPtReceived.opType);
         // Optionally send an ERR
-        // sendErr(innerPtReceived.msgId, innerPtReceived.opType, ERROR_CODE_UNKNOWN_OP_TYPE);
+        sendErr(innerPtReceived.msgId, innerPtReceived.opType, 0x01);
     }
 }
 
@@ -145,5 +157,31 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
         }
     } else {
         Serial.printf("%s Failed to seal ERR for req_msgId %u.\n", TAG, originalMsgId);
+    }
+}
+
+void EncryptedMessageHandler::handleIncomingCommand(InnerPlaintext& pt) {
+    switch (pt.opType) {
+        case OP_TYPE_NO_OP: {
+            break;
+        }
+
+        case OP_TYPE_REBOOT: {
+            break;
+        }
+
+        case OP_TYPE_BLINK_LED: {
+            break;
+        }
+
+        case OP_TYPE_STOP_BLINK: {
+            break;
+        }
+
+        default: {
+            Serial.printf("-> Command: Unknown opType %u received.\n", pt.opType);
+            sendErr(pt.msgId, pt.opType, 0x03);  // Error code for "Unknown opType"
+            break;
+        }
     }
 }

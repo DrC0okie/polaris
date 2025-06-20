@@ -5,6 +5,7 @@
 
 #include "../../utils/counter.h"
 #include "../../utils/crypto_service.h"
+#include "../messages/encrypted_message.h"
 #include "../pol_constants.h"
 #include "imessage_handler.h"
 #include "protocol/transport/imessage_transport.h"
@@ -33,6 +34,7 @@ private:
 
     void sendAck(uint32_t originalMsgId, uint8_t originalOpType);
     void sendErr(uint32_t originalMsgId, uint8_t originalOpType, uint8_t errorCode);
+    void handleIncomingCommand(InnerPlaintext& pt);
 };
 
 #endif  // ENCRYPTED_MESSAGE_HANDLER_H
