@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import ch.drcookie.polaris_app.databinding.ActivityMainBinding
@@ -25,7 +26,7 @@ import ch.drcookie.polaris_app.util.Crypto
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory(this.applicationContext) }
+    private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory(this.application) }
     private var onPermissionsGranted: (() -> Unit)? = null
 
     private val permissions = mutableListOf<String>().apply {
@@ -51,6 +52,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -70,15 +72,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.startButton.setOnClickListener {
+        binding.TokenFlowButton.setOnClickListener {
             requestPermissionsAndRun {
-                viewModel.findAndRequestToken()
+                viewModel.findAndExecuteTokenFlow()
             }
         }
 
-        // The other buttons can be removed or repurposed. Let's disable them for now.
+        binding.payloadFlowButton.setOnClickListener {
+            requestPermissionsAndRun {
+                viewModel.processPayloadFlow()
+            }
+        }
+
         binding.fetchBeaconsButton.isEnabled = false
-        binding.sendTokenButton.isEnabled = false
 
         // --- Observe UI state from ViewModel ---
         lifecycleScope.launch {
@@ -93,7 +99,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateUi(state: UiState) {
         binding.debugLog.text = state.log
         binding.messageBox.text = "Status: ${state.connectionStatus}"
-        binding.startButton.isEnabled = state.canStart
+        binding.TokenFlowButton.isEnabled = state.canStart
         binding.registerButton.isEnabled = state.canStart
 
         // Scroll to the bottom of the log

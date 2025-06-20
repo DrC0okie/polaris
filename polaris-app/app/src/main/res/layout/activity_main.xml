@@ -19,27 +19,29 @@
         android:id="@+id/fetchBeaconsButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Fetch Beacons"
+        android:text="Not used"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@+id/registerButton"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <!-- Transmit signed PoL Token to the server -->
     <Button
-        android:id="@+id/startButton"
+        android:id="@+id/TokenFlowButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Start"
+        android:text="Token flow"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/registerButton"
-        app:layout_constraintEnd_toStartOf="@+id/sendTokenButton"/>
+        app:layout_constraintEnd_toStartOf="@+id/payloadFlowButton"/>
 
+    <!-- Transmit encrypted payload from the server-->
     <Button
-        android:id="@+id/sendTokenButton"
+        android:id="@+id/payloadFlowButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Send Token"
-        app:layout_constraintTop_toTopOf="@+id/startButton"
-        app:layout_constraintStart_toEndOf="@+id/startButton"
+        android:text="Payload flow"
+        app:layout_constraintTop_toTopOf="@+id/TokenFlowButton"
+        app:layout_constraintStart_toEndOf="@+id/TokenFlowButton"
         app:layout_constraintEnd_toEndOf="parent"/>
 
 
@@ -55,7 +57,7 @@
         app:layout_constraintBottom_toTopOf="@+id/messageBox"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/startButton">
+        app:layout_constraintTop_toBottomOf="@+id/TokenFlowButton">
 
         <TextView
             android:id="@+id/debugLog"

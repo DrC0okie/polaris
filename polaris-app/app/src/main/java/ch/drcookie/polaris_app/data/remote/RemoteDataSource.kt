@@ -16,6 +16,14 @@ class RemoteDataSource {
         return ApiService.sendPoLToken(token, apiKey)
     }
 
+    suspend fun getPayloads(apiKey: String): EncryptedPayloadListDto {
+        return ApiService.getPayloads(apiKey)
+    }
+
+    suspend fun postAck(apiKey: String, request: AckRequestDto): Boolean {
+        return ApiService.postAck(apiKey, request)
+    }
+
     fun shutdown() {
         ApiService.closeClient()
     }

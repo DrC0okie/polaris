@@ -1,18 +1,21 @@
 package ch.drcookie.polaris_app.ui
 
+import android.app.Application
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import ch.drcookie.polaris_app.PolarisApplication
 import androidx.lifecycle.viewModelScope
 import ch.drcookie.polaris_app.data.ble.BleDataSource
-import ch.drcookie.polaris_app.data.ble.ConnectionState
 import ch.drcookie.polaris_app.data.local.UserPreferences
+import ch.drcookie.polaris_app.data.model.FoundBeacon
 import ch.drcookie.polaris_app.data.model.dto.*
 import ch.drcookie.polaris_app.data.remote.RemoteDataSource
-import ch.drcookie.polaris_app.repository.PolarisRepository
+import ch.drcookie.polaris_app.repository.AuthRepository
+import ch.drcookie.polaris_app.repository.BeaconInteractor
+import ch.drcookie.polaris_app.repository.BeaconScanner
 import ch.drcookie.polaris_app.util.Crypto
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -27,30 +30,20 @@ data class UiState(
     val connectionStatus: String = "Disconnected",
     val canStart: Boolean = true
 )
+
 @OptIn(ExperimentalUnsignedTypes::class)
-class PolarisViewModel(private val repository: PolarisRepository) : ViewModel() {
+class PolarisViewModel(
+    private val repository: AuthRepository,
+    private val scanner: BeaconScanner,
+    private val interactorFactory: (FoundBeacon) -> BeaconInteractor
+) :
+    ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
 
     @RequiresApi(Build.VERSION_CODES.O)
     private val formatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
-
-    init {
-        // Observe connection state from the repository
-        viewModelScope.launch {
-            repository.connectionState.collect { state ->
-                val statusText = when(state) {
-                    is ConnectionState.Connecting -> "Connecting to ${state.deviceAddress}"
-                    is ConnectionState.Ready -> "Ready (${state.deviceAddress})"
-                    is ConnectionState.Disconnected -> "Disconnected"
-                    is ConnectionState.Failed -> "Failed: ${state.error}"
-                    is ConnectionState.Scanning -> "Scanning..."
-                }
-                _uiState.update { it.copy(connectionStatus = statusText) }
-            }
-        }
-    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun register() {
@@ -64,42 +57,99 @@ class PolarisViewModel(private val repository: PolarisRepository) : ViewModel() 
                 appVersion = "1.0"
             )
             appendLog("Registering phone with server...")
-            val beacons = repository.registerPhoneAndFetchBeacons(req)
-            appendLog("Registration successful. API key stored.")
-            appendLog("Received ${beacons.size} provisioned beacons.")
+            val beacons = repository.registerPhone(req)
+            appendLog("Registration successful. Found ${beacons.size} known beacons.")
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun findAndRequestToken() {
-        runFlow("Token Request") {
+    fun findAndExecuteTokenFlow() {
+        runFlow("PoL Token Flow") {
             if (repository.knownBeacons.isEmpty()) {
                 appendLog("No known beacons. Please register first.")
                 return@runFlow
             }
 
+            // Scan for a beacon
             appendLog("Scanning for first known beacon...")
-            val scanResultPair = withTimeoutOrNull(10000) { // 10-second timeout
-                repository.findFirstKnownBeacon().first()
+            val foundBeacon = withTimeoutOrNull(10000) {
+                scanner.findKnownBeacons(repository.knownBeacons).first()
             }
 
-            // Check if the timeout occurred
-            if (scanResultPair == null) {
-                appendLog("Scan timed out. No known beacons found in the vicinity.")
-                repository.disconnect() // Ensure BLE is stopped if it was still scanning
+            if (foundBeacon == null) {
+                appendLog("Scan timed out. No known beacons found.")
+                return@runFlow
+            }
+            appendLog("Found beacon: ${foundBeacon.name}")
+
+            // Create an interactor and perform the transaction
+            val interactor = interactorFactory(foundBeacon)
+            try {
+                appendLog("Connecting to ${foundBeacon.address}...")
+                interactor.connect()
+                appendLog("Connection successful. Performing PoL transaction...")
+                val token = interactor.performPoLTransaction()
+                appendLog("PoL transaction successful. Submitting token...")
+                repository.submitPoLToken(token)
+                appendLog("Token submitted successfully!")
+            } finally {
+                appendLog("Disconnecting...")
+                interactor.disconnect()
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun processPayloadFlow() {
+        runFlow("Secure Payload Delivery") {
+            // Fetch pending payloads from server
+            appendLog("Checking for pending payloads...")
+            val payloads = repository.getPayloadsForDelivery()
+            if (payloads.isEmpty()) {
+                appendLog("No pending payloads.")
+                return@runFlow
+            }
+            val job = payloads.first()
+            appendLog("Found payload #${job.deliveryId} for beacon #${job.beaconId}.")
+
+            // Scan for the specific beacon needed for this job
+            val targetBeaconInfo = repository.knownBeacons.find { it.beaconId == job.beaconId }
+            if (targetBeaconInfo == null) {
+                appendLog("Error: Beacon #${job.beaconId} is not in our known list.")
                 return@runFlow
             }
 
-            val (scanResult, beacon) = scanResultPair
-            appendLog("Found beacon: ${beacon.name} (${scanResult.device.address}). Connecting...")
+            appendLog("Scanning for beacon ${targetBeaconInfo.name} (15s timeout)...")
+            val foundBeacon = withTimeoutOrNull(10000) {
+                scanner.findKnownBeacons(listOf(targetBeaconInfo)).first()
+            }
 
-            val token = repository.connectAndRequestToken(scanResult, beacon)
-            appendLog("Successfully created PoLToken for beacon ${token.beaconId}.")
+            if (foundBeacon == null) {
+                appendLog("Target beacon not found.")
+                return@runFlow
+            }
+            appendLog("Found target beacon: ${foundBeacon.name}")
 
-            appendLog("Submitting token to server...")
-            repository.submitToken(token)
-            appendLog("Flow complete! Token submitted successfully.")
+            // Create interactor and deliver the payload
+            val interactor = interactorFactory(foundBeacon)
+            try {
+                appendLog("Connecting...")
+                interactor.connect()
+                appendLog("Connection successful. Delivering payload...")
+                val ackBlob = interactor.deliverSecurePayload(job.encryptedBlob.asByteArray())
+                appendLog("Payload delivered, received ACK/ERR blob (${ackBlob.size} bytes). Submitting to server...")
+                val ackRequest = AckRequestDto(job.deliveryId, ackBlob.toUByteArray())
+                repository.submitSecureAck(ackRequest)
+                appendLog("ACK/ERR submitted successfully.")
+            } finally {
+                appendLog("Disconnecting...")
+                interactor.disconnect()
+            }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -112,7 +162,6 @@ class PolarisViewModel(private val repository: PolarisRepository) : ViewModel() 
             } catch (e: Exception) {
                 appendLog("--- ERROR in $flowName: ${e.message} ---")
                 e.printStackTrace()
-                repository.disconnect() // Ensure we are disconnected on error
             } finally {
                 _uiState.update { it.copy(isBusy = false, canStart = true) }
                 appendLog("--- Finished Flow: $flowName ---")
@@ -128,26 +177,28 @@ class PolarisViewModel(private val repository: PolarisRepository) : ViewModel() 
             it.copy(log = newLog)
         }
     }
-
-    override fun onCleared() {
-        super.onCleared()
-        repository.shutdown()
-        Log.d("PolarisViewModel", "ViewModel cleared, repository shut down.")
-    }
-
 }
 
 
 // Create a ViewModel Factory for dependency injection
-class PolarisViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+class PolarisViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
+
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
-            val bleDataSource = BleDataSource(context)
-            val remoteDataSource = RemoteDataSource()
-            val userPrefs = UserPreferences(context)
-            val repository = PolarisRepository(bleDataSource, remoteDataSource, userPrefs)
+            val polarisApplication = application as PolarisApplication
+
+            val bleDataSource = polarisApplication.bleDataSource
+            val remoteDataSource = polarisApplication.remoteDataSource
+            val userPrefs = UserPreferences(application.applicationContext)
+            val authRepository = AuthRepository(remoteDataSource, userPrefs)
+            val beaconScanner = BeaconScanner(bleDataSource)
+
+            val interactorFactory = { foundBeacon: FoundBeacon ->
+                BeaconInteractor(foundBeacon, bleDataSource, userPrefs)
+            }
+
             @Suppress("UNCHECKED_CAST")
-            return PolarisViewModel(repository) as T
+            return PolarisViewModel(authRepository, beaconScanner, interactorFactory) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

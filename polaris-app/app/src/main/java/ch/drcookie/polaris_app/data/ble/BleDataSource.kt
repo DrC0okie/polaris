@@ -3,8 +3,10 @@ package ch.drcookie.polaris_app.data.ble
 import android.annotation.SuppressLint
 import android.bluetooth.le.ScanResult
 import android.content.Context
+import android.util.Log
 import ch.drcookie.polaris_app.data.model.PoLRequest
 import ch.drcookie.polaris_app.data.model.PoLResponse
+import ch.drcookie.polaris_app.util.PoLConstants
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.IOException
@@ -12,9 +14,6 @@ import java.io.IOException
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
 class BleDataSource(context: Context) {
-    companion object{
-        const val TAG = "BleDataSource"
-    }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val bleManager = BleManager(context, scope)
@@ -49,29 +48,21 @@ class BleDataSource(context: Context) {
 
 
     suspend fun requestPoL(request: PoLRequest): PoLResponse {
-        val fullMessage = request.toBytes()
+        val responseBytes = performRequestResponse(
+            requestPayload = request.toBytes(),
+            writeUuid = PoLConstants.TOKEN_WRITE_UUID,
+            indicateUuid = PoLConstants.TOKEN_INDICATE_UUID
+        )
+        return PoLResponse.fromBytes(responseBytes)
+            ?: throw IOException("Failed to parse PoLResponse from beacon data.")
+    }
 
-        // Prepare to listen for the reassembled response before sending
-        val responseJob = scope.async {
-            withTimeout(10000) {
-                transport.reassembledMessages
-                    .mapNotNull { PoLResponse.fromBytes(it.asByteArray()) }
-                    .first()
-            }
-        }
-
-        // Send the request chunk by chunk, awaiting confirmation for each one.
-        transport.fragment(fullMessage).forEach { chunk ->
-            bleManager.send(chunk)
-            // Suspend until the onCharacteristicWrite callback sends a signal.
-            val writeSuccess = bleManager.writeSignal.receive()
-            if (!writeSuccess) {
-                responseJob.cancel() // Cancel the listening job
-                throw IOException("Failed to write BLE characteristic chunk.")
-            }
-        }
-
-        return responseJob.await()
+    suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray {
+        return performRequestResponse(
+            requestPayload = encryptedBlob,
+            writeUuid = PoLConstants.ENCRYPTED_WRITE_UUID,
+            indicateUuid = PoLConstants.ENCRYPTED_INDICATE_UUID
+        )
     }
 
     fun disconnect() = bleManager.close()
@@ -79,5 +70,52 @@ class BleDataSource(context: Context) {
     fun cancelAll() {
         scope.cancel()
         bleManager.close()
+    }
+
+    private suspend fun performRequestResponse(
+        requestPayload: ByteArray,
+        writeUuid: String,
+        indicateUuid: String
+    ): ByteArray {
+        // Ensure we are in a ready state
+        if (connectionState.value !is ConnectionState.Ready) {
+            throw IOException("Cannot perform request, not in a ready state.")
+        }
+
+        // Configure the manager for this specific transaction
+        bleManager.setTransactionUuids(writeUuid, indicateUuid)
+
+        // Enable indications and wait for the descriptor write signal
+        bleManager.enableIndication()
+        val indicationEnabled = bleManager.descriptorWriteSignal.receive()
+        if (!indicationEnabled) {
+            throw IOException("Failed to enable indications for characteristic $indicateUuid")
+        }
+
+        // Now we can proceed with the write/read logic
+        val responseJob = scope.async {
+            withTimeout(10000) { transport.reassembledMessages.first() }
+        }
+
+        // Send chunks and wait for the characteristic write signal for each
+        transport.fragment(requestPayload).forEach { chunk ->
+            bleManager.send(chunk)
+            val writeSuccess = bleManager.characteristicWriteSignal.receive()
+            if (!writeSuccess) {
+                responseJob.cancel()
+                throw IOException("Failed to write BLE characteristic chunk to UUID $writeUuid.")
+            }
+        }
+
+        val response = responseJob.await().asByteArray()
+
+        // Disable Indications and wait for the descriptor write signal
+        bleManager.disableIndication()
+        val indicationDisabled = bleManager.descriptorWriteSignal.receive()
+        if (!indicationDisabled) {
+            Log.w("BleDataSource", "Failed to disable indications cleanly for $indicateUuid")
+        }
+
+        return response
     }
 }

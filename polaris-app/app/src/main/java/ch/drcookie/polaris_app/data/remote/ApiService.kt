@@ -2,7 +2,9 @@ package ch.drcookie.polaris_app.data.remote
 
 import android.util.Log
 import ch.drcookie.polaris_app.data.model.PoLToken
+import ch.drcookie.polaris_app.data.model.dto.AckRequestDto
 import ch.drcookie.polaris_app.data.model.dto.BeaconProvisioningListDto
+import ch.drcookie.polaris_app.data.model.dto.EncryptedPayloadListDto
 import ch.drcookie.polaris_app.data.model.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_app.data.model.dto.PhoneRegistrationResponseDto
 import io.ktor.client.HttpClient
@@ -83,6 +85,19 @@ object ApiService {
         }
         Log.d(TAG, "Sending PoLToken to $BASE_URL/api/v1/tokens")
         Log.d(TAG, "Response from the server: ${resp.bodyAsText()}")
+        return resp.status.isSuccess()
+    }
+
+    suspend fun getPayloads(apiKey: String): EncryptedPayloadListDto =
+        client.get("$BASE_URL/api/v1/payloads") {
+            header("x-api-key", apiKey)
+        }.body<EncryptedPayloadListDto>()
+
+    suspend fun postAck(apiKey: String, request: AckRequestDto): Boolean {
+        val resp = client.post("$BASE_URL/api/v1/payloads/ack") {
+            header("x-api-key", apiKey)
+            setBody(request)
+        }
         return resp.status.isSuccess()
     }
 
