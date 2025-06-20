@@ -1,7 +1,6 @@
 package ch.heigvd.iict.web.rest
 
 import ch.heigvd.iict.dto.api.AckRequestDto
-import ch.heigvd.iict.dto.api.AckResponseDto
 import ch.heigvd.iict.dto.api.PayloadListDto
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.services.payload.PayloadService
