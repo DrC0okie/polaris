@@ -353,8 +353,8 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
                                                 const char* serviceUuid) {
     esp_ble_gap_ext_adv_params_t legacyParams = {
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Legacy advertising (BLE 4.2)
-        .interval_min = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
-        .interval_max = 0x50,  // 100ms (intervals must be multiplied by 1.25 to get seconds)
+        .interval_min = 0x190,  // 500ms (intervals must be multiplied by 1.25 to get seconds)
+        .interval_max = 0x190,  // 500ms (intervals must be multiplied by 1.25 to get seconds)
         .channel_map = ADV_CHNL_ALL,
         .own_addr_type = BLE_ADDR_TYPE_PUBLIC,               // Same address as the device
         .filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,  // Allows scan & connection

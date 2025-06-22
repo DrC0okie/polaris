@@ -43,10 +43,14 @@ void BeaconAdvertiser::updateAdvertisement() {
 
     // Construct the actual advertising data (e.g., Manufacturer Specific Data)
     // Format: [Len1][Type1][ManufID_LSB][ManufID_MSB][BroadcastPayload_Bytes]
-    const uint16_t manufacturerId = 0xABCD;                           // company ID
-    const size_t dataLenForAdv = 2 + BroadcastPayload::packedSize();  // ManufID + Payload
+    const uint16_t manufacturerId = 0xABCD;  // company ID
+    const size_t payloadDataSize = sizeof(payloadContent.beaconId) +
+                                   sizeof(payloadContent.counter) +
+                                   sizeof(payloadContent.signature);
 
-    uint8_t rawAdvPayload[1 + 1 + dataLenForAdv];  // Full AD Structure: Len + Type + Data
+    const size_t dataLenForAdv = 2 + payloadDataSize;  // ManufID + Payload
+
+    uint8_t rawAdvPayload[1 + 1 + dataLenForAdv];
     size_t idx = 0;
 
     rawAdvPayload[idx++] = 1 + dataLenForAdv;  // Length of this AD structure field (Type + Data)
@@ -54,9 +58,15 @@ void BeaconAdvertiser::updateAdvertisement() {
     rawAdvPayload[idx++] = (uint8_t)(manufacturerId & 0xFF);       // Manuf ID LSB
     rawAdvPayload[idx++] = (uint8_t)(manufacturerId >> 8);         // Manuf ID MSB
 
-    // Copy serialized payload content
-    memcpy(&rawAdvPayload[idx], &payloadContent, BroadcastPayload::packedSize());
-    idx += BroadcastPayload::packedSize();
+    // Manually copy each member to ensure there is no padding.
+    memcpy(&rawAdvPayload[idx], &payloadContent.beaconId, sizeof(payloadContent.beaconId));
+    idx += sizeof(payloadContent.beaconId);
+
+    memcpy(&rawAdvPayload[idx], &payloadContent.counter, sizeof(payloadContent.counter));
+    idx += sizeof(payloadContent.counter);
+
+    memcpy(&rawAdvPayload[idx], &payloadContent.signature, sizeof(payloadContent.signature));
+    idx += sizeof(payloadContent.signature);
 
     // Update the advertising data for the extended instance
     if (!_advertiserRef.setAdvertisingData(EXTENDED_BROADCAST_ADV_INSTANCE, idx, rawAdvPayload)) {
