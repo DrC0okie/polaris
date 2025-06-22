@@ -46,7 +46,7 @@ data class PlaintextMessage(
             val payload = ByteArray(payloadLength)
             buffer.get(payload)
 
-            if (msgType == MessageType.UNDEFINED || opType == OperationType.UNDEFINED) {
+            if (msgType == MessageType.UNDEFINED || opType == OperationType.UNKNOWN) {
                 throw IllegalArgumentException("Invalid or unknown message/operation type in payload")
             }
 

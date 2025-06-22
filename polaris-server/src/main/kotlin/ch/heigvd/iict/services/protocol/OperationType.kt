@@ -1,12 +1,15 @@
 package ch.heigvd.iict.services.protocol
 
 enum class OperationType(val code: UByte) {
-    UNDEFINED(0x00u),
-    GENERIC_COMMAND(0x01u),
-    REBOOT(0x02u),
-    GET_STATUS(0x03u);
+    NO_OP(0x00u),
+    REBOOT(0x01u),
+    BLINK_LED(0x02u),
+    STOP_BLINK(0x03u),
+    DISPLAY_TEXT(0x04u),
+    CLEAR_DISPLAY(0x05u),
+    UNKNOWN(0xFFu);
 
     companion object {
-        fun fromCode(code: UByte): OperationType = entries.find { it.code == code }?:UNDEFINED
+        fun fromCode(code: UByte): OperationType = entries.find { it.code == code }?:UNKNOWN
     }
 }
