@@ -51,6 +51,8 @@ enum class OperationType : uint8_t {
     Reboot = 0x01,
     BlinkLed = 0x02,
     StopBlink = 0x03,
+    DisplayText = 0x04,
+    ClearDisplay = 0x05,
     Unknown = 0xFF  // default/error cases
 };
 

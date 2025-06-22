@@ -9,6 +9,7 @@
 #include "protocol/handlers/token_message_handler.h"
 #include "utils/counter.h"
 #include "utils/crypto_service.h"
+#include "utils/display_controller.h"
 #include "utils/key_manager.h"
 #include "utils/led_controller.h"
 
@@ -20,7 +21,8 @@ MinuteCounter counter;
 KeyManager keyManager;
 CryptoService cryptoService(keyManager);
 LedController ledController;
-CommandFactory commandFactory(ledController);
+DisplayController displayController;
+CommandFactory commandFactory(ledController, displayController);
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
 
@@ -29,8 +31,11 @@ void setup() {
     delay(5000);
     Serial.printf("\n%s Booting Polaris Beacon...\n", TAG);
 
-    // Init LED controller
     ledController.begin();
+    if (!displayController.begin()) {
+        Serial.println("DisplayController error!");
+        delay(50000);
+    }
 
     // Init crypto lib
     if (sodium_init() == -1) {

@@ -1,11 +1,14 @@
 #include "command_factory.h"
 
 #include "blink_led_command.h"
+#include "clear_display_command.h"
+#include "display_text_command.h"
 #include "noop_command.h"
 #include "reboot_command.h"
 #include "stop_blink_command.h"
 
-CommandFactory::CommandFactory(LedController& ledController) : _ledController(ledController) {
+CommandFactory::CommandFactory(LedController& ledController, DisplayController& displayController)
+    : _ledController(ledController), _displayController(displayController) {
 }
 
 std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
@@ -22,6 +25,14 @@ std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
 
         case OperationType::StopBlink:
             return std::unique_ptr<StopBlinkCommand>(new StopBlinkCommand(_ledController));
+
+        case OperationType::DisplayText:
+            return std::unique_ptr<DisplayTextCommand>(
+                new DisplayTextCommand(_displayController, params));
+
+        case OperationType::ClearDisplay:
+            return std::unique_ptr<ClearDisplayCommand>(
+                new ClearDisplayCommand(_displayController));
 
         default:
             // For unknown commands, return a null pointer.
