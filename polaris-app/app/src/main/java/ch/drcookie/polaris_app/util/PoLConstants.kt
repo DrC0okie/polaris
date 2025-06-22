@@ -2,7 +2,8 @@ package ch.drcookie.polaris_app.util
 
 // Mirroring beacon's pol_constants.h
 object PoLConstants {
-    const val MANUFACTURER_ID = 0xFFFF // Id used in the beacons
+    const val LEGACY_MANUFACTURER_ID = 0xFFFF // For connectable PoL service adv
+    const val EXTENDED_MANUFACTURER_ID = 0xABCD // For broadcast-only adv
     const val ED25519_PK_SIZE = 32
     const val ED25519_SK_SIZE = 64 // Libsodium crypto_sign_SECRETKEYBYTES
     const val SIG_SIZE = 64

@@ -1,38 +1,42 @@
 package ch.drcookie.polaris_app.repository
 
+import android.bluetooth.le.ScanResult
 import ch.drcookie.polaris_app.data.ble.BleDataSource
-import ch.drcookie.polaris_app.data.model.FoundBeacon
-import ch.drcookie.polaris_app.data.model.dto.BeaconProvisioningDto
-import ch.drcookie.polaris_app.util.PoLConstants
-import ch.drcookie.polaris_app.util.Utils.toUIntLE
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapNotNull
+import android.bluetooth.le.ScanFilter
+import android.os.ParcelUuid
+import ch.drcookie.polaris_app.util.PoLConstants
+import java.util.UUID
 
+/**
+ * Provides a low-level, configurable BLE scanning interface.
+ * Its sole responsibility is to start and stop the physical scan and emit raw results.
+ */
 class BeaconScanner(private val bleDataSource: BleDataSource) {
 
     /**
-     * Scans for BLE devices and returns a continuous Flow of known beacons as they are found.
-     * The collector of this flow is responsible for stopping collection (e.g., after a timeout or after finding a specific beacon).
-     * The flow will automatically stop the BLE scan when collection ceases.
-     *
-     * @param knownBeacons The list of beacons provisioned for this user.
-     * @return A Flow emitting a [FoundBeacon] for each known beacon discovered.
+     * Starts a scan specifically for connectable Polaris beacons advertising the PoL service.
      */
-    @OptIn(ExperimentalUnsignedTypes::class)
-    fun findKnownBeacons(knownBeacons: List<BeaconProvisioningDto>): Flow<FoundBeacon> {
-        return bleDataSource.scanForBeacons().mapNotNull { scanResult ->
-            // Extract the beacon ID from the advertisement's manufacturer data
-            val manufData = scanResult.scanRecord?.getManufacturerSpecificData(PoLConstants.MANUFACTURER_ID)
-            if (manufData != null && manufData.size >= 4) {
-                val detectedId = manufData.toUByteArray().toUIntLE()
-                // Check if this detected ID matches any of our known beacons
-                val matchedBeaconInfo = knownBeacons.find { it.beaconId == detectedId }
-                if (matchedBeaconInfo != null) {
-                    // If it's a match, emit a FoundBeacon object
-                    return@mapNotNull FoundBeacon(matchedBeaconInfo, scanResult)
-                }
-            }
-            null // Not a known beacon, ignore.
-        }
+    fun startConnectableScan(scanConfig: ScanConfig): Flow<ScanResult> {
+        val filters = listOf(
+            ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid(UUID.fromString(PoLConstants.POL_SERVICE_UUID)))
+                .build()
+        )
+        return bleDataSource.scanForBeacons(filters, scanConfig)
+    }
+
+    /**
+     * Starts a scan specifically for non-connectable Polaris broadcast advertisements.
+     * This uses a hardware filter for the extended advertisement's manufacturer ID.
+     */
+    fun startBroadcastScan(scanConfig: ScanConfig): Flow<ScanResult> {
+        // Create a filter that targets only the specific extended advertisement manufacturer ID.
+        val filters = listOf(
+            ScanFilter.Builder()
+                .setManufacturerData(PoLConstants.EXTENDED_MANUFACTURER_ID, null)
+                .build()
+        )
+        return bleDataSource.scanForBeacons(filters, scanConfig)
     }
 }

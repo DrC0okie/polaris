@@ -13,13 +13,13 @@
         android:text="Register"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/fetchBeaconsButton"/>
+        app:layout_constraintEnd_toStartOf="@+id/monitorBoradcastButton"/>
 
     <Button
-        android:id="@+id/fetchBeaconsButton"
+        android:id="@+id/monitorBoradcastButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Not used"
+        android:text="Monitor broadcasts"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@+id/registerButton"
         app:layout_constraintEnd_toEndOf="parent"/>

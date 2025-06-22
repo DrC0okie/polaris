@@ -18,6 +18,9 @@ import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
 import ch.drcookie.polaris_app.data.ble.BleUtils.isConnected
+import ch.drcookie.polaris_app.repository.ScanCallbackType
+import ch.drcookie.polaris_app.repository.ScanConfig
+import ch.drcookie.polaris_app.repository.ScanMode
 import ch.drcookie.polaris_app.util.PoLConstants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +38,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
 
     // Signals completion of a characteristic write (for sending chunks)
     val characteristicWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
+
     // Signals completion of a descriptor write (for enabling/disabling indications)
     val descriptorWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
 
@@ -64,7 +68,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
     private val _receivedData = MutableSharedFlow<ByteArray>()
     val receivedData = _receivedData.asSharedFlow()
 
-    private val _mtu = MutableStateFlow(23) // Default GATT MTU
+    private val _mtu = MutableStateFlow(517) // Default GATT MTU
     val mtu = _mtu.asStateFlow()
 
     companion object {
@@ -72,20 +76,40 @@ class BleManager(private val context: Context, private val externalScope: Corout
         const val TAG = "BleManager"
     }
 
-    fun startScan() {
+    fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
         // Prevent starting scan if already scanning
         if (isScanning) return
         _connectionState.value = ConnectionState.Scanning
         isScanning = true
-        val serviceUuid = UUID.fromString(PoLConstants.POL_SERVICE_UUID)
-        val filters = listOf(ScanFilter.Builder().setServiceUuid(ParcelUuid(serviceUuid)).build())
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
-            .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
-            .build()
+
+        // Build settings based on the config
+        val settingsBuilder = ScanSettings.Builder()
+            .setScanMode(
+                when (scanConfig.scanMode) {
+                    ScanMode.LOW_POWER -> ScanSettings.SCAN_MODE_LOW_POWER
+                    ScanMode.BALANCED -> ScanSettings.SCAN_MODE_BALANCED
+                    ScanMode.LOW_LATENCY -> ScanSettings.SCAN_MODE_LOW_LATENCY
+                }
+            )
+            .setCallbackType(
+                when (scanConfig.callbackType) {
+                    ScanCallbackType.FIRST_MATCH -> ScanSettings.CALLBACK_TYPE_FIRST_MATCH
+                    ScanCallbackType.ALL_MATCHES -> ScanSettings.CALLBACK_TYPE_ALL_MATCHES
+                }
+            )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            settingsBuilder.setLegacy(scanConfig.scanLegacyOnly)
+            if (scanConfig.useAllSupportedPhys) {
+                settingsBuilder.setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+            }
+        }
+
+        val settings = settingsBuilder.build()
 
         // Start the scan
         try {
+            Log.d(TAG, "Starting scan with config: $scanConfig")
             scanner.startScan(filters, settings, scanCallback)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start scan", e)

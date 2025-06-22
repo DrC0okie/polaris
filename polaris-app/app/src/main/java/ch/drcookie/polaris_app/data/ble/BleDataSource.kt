@@ -1,11 +1,13 @@
 package ch.drcookie.polaris_app.data.ble
 
 import android.annotation.SuppressLint
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.content.Context
 import android.util.Log
 import ch.drcookie.polaris_app.data.model.PoLRequest
 import ch.drcookie.polaris_app.data.model.PoLResponse
+import ch.drcookie.polaris_app.repository.ScanConfig
 import ch.drcookie.polaris_app.util.PoLConstants
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -34,11 +36,10 @@ class BleDataSource(context: Context) {
         }
     }
 
-    // High-level functions
-    fun scanForBeacons(): Flow<ScanResult> {
+    fun scanForBeacons(filters: List<ScanFilter>?, scanConfig: ScanConfig): Flow<ScanResult> {
         return bleManager.scanResults
-            .onStart { bleManager.startScan() }
-            .onCompletion { bleManager.stopScan() } // Automatically stop when collector finishes
+            .onStart { bleManager.startScan(filters, scanConfig) }
+            .onCompletion { bleManager.stopScan() }
     }
 
     suspend fun connect(deviceAddress: String) {

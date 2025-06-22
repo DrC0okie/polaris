@@ -84,7 +84,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.fetchBeaconsButton.isEnabled = false
+        binding.monitorBoradcastButton.setOnClickListener {
+            requestPermissionsAndRun {
+                viewModel.toggleBroadcastMonitoring()
+            }
+        }
 
         // --- Observe UI state from ViewModel ---
         lifecycleScope.launch {
@@ -99,10 +103,25 @@ class MainActivity : AppCompatActivity() {
     private fun updateUi(state: UiState) {
         binding.debugLog.text = state.log
         binding.messageBox.text = "Status: ${state.connectionStatus}"
-        binding.TokenFlowButton.isEnabled = state.canStart
-        binding.registerButton.isEnabled = state.canStart
 
-        // Scroll to the bottom of the log
+        // Determine if any major action is in progress
+        val isActionInProgress = state.isBusy || state.isMonitoring
+
+        // Enable/disable buttons based on whether an action is in progress
+        binding.TokenFlowButton.isEnabled = !isActionInProgress
+        binding.payloadFlowButton.isEnabled = !isActionInProgress
+        binding.registerButton.isEnabled = !isActionInProgress
+
+        // The monitor button should be disabled only when a *different* flow is busy
+        binding.monitorBoradcastButton.isEnabled = !state.isBusy
+
+        if (state.isMonitoring) {
+            binding.monitorBoradcastButton.text = "Stop Monitoring"
+        } else {
+            binding.monitorBoradcastButton.text = "Start Monitoring"
+        }
+
+        // Scroll log
         binding.scrollView.post { binding.scrollView.fullScroll(View.FOCUS_DOWN) }
     }
 
@@ -111,9 +130,9 @@ class MainActivity : AppCompatActivity() {
             // Permissions are already granted, run the action immediately.
             action()
         } else {
-            // Permissions are not granted. Store the action...
+            // Permissions are not granted. Store the action
             onPermissionsGranted = action
-            // ...and then request permissions. The result will be handled by the launcher.
+            // and then request permissions. The result will be handled by the launcher.
             permissionLauncher.launch(permissions)
         }
     }

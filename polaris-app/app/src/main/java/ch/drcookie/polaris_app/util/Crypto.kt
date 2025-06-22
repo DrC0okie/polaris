@@ -1,6 +1,7 @@
 package ch.drcookie.polaris_app.util
 
 import android.util.Log
+import ch.drcookie.polaris_app.data.model.BroadcastPayload
 import ch.drcookie.polaris_app.data.model.PoLRequest
 import ch.drcookie.polaris_app.data.model.PoLResponse
 import ch.drcookie.polaris_app.util.Utils.toHexString
@@ -88,4 +89,38 @@ object Crypto {
             false
         }
     }
+
+
+    /**
+     * Verifies the signature of a broadcast payload.
+     *
+     * @param payload The broadcast payload containing the data and signature to verify.
+     * @param beaconPk The public key of the beacon that should have signed this payload.
+     * @return True if the signature is valid for the given data and public key, false otherwise.
+     */
+    fun verifyBeaconBroadcast(payload: BroadcastPayload, beaconPk: UByteArray): Boolean {
+        ensureInitialized()
+        // Reconstruct the exact data that was signed on the beacon
+        val dataToVerify = payload.getSignedData()
+
+        return try {
+            // The verifyDetached function will throw an exception if the signature is invalid.
+            Signature.verifyDetached(
+                signature = payload.signature,
+                message = dataToVerify,
+                publicKey = beaconPk
+            )
+            // If no exception is thrown, the signature is valid.
+            true
+        } catch (e: InvalidSignatureException) {
+            // Log the failure for debugging purposes
+            Log.w(tag, "Broadcast signature verification failed for beacon #${payload.beaconId}")
+            false
+        } catch (e: Exception) {
+            // Catch any other potential errors from the crypto library
+            Log.e(tag, "An unexpected error occurred during broadcast verification", e)
+            false
+        }
+    }
+
 }
