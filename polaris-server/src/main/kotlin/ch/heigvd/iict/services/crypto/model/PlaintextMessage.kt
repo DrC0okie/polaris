@@ -4,6 +4,7 @@ import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE
 import ch.heigvd.iict.services.protocol.MessageType
 import ch.heigvd.iict.services.protocol.OperationType
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 @OptIn(ExperimentalUnsignedTypes::class)
 data class PlaintextMessage(
@@ -31,6 +32,7 @@ data class PlaintextMessage(
     companion object {
         fun fromBytes(bytes: ByteArray): PlaintextMessage {
             val buffer = ByteBuffer.wrap(bytes)
+            buffer.order(ByteOrder.LITTLE_ENDIAN)
             val msgId = buffer.int.toLong()
             val msgType = MessageType.fromCode(buffer.get().toUByte())
             val opType = OperationType.fromCode(buffer.get().toUByte())
