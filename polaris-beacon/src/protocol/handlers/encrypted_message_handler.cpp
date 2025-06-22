@@ -5,19 +5,17 @@
 #include <Ticker.h>
 
 #include "../crypto.h"
-
-#define OP_TYPE_NO_OP 0x00
-#define OP_TYPE_REBOOT 0x01
-#define OP_TYPE_BLINK_LED 0x02
-#define OP_TYPE_STOP_BLINK 0x03
+#include "commands/command_factory.h"
 
 EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
                                                  const MinuteCounter& beaconEventCounter,
-                                                 Preferences& prefs, IMessageTransport& transport)
+                                                 Preferences& prefs, IMessageTransport& transport,
+                                                 CommandFactory& commandFactory)
     : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
       _prefs(prefs),  // Store NVS reference
       _transport(transport),
+      _commandFactory(commandFactory),
       _beaconIdForAd(BEACON_ID),
       _nextResponseMsgId(0) {
     loadNextResponseMsgId();  // Load from NVS or initialize
@@ -72,10 +70,10 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     if (innerPtReceived.msgType == MSG_TYPE_REQ) {
         Serial.printf("%s REQ received. opType: %u, msgId: %u. Processing...\n", TAG,
                       innerPtReceived.opType, innerPtReceived.msgId);
-        // process the payload (json formatted)
+
         handleIncomingCommand(innerPtReceived);
 
-        // After handling, send an ACK back to the server.
+        // The executor will handle the command. Now we send an ACK.
         sendAck(innerPtReceived.msgId, innerPtReceived.opType);
     } else if (innerPtReceived.msgType == MSG_TYPE_ACK) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
@@ -160,28 +158,34 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
     }
 }
 
-void EncryptedMessageHandler::handleIncomingCommand(InnerPlaintext& pt) {
-    switch (pt.opType) {
-        case OP_TYPE_NO_OP: {
-            break;
-        }
+void EncryptedMessageHandler::handleIncomingCommand(const InnerPlaintext& pt) {
+    JsonDocument doc;
+    JsonObject params;
 
-        case OP_TYPE_REBOOT: {
-            break;
+    // Only try to parse JSON if there is a payload
+    if (pt.actualPayloadLength > 0) {
+        DeserializationError error = deserializeJson(doc, pt.payload, pt.actualPayloadLength);
+        if (error) {
+            Serial.printf("%s Failed to parse JSON payload: %s. Ignoring command.\n", TAG,
+                          error.c_str());
+            sendErr(pt.msgId, pt.opType, 0x02);  // 0x02: Bad Payload
+            return;
         }
+        params = doc["params"].as<JsonObject>();
+    }
 
-        case OP_TYPE_BLINK_LED: {
-            break;
-        }
+    // Cast the raw byte to our strongly-typed enum
+    OperationType opType = static_cast<OperationType>(pt.opType);
 
-        case OP_TYPE_STOP_BLINK: {
-            break;
-        }
+    // Use the factory to create a command object
+    auto command = _commandFactory.createCommand(opType, params);
 
-        default: {
-            Serial.printf("-> Command: Unknown opType %u received.\n", pt.opType);
-            sendErr(pt.msgId, pt.opType, 0x03);  // Error code for "Unknown opType"
-            break;
-        }
+    if (command) {
+        command->execute();
+        sendAck(pt.msgId, pt.opType);
+    } else {
+        // Handle unknown command
+        Serial.printf("%s Unknown opType %u received.\n", TAG, pt.opType);
+        sendErr(pt.msgId, pt.opType, 0x03);  // Unknown opType
     }
 }

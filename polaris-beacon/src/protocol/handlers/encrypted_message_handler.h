@@ -7,6 +7,7 @@
 #include "../../utils/crypto_service.h"
 #include "../messages/encrypted_message.h"
 #include "../pol_constants.h"
+#include "commands/command_factory.h"
 #include "imessage_handler.h"
 #include "protocol/transport/imessage_transport.h"
 
@@ -15,7 +16,7 @@ public:
     EncryptedMessageHandler(const CryptoService& cryptoService,
                             const MinuteCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
-                            IMessageTransport& transport);
+                            IMessageTransport& transport, CommandFactory& commandFactory);
 
     void process(const uint8_t* encryptedData, size_t len) override;
 
@@ -25,7 +26,8 @@ private:
     uint32_t _beaconIdForAd;
     const CryptoService& _cryptoService;
     const MinuteCounter& _beaconEventCounter;
-    Preferences& _prefs;  // Store reference to NVS
+    Preferences& _prefs;              // Store reference to NVS
+    CommandFactory& _commandFactory;
 
     uint32_t _nextResponseMsgId;  // Manages unique msgId for responses from this beacon
 
@@ -34,7 +36,7 @@ private:
 
     void sendAck(uint32_t originalMsgId, uint8_t originalOpType);
     void sendErr(uint32_t originalMsgId, uint8_t originalOpType, uint8_t errorCode);
-    void handleIncomingCommand(InnerPlaintext& pt);
+    void handleIncomingCommand(const InnerPlaintext& pt);
 };
 
 #endif  // ENCRYPTED_MESSAGE_HANDLER_H

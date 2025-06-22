@@ -40,4 +40,18 @@ constexpr uint8_t MSG_TYPE_REQ = 0x01;
 constexpr uint8_t MSG_TYPE_ACK = 0x02;
 constexpr uint8_t MSG_TYPE_ERR = 0x03;
 
+#ifdef PIN_NEOPIXEL
+#undef PIN_NEOPIXEL
+#endif
+constexpr int PIN_NEOPIXEL = 39;
+constexpr int NUM_NEOPIXELS = 1;
+
+enum class OperationType : uint8_t {
+    NoOp = 0x00,
+    Reboot = 0x01,
+    BlinkLed = 0x02,
+    StopBlink = 0x03,
+    Unknown = 0xFF  // default/error cases
+};
+
 #endif  // POL_CONSTANTS_H

@@ -4,12 +4,13 @@
 
 #include "ble/beacon_advertiser.h"
 #include "ble/ble_server.h"
+#include "protocol/handlers/commands/command_factory.h"
 #include "protocol/handlers/encrypted_message_handler.h"
 #include "protocol/handlers/token_message_handler.h"
 #include "utils/counter.h"
 #include "utils/crypto_service.h"
 #include "utils/key_manager.h"
-#include "utils/utils.h"
+#include "utils/led_controller.h"
 
 // Globals that need to have infinite lifecycle
 const char* TAG = "[MAIN]";
@@ -18,6 +19,8 @@ Preferences prefs;
 MinuteCounter counter;
 KeyManager keyManager;
 CryptoService cryptoService(keyManager);
+LedController ledController;
+CommandFactory commandFactory(ledController);
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
 
@@ -25,6 +28,9 @@ void setup() {
     Serial.begin(115200);
     delay(5000);
     Serial.printf("\n%s Booting Polaris Beacon...\n", TAG);
+
+    // Init LED controller
+    ledController.begin();
 
     // Init crypto lib
     if (sodium_init() == -1) {
@@ -80,8 +86,8 @@ void setup() {
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         encryptedIndicateChar,
         [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
-            return std::unique_ptr<EncryptedMessageHandler>(
-                new EncryptedMessageHandler(cryptoService, counter, prefs, transport));
+            return std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(
+                cryptoService, counter, prefs, transport, commandFactory));
         }));
 
     server.setEncryptedDataProcessor(encryptedTransport.get());
