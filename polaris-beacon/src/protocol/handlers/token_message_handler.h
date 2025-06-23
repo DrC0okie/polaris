@@ -1,7 +1,7 @@
 #ifndef TOKEN_HANDLER_H
 #define TOKEN_HANDLER_H
 
-#include "../../utils/counter.h"
+#include "../../utils/beacon_counter.h"
 #include "../../utils/crypto_service.h"
 #include "../pol_constants.h"
 #include "imessage_handler.h"
@@ -9,14 +9,14 @@
 
 class TokenMessageHandler : public IMessageHandler {
 public:
-    TokenMessageHandler(const CryptoService& cryptoService, const MinuteCounter& counter,
+    TokenMessageHandler(const CryptoService& cryptoService, const BeaconCounter& counter,
                         IMessageTransport& transport);
 
     void process(const uint8_t* requestData, size_t len) override;
 
 private:
     const CryptoService& _cryptoService;
-    const MinuteCounter& _counter;
+    const BeaconCounter& _counter;
     IMessageTransport& _transport;
 };
 

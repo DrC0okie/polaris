@@ -3,7 +3,7 @@
 
 #include <HardwareSerial.h>
 
-#include "alfp.h"
+#include "fragmentation_header.h"
 
 FragmentationTransport::FragmentationTransport(BLECharacteristic* indicateChar,
                                                HandlerFactory factory)
@@ -18,8 +18,8 @@ FragmentationTransport::FragmentationTransport(BLECharacteristic* indicateChar,
 }
 
 void FragmentationTransport::onMtuChanged(uint16_t newMtu) {
-    // New MTU - GATT Header - Our ALFP Header
-    _maxChunkPayloadSize = newMtu - GATT_HEADER_SIZE - alfp::Header::SIZE;
+    // New MTU - GATT Header - fragmentation Header
+    _maxChunkPayloadSize = newMtu - GATT_HEADER_SIZE - fragmentation::Header::SIZE;
     Serial.printf("%s MTU updated to %u, max chunk payload is now %u bytes.\n", TAG, newMtu,
                   _maxChunkPayloadSize);
 }
@@ -32,7 +32,7 @@ void FragmentationTransport::resetReassembly() {
 }
 
 void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
-    if (len < alfp::Header::SIZE) {
+    if (len < fragmentation::Header::SIZE) {
         Serial.printf("%s Chunk too small (%zu bytes), ignoring.\n", TAG, len);
         return;
     }
@@ -44,14 +44,14 @@ void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
         resetReassembly();
     }
 
-    alfp::Header header;
+    fragmentation::Header header;
     header.control = chunkData[0];
-    const uint8_t* payload = chunkData + alfp::Header::SIZE;
-    size_t payloadLen = len - alfp::Header::SIZE;
-    uint8_t packetType = header.control & alfp::MASK_TYPE;
-    uint8_t transactionId = header.control & alfp::MASK_TRANSACTION_ID;
+    const uint8_t* payload = chunkData + fragmentation::Header::SIZE;
+    size_t payloadLen = len - fragmentation::Header::SIZE;
+    uint8_t packetType = header.control & fragmentation::MASK_TYPE;
+    uint8_t transactionId = header.control & fragmentation::MASK_TRANSACTION_ID;
 
-    if (packetType == alfp::FLAG_UNFRAGMENTED) {
+    if (packetType == fragmentation::FLAG_UNFRAGMENTED) {
         if (_reassemblyState != ReassemblyState::IDLE) {
             Serial.printf("%s WARNING: Received UNFRAGMENTED packet while reassembling. Discarding "
                           "old data.\n",
@@ -65,7 +65,7 @@ void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
 
     // Handle fragmented packets
     switch (packetType) {
-        case alfp::FLAG_START:
+        case fragmentation::FLAG_START:
             if (_reassemblyState == ReassemblyState::REASSEMBLING) {
                 Serial.printf(
                     "%s WARNING: Received START while already reassembling. Starting over.\n", TAG);
@@ -77,7 +77,7 @@ void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
             _lastPacketTimestamp = millis();
             break;
 
-        case alfp::FLAG_MIDDLE:
+        case fragmentation::FLAG_MIDDLE:
             if (_reassemblyState != ReassemblyState::REASSEMBLING ||
                 transactionId != _currentTransactionId) {
                 Serial.printf("%s Received out-of-sequence MIDDLE packet. Ignoring.\n", TAG);
@@ -88,7 +88,7 @@ void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
             _lastPacketTimestamp = millis();
             break;
 
-        case alfp::FLAG_END:
+        case fragmentation::FLAG_END:
             if (_reassemblyState != ReassemblyState::REASSEMBLING ||
                 transactionId != _currentTransactionId) {
                 Serial.printf("%s Received out-of-sequence END packet. Ignoring.\n", TAG);
@@ -103,7 +103,7 @@ void FragmentationTransport::process(const uint8_t* chunkData, size_t len) {
             break;
 
         default:
-            Serial.printf("%s Unknown packet type in ALFP header. Ignoring.\n", TAG);
+            Serial.printf("%s Unknown packet type in fragmentation header. Ignoring.\n", TAG);
             break;
     }
 }
@@ -116,13 +116,13 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
     }
 
     // Increment transaction ID for this new message transfer
-    _outgoingTransactionId = (_outgoingTransactionId + 1) & alfp::MASK_TRANSACTION_ID;
+    _outgoingTransactionId = (_outgoingTransactionId + 1) & fragmentation::MASK_TRANSACTION_ID;
 
     // Check if message fits in a single packet (Unfragmented optimization)
     if (len <= _maxChunkPayloadSize) {
-        std::vector<uint8_t> packet(len + alfp::Header::SIZE);
-        packet[0] = alfp::FLAG_UNFRAGMENTED | _outgoingTransactionId;
-        memcpy(packet.data() + alfp::Header::SIZE, fullMessageData, len);
+        std::vector<uint8_t> packet(len + fragmentation::Header::SIZE);
+        packet[0] = fragmentation::FLAG_UNFRAGMENTED | _outgoingTransactionId;
+        memcpy(packet.data() + fragmentation::Header::SIZE, fullMessageData, len);
 
         _indicateChar->setValue(packet.data(), packet.size());
         _indicateChar->indicate();
@@ -139,20 +139,20 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
     while (bytesSent < len) {
         size_t chunkSize = std::min((size_t)_maxChunkPayloadSize, len - bytesSent);
 
-        std::vector<uint8_t> packet(chunkSize + alfp::Header::SIZE);
+        std::vector<uint8_t> packet(chunkSize + fragmentation::Header::SIZE);
         uint8_t packetType;
 
         if (isFirst) {
-            packetType = alfp::FLAG_START;
+            packetType = fragmentation::FLAG_START;
             isFirst = false;
         } else if (bytesSent + chunkSize >= len) {
-            packetType = alfp::FLAG_END;
+            packetType = fragmentation::FLAG_END;
         } else {
-            packetType = alfp::FLAG_MIDDLE;
+            packetType = fragmentation::FLAG_MIDDLE;
         }
 
         packet[0] = packetType | _outgoingTransactionId;
-        memcpy(packet.data() + alfp::Header::SIZE, fullMessageData + bytesSent, chunkSize);
+        memcpy(packet.data() + fragmentation::Header::SIZE, fullMessageData + bytesSent, chunkSize);
 
         _indicateChar->setValue(packet.data(), packet.size());
         _indicateChar->indicate();

@@ -3,11 +3,11 @@
 #include <sodium.h>
 
 #include "ble/beacon_advertiser.h"
-#include "ble/ble_server.h"
+#include "ble/ble_manager.h"
 #include "protocol/handlers/commands/command_factory.h"
 #include "protocol/handlers/encrypted_message_handler.h"
 #include "protocol/handlers/token_message_handler.h"
-#include "utils/counter.h"
+#include "utils/beacon_counter.h"
 #include "utils/crypto_service.h"
 #include "utils/display_controller.h"
 #include "utils/key_manager.h"
@@ -15,9 +15,9 @@
 
 // Globals that need to have infinite lifecycle
 const char* TAG = "[MAIN]";
-BleServer server;
+BleManager ble;
 Preferences prefs;
-MinuteCounter counter;
+BeaconCounter counter;
 KeyManager keyManager;
 CryptoService cryptoService(keyManager);
 LedController ledController;
@@ -49,8 +49,7 @@ void setup() {
         ESP.restart();
     }
     Serial.printf("%s NVS Initialized.\n", TAG);
-    // WARNING: Do not close the NVS namespace, we need it opened for the minute counter and message
-    // ids
+    // WARNING: Do not close the NVS namespace, we need it opened for the counter and messageId
 
     counter.begin(prefs);
     if (!keyManager.begin(prefs)) {
@@ -59,9 +58,9 @@ void setup() {
     }
 
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
-    server.begin(BLE_DEVICE_NAME);
+    ble.begin(BLE_DEVICE_NAME);
 
-    BLEMultiAdvertising* multiAdv = server.getMultiAdvertiser();
+    BLEMultiAdvertising* multiAdv = ble.getMultiAdvertiser();
     if (!multiAdv) {
         Serial.printf("%s CRITICAL: Failed to get MultiAdvertiser! Restarting...\n", TAG);
         ESP.restart();
@@ -73,21 +72,21 @@ void setup() {
 
     beaconExtAdvertiser->begin();
 
-    auto tokenIndicateChar = server.getCharacteristicByUUID(BLEUUID(BleServer::TOKEN_INDICATE));
+    auto tokenIndicateChar = ble.getCharacteristicByUUID(BLEUUID(BleManager::TOKEN_INDICATE));
     auto tokenTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         tokenIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             return std::unique_ptr<TokenMessageHandler>(
                 new TokenMessageHandler(cryptoService, counter, transport));
         }));
 
-    // Register the transport with the server for processing incoming data and for MTU updates.
-    server.setTokenRequestProcessor(tokenTransport.get());
-    server.registerTransportForMtuUpdates(tokenTransport.get());
+    // Register the transport with the ble for processing incoming data and for MTU updates.
+    ble.setTokenRequestProcessor(tokenTransport.get());
+    ble.registerTransportForMtuUpdates(tokenTransport.get());
     g_transports.push_back(std::move(tokenTransport));
 
     // Setup Encrypted Message Handling
     auto encryptedIndicateChar =
-        server.getCharacteristicByUUID(BLEUUID(BleServer::ENCRYPTED_INDICATE));
+        ble.getCharacteristicByUUID(BLEUUID(BleManager::ENCRYPTED_INDICATE));
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         encryptedIndicateChar,
         [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
@@ -95,8 +94,8 @@ void setup() {
                 cryptoService, counter, prefs, transport, commandFactory));
         }));
 
-    server.setEncryptedDataProcessor(encryptedTransport.get());
-    server.registerTransportForMtuUpdates(encryptedTransport.get());
+    ble.setEncryptedDataProcessor(encryptedTransport.get());
+    ble.registerTransportForMtuUpdates(encryptedTransport.get());
     g_transports.push_back(std::move(encryptedTransport));
     Serial.printf("%s Setup complete. Beacon is operational.\n", TAG);
 }

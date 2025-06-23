@@ -1,13 +1,13 @@
-#ifndef COUNTER_H
-#define COUNTER_H
+#ifndef BEACON_COUNTER_H
+#define BEACON_COUNTER_H
 
 #include <Preferences.h>
 #include <Ticker.h>
 
-class MinuteCounter {
+class BeaconCounter {
 public:
     // Constructor with optional NVS namespace
-    MinuteCounter(const char* nvsKeyName = "counter");
+    BeaconCounter(const char* nvsKeyName = "counter");
 
     void begin(Preferences& prefs);
 
@@ -24,7 +24,7 @@ private:
     void save();       // Save to NVS
 
     static void onTickStatic();      // Ticker-compatible static callback
-    static MinuteCounter* instance;  // Static instance pointer
+    static BeaconCounter* instance;  // Static instance pointer
 
     Ticker _ticker;
     Preferences _prefs;
@@ -35,4 +35,4 @@ private:
     void* _callbackContext = nullptr;
 };
 
-#endif  // COUNTER_H
+#endif  // BEACON_COUNTER_H

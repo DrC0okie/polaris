@@ -6,7 +6,7 @@
 const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 
 BeaconAdvertiser::BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService,
-                                   MinuteCounter& counter, BLEMultiAdvertising& advertiser)
+                                   BeaconCounter& counter, BLEMultiAdvertising& advertiser)
     : _beaconId(beaconId),
       _cryptoService(cryptoService),
       _counterRef(counter),

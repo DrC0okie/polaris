@@ -8,7 +8,7 @@
 #include "commands/command_factory.h"
 
 EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
-                                                 const MinuteCounter& beaconEventCounter,
+                                                 const BeaconCounter& beaconEventCounter,
                                                  Preferences& prefs, IMessageTransport& transport,
                                                  CommandFactory& commandFactory)
     : _cryptoService(cryptoService),

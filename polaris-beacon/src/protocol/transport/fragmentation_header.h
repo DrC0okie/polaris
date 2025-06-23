@@ -1,11 +1,11 @@
-// src/protocol/transport/alfp.h
-#ifndef ALFP_H
-#define ALFP_H
+// src/protocol/transport/fragmentation.h
+#ifndef FRAGMENTATION_HEADER_H
+#define FRAGMENTATION_HEADER_H
 
 #include <stddef.h>
 #include <stdint.h>
 
-namespace alfp {
+namespace fragmentation {
 
 // Using the 2 most significant bits for flags
 constexpr uint8_t FLAG_UNFRAGMENTED = 0b11000000;
@@ -22,6 +22,6 @@ struct Header {
     static constexpr size_t SIZE = sizeof(control);
 };
 
-}  // namespace alfp
+}  // namespace fragmentation
 
-#endif  // ALFP_H
+#endif  // FRAGMENTATION_HEADER_H

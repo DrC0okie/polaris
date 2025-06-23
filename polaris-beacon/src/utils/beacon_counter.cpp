@@ -1,14 +1,14 @@
-#include "counter.h"
+#include "beacon_counter.h"
 
 #include <HardwareSerial.h>
 
 // Initialize static instance pointer
-MinuteCounter* MinuteCounter::instance = nullptr;
+BeaconCounter* BeaconCounter::instance = nullptr;
 
-MinuteCounter::MinuteCounter(const char* key) : _nvsKeyName(key), _counter(0) {
+BeaconCounter::BeaconCounter(const char* key) : _nvsKeyName(key), _counter(0) {
 }
 
-void MinuteCounter::begin(Preferences& prefs) {
+void BeaconCounter::begin(Preferences& prefs) {
     _prefs = prefs;
     _counter = _prefs.getULong64(_nvsKeyName, 0);
     Serial.printf("[Counter] Initialized from NVS: %llu\n", _counter);
@@ -17,16 +17,16 @@ void MinuteCounter::begin(Preferences& prefs) {
     instance = this;
 
     // Ticker needs plain function pointer; use static trampoline
-    _ticker.attach(60, MinuteCounter::onTickStatic);
+    _ticker.attach(60, BeaconCounter::onTickStatic);
 }
 
-void MinuteCounter::onTickStatic() {
+void BeaconCounter::onTickStatic() {
     if (instance) {
         instance->increment();
     }
 }
 
-void MinuteCounter::increment() {
+void BeaconCounter::increment() {
     _counter++;
     save();
 
@@ -35,15 +35,15 @@ void MinuteCounter::increment() {
     }
 }
 
-void MinuteCounter::save() {
+void BeaconCounter::save() {
     _prefs.putULong64(_nvsKeyName, _counter);
 }
 
-uint64_t MinuteCounter::getValue() const {
+uint64_t BeaconCounter::getValue() const {
     return _counter;
 }
 
-void MinuteCounter::reset() {
+void BeaconCounter::reset() {
     _counter = 0;
     save();
 
@@ -52,7 +52,7 @@ void MinuteCounter::reset() {
     }
 }
 
-void MinuteCounter::setIncrementCallback(IncrementCallback_t callback, void* context) {
+void BeaconCounter::setIncrementCallback(IncrementCallback_t callback, void* context) {
     _incrementCallback = callback;
     _callbackContext = context;
 }

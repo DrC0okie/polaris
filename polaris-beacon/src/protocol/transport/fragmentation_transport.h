@@ -13,7 +13,7 @@
 
 class FragmentationTransport : public IMessageHandler, public IMessageTransport {
 public:
-    // Factory used to inject the ownership to the BLE server
+    // Factory used to inject the ownership to the BLE manager
     using HandlerFactory = std::function<std::unique_ptr<IMessageHandler>(IMessageTransport&)>;
 
     FragmentationTransport(BLECharacteristic* indicateChar, HandlerFactory factory);
@@ -24,7 +24,7 @@ public:
     // This method receives a full message from the wrapped handler.
     bool sendMessage(const uint8_t* fullMessageData, size_t len) override;
 
-    // Called by BleServer when the connection MTU changes.
+    // Called by BleManager when the connection MTU changes.
     void onMtuChanged(uint16_t newMtu);
 
 private:
@@ -47,7 +47,7 @@ private:
     unsigned long _lastPacketTimestamp = 0;
 
     // State for fragmentation (outgoing)
-    uint16_t _maxChunkPayloadSize = 20;  // Default: 23 (MTU) - 3 (GATT) - 1 (ALFP) = 19
+    uint16_t _maxChunkPayloadSize = 20;  // Default: 23 (MTU) - 3 (GATT) - 1 (frag header) = 19
     uint8_t _outgoingTransactionId = 0;
 };
 

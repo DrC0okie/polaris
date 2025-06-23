@@ -5,27 +5,27 @@
 #include <stdint.h>
 
 #include "../protocol/pol_constants.h"
-#include "../utils/counter.h"
+#include "../utils/beacon_counter.h"
 #include "../utils/crypto_service.h"
 
 class BLEMultiAdvertising;
 
 class BeaconAdvertiser {
 public:
-    BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService, MinuteCounter& counter,
+    BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService, BeaconCounter& counter,
                      BLEMultiAdvertising& advertiser);
 
     void begin();
     void updateAdvertisement();  // Public method to trigger an update
 
 private:
-    // Callback for MinuteCounter
+    // Callback for BeaconCounter
     static void onCounterIncremented(void* context);
     void handleCounterIncrement();
 
     const uint32_t _beaconId;
     const CryptoService& _cryptoService;
-    MinuteCounter& _counterRef;
+    BeaconCounter& _counterRef;
     BLEMultiAdvertising& _advertiserRef;
 
     // Structure for the broadcast payload

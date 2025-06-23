@@ -1,4 +1,4 @@
-#include "ble_server.h"
+#include "ble_manager.h"
 
 #include <BLE2902.h>         // For standard descriptors like CCCD
 #include <BLEAdvertising.h>  // For BLEMultiAdvertising and BLEAdvertisementData
@@ -13,31 +13,31 @@
 #include "characteristics/write_characteristic.h"
 
 // ========== SERVER CALLBACKS ==========
-BleServer::ServerCallbacks::ServerCallbacks(BleServer* parentServer) : _parentServer(parentServer) {
+BleManager::ServerCallbacks::ServerCallbacks(BleManager* mngr) : _mngr(mngr) {
 }
 
-void BleServer::ServerCallbacks::onMtuChanged(BLEServer* _, esp_ble_gatts_cb_param_t* param) {
+void BleManager::ServerCallbacks::onMtuChanged(BLEServer* _, esp_ble_gatts_cb_param_t* param) {
     Serial.printf("[BLE] Negotiated MTU: %u bytes\n", param->mtu.mtu);
-    if (_parentServer) {
-        _parentServer->updateMtu(param->mtu.mtu);
+    if (_mngr) {
+        _mngr->updateMtu(param->mtu.mtu);
     }
 }
 
-void BleServer::ServerCallbacks::onConnect(BLEServer* _) {
-    if (_parentServer && _parentServer->getMultiAdvertiser()) {
+void BleManager::ServerCallbacks::onConnect(BLEServer* _) {
+    if (_mngr && _mngr->getMultiAdvertiser()) {
         Serial.println("[BLE] Client connected.");
-        if (!_parentServer->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE)) {
+        if (!_mngr->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE)) {
             Serial.printf("[BLE] Failed to stop legacy advertising instance %d.\n",
                           LEGACY_TOKEN_ADV_INSTANCE);
         }
     }
 }
 
-void BleServer::ServerCallbacks::onDisconnect(BLEServer* /*pServer*/) {
-    if (_parentServer && _parentServer->getMultiAdvertiser()) {
+void BleManager::ServerCallbacks::onDisconnect(BLEServer* _) {
+    if (_mngr && _mngr->getMultiAdvertiser()) {
         Serial.println("[BLE] Client disconnected. Restarting legacy "
                        "advertising instance.");
-        if (!_parentServer->getMultiAdvertiser()->start(1, LEGACY_TOKEN_ADV_INSTANCE)) {
+        if (!_mngr->getMultiAdvertiser()->start(1, LEGACY_TOKEN_ADV_INSTANCE)) {
             Serial.printf("[BLE] Failed to restart legacy advertising instance %d.\n",
                           LEGACY_TOKEN_ADV_INSTANCE);
         }
@@ -45,7 +45,7 @@ void BleServer::ServerCallbacks::onDisconnect(BLEServer* /*pServer*/) {
 }
 
 // ========== CONSTRUCTOR & DESTRUCTOR ==========
-BleServer::BleServer() {
+BleManager::BleManager() {
     _multiAdvertiserPtr =
         std::unique_ptr<BLEMultiAdvertising>(new BLEMultiAdvertising(NUM_ADV_INSTANCES));
     if (!_multiAdvertiserPtr) {
@@ -61,11 +61,11 @@ BleServer::BleServer() {
     }
 }
 
-BleServer::~BleServer() {
+BleManager::~BleManager() {
     stop();
 }
 
-void BleServer::begin(const std::string& deviceName) {
+void BleManager::begin(const std::string& deviceName) {
     Serial.println("[BLE] Initializing BLE Device stack...");
     BLEDevice::init("");
 
@@ -168,12 +168,12 @@ void BleServer::begin(const std::string& deviceName) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
     }
 
-    Serial.println("[BLE] Server configuration complete.");
+    Serial.println("[BLE] Configuration complete.");
 }
 
 // ========== STOP ==========
-void BleServer::stop() {
-    Serial.println("[BLE] Stopping BleServer...");
+void BleManager::stop() {
+    Serial.println("[BLE] Stopping BleManager...");
     if (_tokenProcessorTask != nullptr) {
         Serial.println("[BLE] Signaling processor task to shut down...");
         _shutdownRequested = true;
@@ -216,7 +216,7 @@ void BleServer::stop() {
 }
 
 // ========== QUEUE TOKEN REQUEST ==========
-void BleServer::queueTokenRequest(const uint8_t* data, size_t len) {
+void BleManager::queueTokenRequest(const uint8_t* data, size_t len) {
     if (!_tokenQueue) {
         Serial.println("[BLE] Queue not initialized, dropping request.");
         return;
@@ -243,7 +243,7 @@ void BleServer::queueTokenRequest(const uint8_t* data, size_t len) {
 }
 
 // ========== QUEUE ENCRYPTED REQUEST ==========
-void BleServer::queueEncryptedRequest(const uint8_t* data, size_t len) {
+void BleManager::queueEncryptedRequest(const uint8_t* data, size_t len) {
     if (!_encryptedQueue) {
         Serial.println("[BLE Enc] Encrypted queue not initialized, dropping request.");
         return;
@@ -268,15 +268,15 @@ void BleServer::queueEncryptedRequest(const uint8_t* data, size_t len) {
 }
 
 // ========== TOKEN PROCESSOR TASK ==========
-void BleServer::tokenProcessorTask(void* pvParameters) {
-    BleServer* serverInstance = static_cast<BleServer*>(pvParameters);
-    if (serverInstance) {
-        serverInstance->processTokenRequests();
+void BleManager::tokenProcessorTask(void* pvParameters) {
+    BleManager* managerInstance = static_cast<BleManager*>(pvParameters);
+    if (managerInstance) {
+        managerInstance->processTokenRequests();
     }
     vTaskDelete(NULL);
 }
 
-void BleServer::processTokenRequests() {
+void BleManager::processTokenRequests() {
     Serial.println("[BLE] PoL processor task started.");
     TokenRequestMessage msg;
     while (!_shutdownRequested) {
@@ -291,15 +291,15 @@ void BleServer::processTokenRequests() {
 }
 
 // ========== ENCRYPTED DATA PROCESSOR TASK ==========
-void BleServer::encryptedProcessorTask(void* pvParameters) {
-    BleServer* serverInstance = static_cast<BleServer*>(pvParameters);
-    if (serverInstance) {
-        serverInstance->processEncryptedRequests();
+void BleManager::encryptedProcessorTask(void* pvParameters) {
+    BleManager* managerInstance = static_cast<BleManager*>(pvParameters);
+    if (managerInstance) {
+        managerInstance->processEncryptedRequests();
     }
     vTaskDelete(NULL);
 }
 
-void BleServer::processEncryptedRequests() {
+void BleManager::processEncryptedRequests() {
     Serial.println("[BLE] Encrypted Data processor task started.");
     EncryptedRequestMessage msg;
     while (!_shutdownRequested) {
@@ -316,7 +316,7 @@ void BleServer::processEncryptedRequests() {
 
 // ========== UTILS ==========
 
-BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const {
+BLECharacteristic* BleManager::getCharacteristicByUUID(const BLEUUID& uuid) const {
     auto it = std::find_if(_polServiceChars.begin(), _polServiceChars.end(),
                            [&](const std::unique_ptr<ICharacteristic>& ptr) {
                                if (ptr) {
@@ -333,24 +333,24 @@ BLECharacteristic* BleServer::getCharacteristicByUUID(const BLEUUID& uuid) const
     return nullptr;
 }
 
-void BleServer::setTokenRequestProcessor(IMessageHandler* processor) {
+void BleManager::setTokenRequestProcessor(IMessageHandler* processor) {
     _tokenRequestProcessor = processor;
 }
 
-void BleServer::setEncryptedDataProcessor(IMessageHandler* processor) {
+void BleManager::setEncryptedDataProcessor(IMessageHandler* processor) {
     _encryptedDataProcessor = processor;
 }
 
-void BleServer::registerTransportForMtuUpdates(FragmentationTransport* transport) {
+void BleManager::registerTransportForMtuUpdates(FragmentationTransport* transport) {
     _transportsForMtuUpdate.push_back(transport);
 }
 
-BLEMultiAdvertising* BleServer::getMultiAdvertiser() {
+BLEMultiAdvertising* BleManager::getMultiAdvertiser() {
     return _multiAdvertiserPtr.get();
 }
 
-bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
-                                                const char* serviceUuid) {
+bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,
+                                                 const char* serviceUuid) {
     esp_ble_gap_ext_adv_params_t legacyParams = {
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_LEGACY_IND,  // Legacy advertising (BLE 4.2)
         .interval_min = 0x190,  // 500ms (intervals must be multiplied by 1.25 to get seconds)
@@ -420,7 +420,7 @@ bool BleServer::configureTokenSrvcAdvertisement(const std::string& deviceName, u
     return true;
 }
 
-bool BleServer::configureExtendedAdvertisement() {
+bool BleManager::configureExtendedAdvertisement() {
     esp_ble_gap_ext_adv_params_t extParams = {
         // Non-Connectable and Non-Scannable Undirected advertising
         .type = ESP_BLE_GAP_SET_EXT_ADV_PROP_NONCONN_NONSCANNABLE_UNDIRECTED,
@@ -455,7 +455,7 @@ bool BleServer::configureExtendedAdvertisement() {
 }
 
 //  Informs the transport layers
-void BleServer::updateMtu(uint16_t newMtu) {
+void BleManager::updateMtu(uint16_t newMtu) {
     for (auto transport : _transportsForMtuUpdate) {
         if (transport) {
             transport->onMtuChanged(newMtu);

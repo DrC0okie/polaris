@@ -3,7 +3,7 @@
 
 #include <Preferences.h>  // For NVS
 
-#include "../../utils/counter.h"
+#include "../../utils/beacon_counter.h"
 #include "../../utils/crypto_service.h"
 #include "../messages/encrypted_message.h"
 #include "../pol_constants.h"
@@ -14,7 +14,7 @@
 class EncryptedMessageHandler : public IMessageHandler {
 public:
     EncryptedMessageHandler(const CryptoService& cryptoService,
-                            const MinuteCounter& beaconEventCounter,
+                            const BeaconCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
                             IMessageTransport& transport, CommandFactory& commandFactory);
 
@@ -25,8 +25,8 @@ private:
     IMessageTransport& _transport;
     uint32_t _beaconIdForAd;
     const CryptoService& _cryptoService;
-    const MinuteCounter& _beaconEventCounter;
-    Preferences& _prefs;              // Store reference to NVS
+    const BeaconCounter& _beaconEventCounter;
+    Preferences& _prefs;  // Store reference to NVS
     CommandFactory& _commandFactory;
 
     uint32_t _nextResponseMsgId;  // Manages unique msgId for responses from this beacon

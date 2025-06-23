@@ -6,7 +6,7 @@
 #include "../messages/pol_response.h"
 
 TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
-                                         const MinuteCounter& counter, IMessageTransport& transport)
+                                         const BeaconCounter& counter, IMessageTransport& transport)
     : _cryptoService(cryptoService), _counter(counter), _transport(transport) {
 }
 

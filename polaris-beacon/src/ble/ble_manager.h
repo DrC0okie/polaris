@@ -1,5 +1,5 @@
-#ifndef BLE_SERVER_H
-#define BLE_SERVER_H
+#ifndef BLE_MANAGER_H
+#define BLE_MANAGER_H
 
 #include <BLECharacteristic.h>
 #include <BLEServer.h>
@@ -25,10 +25,10 @@ static constexpr uint8_t LEGACY_TOKEN_ADV_INSTANCE = 0;
 static constexpr uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 static constexpr uint8_t NUM_ADV_INSTANCES = 2;
 
-class BleServer {
+class BleManager {
 public:
-    explicit BleServer();
-    ~BleServer();
+    explicit BleManager();
+    ~BleManager();
 
     void begin(const std::string& deviceName);
     void stop();
@@ -48,20 +48,20 @@ public:
     static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
 
 private:
-    BleServer(const BleServer&) = delete;
-    BleServer& operator=(const BleServer&) = delete;
-    BleServer(BleServer&&) = delete;
-    BleServer& operator=(BleServer&&) = delete;
+    BleManager(const BleManager&) = delete;
+    BleManager& operator=(const BleManager&) = delete;
+    BleManager(BleManager&&) = delete;
+    BleManager& operator=(BleManager&&) = delete;
 
     class ServerCallbacks : public BLEServerCallbacks {
     public:
-        explicit ServerCallbacks(BleServer* parentServer);
+        explicit ServerCallbacks(BleManager* parentServer);
         void onConnect(BLEServer* pServer) override;
         void onDisconnect(BLEServer* pServer) override;
         void onMtuChanged(BLEServer* pServer, esp_ble_gatts_cb_param_t* param) override;
 
     private:
-        BleServer* _parentServer;
+        BleManager* _mngr;
     };
 
     struct TokenRequestMessage {
@@ -104,4 +104,4 @@ private:
     void updateMtu(uint16_t newMtu);
 };
 
-#endif  // BLE_SERVER_H
+#endif  // BLE_MANAGER_H
