@@ -60,20 +60,21 @@ object CryptoManager {
         return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE_SIZE)
     }
 
+
     fun signPoLRequest(request: PoLRequest, sk: UByteArray): PoLRequest {
         ensureInitialized()
         val dataToSign = request.getSignedData()
         val signature = Signature.detached(dataToSign, sk)
         return request.copy(phoneSig = signature)
     }
-
-    fun verifyPoLResponse(resp: PoLResponse, originalReq: PoLRequest, beaconPk: UByteArray): Boolean {
+    
+    fun verifyPoLResponse(resp: PoLResponse, originalSignedReq: PoLRequest, beaconPk: UByteArray): Boolean {
         ensureInitialized()
-        if (!resp.nonce.contentEquals(originalReq.nonce)) {
+        if (!resp.nonce.contentEquals(originalSignedReq.nonce)) {
             Log.e(tag, "Nonce mismatch in response verification!")
             return false
         }
-        val dataActuallySignedByBeacon = resp.getEffectivelySignedData(originalReq)
+        val dataActuallySignedByBeacon = resp.getEffectivelySignedData(originalSignedReq)
         return try {
             // verifyDetached throws on failure, returns Unit on success
             Signature.verifyDetached(

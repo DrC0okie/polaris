@@ -28,7 +28,7 @@ class PolTransactionInteractor(
             if (phoneId == 0uL) throw IllegalStateException("Phone ID not available. Please register first.")
 
             // Construct the request
-            var request = PoLRequest(
+            val request = PoLRequest(
                 flags = 0u,
                 phoneId = phoneId,
                 beaconId = foundBeacon.provisioningInfo.beaconId,
@@ -43,9 +43,9 @@ class PolTransactionInteractor(
             val response = bleDataSource.requestPoL(signedRequest)
 
             // Verify response signatue
-            val isValid = CryptoManager.verifyPoLResponse(response, request, foundBeacon.provisioningInfo.publicKey)
+            val isValid = CryptoManager.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
             if (!isValid) throw SecurityException("Invalid beacon signature during PoL transaction!")
-            return PoLToken.create(request, response, foundBeacon.provisioningInfo.publicKey)
+            return PoLToken.create(signedRequest, response, foundBeacon.provisioningInfo.publicKey)
 
         } finally {
             bleDataSource.disconnect()
