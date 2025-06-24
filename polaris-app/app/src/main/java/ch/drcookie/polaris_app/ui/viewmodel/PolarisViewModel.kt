@@ -4,10 +4,6 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ch.drcookie.polaris_app.domain.model.dto.AckRequestDto
-import ch.drcookie.polaris_app.domain.interactor.*
-import ch.drcookie.polaris_app.domain.repository.*
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,8 +11,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
-
-private val Log = KotlinLogging.logger {}
+import ch.drcookie.polaris_sdk.domain.repository.*
+import ch.drcookie.polaris_sdk.domain.interactor.*
+import ch.drcookie.polaris_sdk.domain.model.dto.AckRequestDto
 
 data class UiState(
     val log: String = "",
@@ -95,8 +92,6 @@ class PolarisViewModel(
                 appendLog("Broadcast from #${payload.beaconId}: Counter=${payload.counter} [${verificationStatus}]")
             }
             .onCompletion {
-                // This will be called on cancellation or if the flow naturally ends
-                Log.info{"Broadcast monitoring flow completed."}
                 _uiState.update { it.copy(isMonitoring = false) }
             }
             .catch { e ->

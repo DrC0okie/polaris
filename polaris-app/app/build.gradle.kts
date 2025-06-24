@@ -4,6 +4,15 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+kotlin {
+    target {
+        compilerOptions {
+            optIn.add("kotlin.RequiresOptIn")
+        }
+    }
+    jvmToolchain(11)
+}
+
 android {
     namespace = "ch.drcookie.polaris_app"
     compileSdk = 35
@@ -31,33 +40,19 @@ android {
             )
         }
     }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.multiplatform.crypto.libsodium.bindings)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.android)
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
-    implementation(libs.ktor.client.logging)
-    implementation(libs.slf4j.android)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.kotlin.logging.jvm)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation(project(":polaris-sdk"))
 }
+

@@ -4,8 +4,8 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import ch.drcookie.polaris_app.domain.Polaris
-import ch.drcookie.polaris_app.domain.interactor.*
+import ch.drcookie.polaris_sdk.Polaris
+import ch.drcookie.polaris_sdk.domain.interactor.*
 
 class PolarisViewModelFactory() : ViewModelProvider.Factory {
     @RequiresApi(Build.VERSION_CODES.O)
