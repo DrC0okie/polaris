@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,14 +18,13 @@ import ch.drcookie.polaris_app.databinding.ActivityMainBinding
 import ch.drcookie.polaris_app.ui.viewmodel.PolarisViewModel
 import ch.drcookie.polaris_app.ui.viewmodel.PolarisViewModelFactory
 import ch.drcookie.polaris_app.ui.viewmodel.UiState
-import ch.drcookie.polaris_app.domain.interactor.logic.CryptoManager
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory(this.application) }
+    private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory() }
     private var onPermissionsGranted: (() -> Unit)? = null
 
     private val permissions = mutableListOf<String>().apply {
@@ -57,14 +55,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // Initialize Crypto once
-        lifecycleScope.launch {
-            CryptoManager.initialize()
-            if (CryptoManager.isInitialized) {
-                Log.i("MainActivity", "Crypto Initialized Successfully.")
-            }
-        }
 
         binding.registerButton.setOnClickListener {
             requestPermissionsAndRun {

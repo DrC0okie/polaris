@@ -6,18 +6,18 @@ import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
-import android.util.Log
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val Log = KotlinLogging.logger {}
 
 object BleUtils {
-    val TAG = BleUtils::class.simpleName
-
     @SuppressLint("MissingPermission")
     fun BluetoothDevice.isConnected(context: Context): Boolean {
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         return try {
             bluetoothManager.getConnectionState(this, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
         } catch (e: SecurityException) {
-            Log.e(TAG, "Permission missing for getConnectionState", e)
+            Log.error(e) { "Permission missing for getConnectionState" }
             false
         }
     }

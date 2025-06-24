@@ -1,22 +1,27 @@
 package ch.drcookie.polaris_app.ui
 
 import android.app.Application
-import ch.drcookie.polaris_app.data.datasource.ble.BleDataSourceImpl
-import ch.drcookie.polaris_app.data.datasource.remote.RemoteDataSource
+import ch.drcookie.polaris_app.domain.Polaris
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class PolarisApplication : Application() {
 
-    val bleDataSource: BleDataSourceImpl by lazy {
-        BleDataSourceImpl(applicationContext)
-    }
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    val remoteDataSource: RemoteDataSource by lazy {
-        RemoteDataSource()
+    override fun onCreate() {
+        super.onCreate()
+
+        // The single, simple initialization call for the entire SDK.
+        applicationScope.launch {
+            Polaris.initialize(applicationContext)
+        }
     }
 
     override fun onTerminate() {
         super.onTerminate()
-        bleDataSource.cancelAll()
-        remoteDataSource.shutdown()
+        Polaris.shutdown()
     }
 }

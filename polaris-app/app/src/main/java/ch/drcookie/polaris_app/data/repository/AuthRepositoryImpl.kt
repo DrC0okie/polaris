@@ -16,6 +16,11 @@ class AuthRepositoryImpl(
     // Holds the list of beacons after a successful registration/fetch
     override var knownBeacons: List<BeaconProvisioningDto> = emptyList()
 
+    override fun getPhoneId(): Long {
+        // It simply delegates the call to the underlying preference storage.
+        return userPrefs.phoneId
+    }
+
     override suspend fun registerPhone(req: PhoneRegistrationRequestDto): List<BeaconProvisioningDto> {
         val response = remoteDataSource.registerPhone(req)
         userPrefs.apiKey = response.apiKey

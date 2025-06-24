@@ -1,20 +1,20 @@
 package ch.drcookie.polaris_app.data.datasource.ble
 
-import android.util.Log
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
 
+private val Log = KotlinLogging.logger {}
+
 @OptIn(ExperimentalUnsignedTypes::class)
 class FragmentationTransport {
 
-    companion object{
-        const val TAG = "FragTransport"
+    companion object {
         enum class ReassemblyState { IDLE, REASSEMBLING }
     }
-
 
     // --- State for Reassembly (Incoming Data) ---
     private var reassemblyState = ReassemblyState.IDLE
@@ -31,13 +31,13 @@ class FragmentationTransport {
 
     fun onMtuChanged(newMtu: Int) {
         maxChunkPayloadSize = newMtu - 3 - FragmentationHeader.HEADER_SIZE
-        Log.i(TAG, "MTU updated to $newMtu, max chunk payload is now $maxChunkPayloadSize bytes.")
+        Log.info { "MTU updated to $newMtu, max chunk payload is now $maxChunkPayloadSize bytes." }
     }
 
     suspend fun process(chunkData: ByteArray) {
         val uChunk = chunkData.toUByteArray()
         if (uChunk.size < FragmentationHeader.HEADER_SIZE) {
-            Log.w(TAG, "Chunk too small (${uChunk.size} bytes), ignoring.")
+            Log.warn { "Chunk too small (${uChunk.size} bytes), ignoring." }
             return
         }
 
@@ -48,47 +48,52 @@ class FragmentationTransport {
 
         when (packetType) {
             FragmentationHeader.FLAG_UNFRAGMENTED -> {
-                Log.d(TAG, "Received unfragmented message (${payload.size} bytes).")
+                Log.debug { "Received unfragmented message (${payload.size} bytes)." }
                 _reassembledMessages.emit(payload)
             }
+
             FragmentationHeader.FLAG_START -> {
                 if (reassemblyState == ReassemblyState.REASSEMBLING) {
-                    Log.w(TAG, "Received START while already reassembling. Starting over.")
+                    Log.warn { "Received START while already reassembling. Starting over." }
                 }
                 resetReassembly()
                 reassemblyState = ReassemblyState.REASSEMBLING
                 currentInTransactionId = transactionId
                 reassemblyBuffer.addAll(payload)
             }
+
             FragmentationHeader.FLAG_MIDDLE -> {
                 if (reassemblyState != ReassemblyState.REASSEMBLING || transactionId != currentInTransactionId) {
-                    Log.e(TAG, "Received out-of-sequence MIDDLE packet. Ignoring.")
+                    Log.error { "Received out-of-sequence MIDDLE packet. Ignoring." }
                     resetReassembly()
                     return
                 }
                 reassemblyBuffer.addAll(payload)
             }
+
             FragmentationHeader.FLAG_END -> {
                 if (reassemblyState != ReassemblyState.REASSEMBLING || transactionId != currentInTransactionId) {
-                    Log.e(TAG, "Received out-of-sequence END packet. Ignoring.")
+                    Log.error { "Received out-of-sequence END packet. Ignoring." }
                     resetReassembly()
                     return
                 }
                 reassemblyBuffer.addAll(payload)
-                Log.i(TAG, "Reassembly complete. Total size: ${reassemblyBuffer.size} bytes.")
+                Log.info { "Reassembly complete. Total size: ${reassemblyBuffer.size} bytes." }
                 _reassembledMessages.emit(reassemblyBuffer.toUByteArray())
                 resetReassembly()
             }
-            else -> Log.e(TAG, "Unknown packet type in fragmentation header. Ignoring.")
+
+            else -> Log.error { "Unknown packet type in fragmentation header. Ignoring." }
         }
     }
 
     fun fragment(fullMessageData: ByteArray): Sequence<ByteArray> {
         val uMessage = fullMessageData.toUByteArray()
-        val transactionId = (outgoingTransactionId.getAndIncrement() and FragmentationHeader.MASK_TRANSACTION_ID.toInt()).toUByte()
+        val transactionId =
+            (outgoingTransactionId.getAndIncrement() and FragmentationHeader.MASK_TRANSACTION_ID.toInt()).toUByte()
 
         if (uMessage.size <= maxChunkPayloadSize) {
-            Log.d(TAG, "Sending unfragmented message of ${uMessage.size} bytes.")
+            Log.debug { "Sending unfragmented message of ${uMessage.size} bytes." }
             return sequenceOf(
                 ubyteArrayOf(FragmentationHeader.FLAG_UNFRAGMENTED or transactionId)
                     .plus(uMessage)
@@ -96,7 +101,7 @@ class FragmentationTransport {
             )
         }
 
-        Log.i(TAG, "Fragmenting message of ${uMessage.size} bytes into chunks of max $maxChunkPayloadSize.")
+        Log.info { "Fragmenting message of ${uMessage.size} bytes into chunks of max $maxChunkPayloadSize." }
         return sequence {
             var bytesSent = 0
             var isFirst = true
@@ -113,7 +118,7 @@ class FragmentationTransport {
 
                 val header = packetType or transactionId
                 val packet = ubyteArrayOf(header).plus(payloadChunk).asByteArray()
-                Log.d(TAG, "Yielding chunk type ${packetType.toString(16)}, size ${packet.size}")
+                Log.debug { "Yielding chunk type ${packetType.toString(16)}, size ${packet.size}" }
                 yield(packet)
                 bytesSent += chunkSize
             }

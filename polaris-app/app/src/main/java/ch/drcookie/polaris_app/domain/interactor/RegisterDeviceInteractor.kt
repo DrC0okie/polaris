@@ -1,17 +1,16 @@
 package ch.drcookie.polaris_app.domain.interactor
 
-import ch.drcookie.polaris_app.domain.interactor.logic.CryptoManager
 import ch.drcookie.polaris_app.domain.model.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_app.domain.repository.AuthRepository
+import ch.drcookie.polaris_app.domain.repository.KeyRepository
 
 class RegisterDeviceInteractor(
     private val authRepository: AuthRepository,
-    private val cryptoManager: CryptoManager
+    private val keyRepo: KeyRepository
 ) {
     @OptIn(ExperimentalUnsignedTypes::class)
     suspend operator fun invoke(deviceModel: String, osVersion: String, appVersion: String): Int {
-        // This logic is moved directly from PolarisViewModel.register()
-        val (pk, _) = cryptoManager.getOrGeneratePhoneKeyPair()
+        val (pk, _) = keyRepo.getOrCreateSignatureKeyPair()
         val request = PhoneRegistrationRequestDto(
             publicKey = pk,
             deviceModel = deviceModel,

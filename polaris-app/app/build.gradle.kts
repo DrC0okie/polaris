@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.ktor.client.logging)
     implementation(libs.slf4j.android)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.kotlin.logging.jvm)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

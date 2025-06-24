@@ -15,13 +15,13 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import ch.drcookie.polaris_app.data.datasource.ble.BleUtils.gattStatusToString
 import ch.drcookie.polaris_app.data.datasource.ble.BleUtils.isConnected
 import ch.drcookie.polaris_app.domain.model.Constants
 import ch.drcookie.polaris_app.domain.model.ScanCallbackType
 import ch.drcookie.polaris_app.domain.model.ScanConfig
 import ch.drcookie.polaris_app.domain.model.ScanMode
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+
+private val Log = KotlinLogging.logger {}
 
 @SuppressLint("MissingPermission")
 class BleManager(private val context: Context, private val externalScope: CoroutineScope) {
@@ -73,7 +75,6 @@ class BleManager(private val context: Context, private val externalScope: Corout
 
     companion object {
         const val REQ_MTU = 517
-        const val TAG = "BleManager"
     }
 
     fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
@@ -109,10 +110,10 @@ class BleManager(private val context: Context, private val externalScope: Corout
 
         // Start the scan
         try {
-            Log.d(TAG, "Starting scan with config: $scanConfig")
+            Log.debug { "Starting scan with config: $scanConfig" }
             scanner.startScan(filters, settings, scanCallback)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start scan", e)
+            Log.error(e) { "Failed to start scan" }
             _connectionState.value = ConnectionState.Failed("Failed to start scan")
             isScanning = false
             return
@@ -136,7 +137,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
         if (isScanning) stopScan()
 
         if (bluetoothGatt != null) {
-            Log.w(TAG, "Connection attempt ignored. Already connected or connecting.")
+            Log.warn { "Connection attempt ignored. Already connected or connecting." }
             return
         }
 
@@ -144,18 +145,18 @@ class BleManager(private val context: Context, private val externalScope: Corout
         _connectionState.value = ConnectionState.Connecting(device.address)
 
         withContext(Dispatchers.Main) {
-            Log.d(TAG, "Executing connectGatt on main thread for ${device.address}")
+            Log.debug { "Executing connectGatt on main thread for ${device.address}" }
             try {
                 bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
                 if (bluetoothGatt == null) {
                     // This is a rare failure.
-                    Log.e(TAG, "device.connectGatt returned null. BT adapter may be off or in a bad state.")
+                    Log.error { "device.connectGatt returned null. BT adapter may be off or in a bad state." }
                     _connectionState.value = ConnectionState.Failed("connectGatt returned null")
                     close() // Ensure cleanup
                 }
             } catch (e: SecurityException) {
                 // This should not happen if permissions are checked
-                Log.e(TAG, "SecurityException on connectGatt", e)
+                Log.error(e) { "SecurityException on connectGatt" }
                 _connectionState.value = ConnectionState.Failed("Permission denied for connectGatt")
                 close()
             }
@@ -168,38 +169,38 @@ class BleManager(private val context: Context, private val externalScope: Corout
             ?.getCharacteristic(currentIndicateUuid)
 
         if (!gatt.device.isConnected(context)) { // Added check for connection state
-            Log.e(TAG, "Cannot enable indication: GATT not connected.")
+            Log.error { "Cannot enable indication: GATT not connected." }
             return
         }
 
         if (indicateCharacteristic == null) {
-            Log.e(TAG, "Cannot enable indication: Indicate characteristic is null.")
+            Log.error { "Cannot enable indication: Indicate characteristic is null." }
             return
         }
 
         // Check if characteristic actually supports indication
         if (indicateCharacteristic!!.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE == 0) {
-            Log.e(TAG, "Characteristic ${indicateCharacteristic!!.uuid} does not support indication.")
+            Log.error { "Characteristic ${indicateCharacteristic!!.uuid} does not support indication." }
             return
         }
 
         // Enable notification locally
         if (!gatt.setCharacteristicNotification(indicateCharacteristic, true)) {
-            Log.e(TAG, "setCharacteristicNotification failed for ${indicateCharacteristic!!.uuid}")
+            Log.error { "setCharacteristicNotification failed for ${indicateCharacteristic!!.uuid}" }
             return
         }
 
         // Write to CCCD descriptor
         val cccd = indicateCharacteristic!!.getDescriptor(cccdUuid)
         if (cccd == null) {
-            Log.e(TAG, "CCCD descriptor not found for characteristic ${indicateCharacteristic!!.uuid}")
+            Log.error { "CCCD descriptor not found for characteristic ${indicateCharacteristic!!.uuid}" }
             // Disable local notification if CCCD write fails
             gatt.setCharacteristicNotification(indicateCharacteristic, false)
             return
         }
 
         val value = BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
-        Log.d(TAG, "Writing ENABLE_INDICATION_VALUE to CCCD for ${indicateCharacteristic!!.uuid}")
+        Log.debug { "Writing ENABLE_INDICATION_VALUE to CCCD for ${indicateCharacteristic!!.uuid}" }
         writeCccdDescriptor(gatt, cccd, value)
     }
 
@@ -208,13 +209,13 @@ class BleManager(private val context: Context, private val externalScope: Corout
         val characteristic = indicateCharacteristic ?: return
 
         if (!gatt!!.setCharacteristicNotification(characteristic, false)) {
-            Log.w(TAG, "setCharacteristicNotification(false) failed for ${characteristic.uuid}")
+            Log.warn { "setCharacteristicNotification(false) failed for ${characteristic.uuid}" }
             return
         }
 
         val cccd = characteristic.getDescriptor(cccdUuid) ?: return
         val value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-        Log.d(TAG, "Writing DISABLE_NOTIFICATION_VALUE to CCCD for ${characteristic.uuid}")
+        Log.debug { "Writing DISABLE_NOTIFICATION_VALUE to CCCD for ${characteristic.uuid}" }
         writeCccdDescriptor(gatt, cccd, value)
     }
 
@@ -224,7 +225,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
         writeCharacteristic = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
             ?.getCharacteristic(currentWriteUuid)
         if (writeCharacteristic == null || _connectionState.value !is ConnectionState.Ready) {
-            Log.e(TAG, "Cannot send, not in ready state.")
+            Log.error { "Cannot send, not in ready state." }
             // If we can't start the write, unblock any potential listener otherwise, the caller could wait forever.
             externalScope.launch { characteristicWriteSignal.trySend(false) }
             return
@@ -268,7 +269,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     // State remains Connecting, wait for MTU and services
-                    Log.i(TAG, "Connected to $deviceAddress. Requesting MTU...")
+                    Log.info { "Connected to $deviceAddress. Requesting MTU..." }
                     gatt.requestMtu(REQ_MTU)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     _connectionState.value = ConnectionState.Disconnected
@@ -276,7 +277,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
                 }
             } else {
                 val errorMsg = gattStatusToString(status)
-                Log.e(TAG, "Connection state change failed: $errorMsg")
+                Log.error { "Connection state change failed: $errorMsg" }
                 _connectionState.value = ConnectionState.Failed("Connection Failed: $errorMsg")
                 close()
             }
@@ -287,16 +288,16 @@ class BleManager(private val context: Context, private val externalScope: Corout
                 val service = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
 
                 if (service != null) {
-                    Log.i(TAG, "Main service ${Constants.POL_SERVICE_UUID} found. Device is ready.")
+                    Log.info { "Main service ${Constants.POL_SERVICE_UUID} found. Device is ready." }
                     _connectionState.value = ConnectionState.Ready(gatt.device.address)
                 } else {
-                    Log.e(TAG, "Required Polaris service not found.")
+                    Log.error { "Required Polaris service not found." }
                     _connectionState.value = ConnectionState.Failed("Required Polaris service not found.")
                     close()
                 }
             } else {
                 val errorMsg = gattStatusToString(status)
-                Log.e(TAG, "Service discovery failed: $errorMsg")
+                Log.error { "Service discovery failed: $errorMsg" }
                 _connectionState.value = ConnectionState.Failed("Service Discovery Failed: $errorMsg")
                 close()
             }
@@ -304,10 +305,10 @@ class BleManager(private val context: Context, private val externalScope: Corout
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             val stat = gattStatusToString(status)
-            Log.i(TAG, "MTU changed to $mtu")
+            Log.info { "MTU changed to $mtu" }
             if (status != BluetoothGatt.GATT_SUCCESS) {
                 // MTU change failure is not critical. The system just uses the default.
-                Log.w(TAG, "MTU change failed: $stat. Proceeding anyway.")
+                Log.warn { "MTU change failed: $stat. Proceeding anyway." }
             }
             _mtu.value = mtu
             gatt.discoverServices()
@@ -335,12 +336,12 @@ class BleManager(private val context: Context, private val externalScope: Corout
             status: Int
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Write successful for one chunk.")
+                Log.debug { "Write successful for one chunk." }
                 // Send a "true" signal to unblock the waiting coroutine.
                 externalScope.launch { characteristicWriteSignal.send(true) }
             } else {
                 val errorMsg = gattStatusToString(status)
-                Log.e(TAG, "Characteristic write failed: $errorMsg")
+                Log.error { "Characteristic write failed: $errorMsg" }
                 // Send a "false" signal to indicate failure.
                 externalScope.launch { characteristicWriteSignal.send(false) }
 
@@ -353,10 +354,10 @@ class BleManager(private val context: Context, private val externalScope: Corout
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
             if (descriptor.uuid == cccdUuid) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.d(TAG, "Descriptor write successful for ${descriptor.characteristic.uuid}")
+                    Log.debug { "Descriptor write successful for ${descriptor.characteristic.uuid}" }
                     externalScope.launch { descriptorWriteSignal.send(true) }
                 } else {
-                    Log.e(TAG, "Failed to write descriptor (CCCD write failed): ${gattStatusToString(status)}")
+                    Log.error { "Failed to write descriptor (CCCD write failed): ${gattStatusToString(status)}" }
                     externalScope.launch { descriptorWriteSignal.send(false) }
                 }
             }
@@ -391,7 +392,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
         // Helper to process characteristic changes
         private fun handleCharacteristicChange(uuid: UUID?, value: ByteArray) {
             if (uuid == currentIndicateUuid) {
-                Log.d(TAG, "Received ${value.size} bytes on indicate char.")
+                Log.debug { "Received ${value.size} bytes on indicate char." }
                 externalScope.launch { _receivedData.emit(value) }
             }
         }
@@ -399,9 +400,9 @@ class BleManager(private val context: Context, private val externalScope: Corout
         private fun handleCharacteristicRead(uuid: UUID?, value: ByteArray, status: Int) {
             val valueHex = value.joinToString(separator = " ") { "%02X".format(it) }
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "Read from $uuid successful. Value: $valueHex")
+                Log.debug { "Read from $uuid successful. Value: $valueHex" }
             } else {
-                Log.e(TAG, "Read from $uuid failed, status: $status")
+                Log.error { "Read from $uuid failed, status: $status" }
             }
         }
     }
@@ -412,7 +413,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // API 33+ uses new method
             val result = gatt.writeDescriptor(cccd, value)
-            Log.d(TAG, "gatt.writeDescriptor(cccd, value) called for API 33+, result code: $result")
+            Log.debug { "gatt.writeDescriptor(cccd, value) called for API 33+, result code: $result" }
             // Completion is signaled by onDescriptorWrite callback.
         } else {
             // Fallback for pre-API 33 (deprecated methods)
@@ -420,7 +421,7 @@ class BleManager(private val context: Context, private val externalScope: Corout
             cccd.value = value
             @Suppress("DEPRECATION")
             val success = gatt.writeDescriptor(cccd)
-            Log.d(TAG, "gatt.writeDescriptor(cccd) called for API < 33, success: $success")
+            Log.debug { "gatt.writeDescriptor(cccd) called for API < 33, success: $success" }
         }
     }
 
@@ -436,14 +437,14 @@ class BleManager(private val context: Context, private val externalScope: Corout
         lastWrittenValue = data
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val result = gatt.writeCharacteristic(characteristic, data, writeType)
-            Log.d(TAG, "gatt.writeCharacteristic(char, data, type) called for API 33+, result code: $result")
+            Log.debug { "gatt.writeCharacteristic(char, data, type) called for API 33+, result code: $result" }
         } else {
             characteristic.writeType = writeType
             @Suppress("DEPRECATION")
             characteristic.value = data
             @Suppress("DEPRECATION")
             val success = gatt.writeCharacteristic(characteristic)
-            Log.d(TAG, "gatt.writeCharacteristic(char) called for API < 33, success: $success")
+            Log.debug { "gatt.writeCharacteristic(char) called for API < 33, success: $success" }
         }
     }
 }

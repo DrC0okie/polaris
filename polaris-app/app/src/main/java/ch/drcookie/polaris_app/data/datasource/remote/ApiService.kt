@@ -1,6 +1,6 @@
 package ch.drcookie.polaris_app.data.datasource.remote
 
-import android.util.Log
+import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_app.domain.model.PoLToken
 import ch.drcookie.polaris_app.domain.model.dto.AckRequestDto
 import ch.drcookie.polaris_app.domain.model.dto.BeaconProvisioningListDto
@@ -12,7 +12,6 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.logging.DEFAULT
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
@@ -28,8 +27,9 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
+private val Log = KotlinLogging.logger {}
+
 object ApiService {
-    private const val TAG = "ApiService"
     private const val BASE_URL = "https://polaris.iict-heig-vd.ch"
 
     // Configure the HttpClient
@@ -48,12 +48,10 @@ object ApiService {
         install(Logging) {
             logger = object : Logger {
                 override fun log(message: String) {
-                    Log.v(TAG, "KtorLog: $message")
+                    Log.info { message }
                 }
             }
-            logger = Logger.Companion.DEFAULT
             level = LogLevel.ALL
-//            filter { request -> request.url.host.contains("ktor.io") }
             sanitizeHeader { header -> header == HttpHeaders.Authorization }
         }
 
@@ -80,8 +78,9 @@ object ApiService {
             contentType(ContentType.Application.Json)
             setBody(token)
         }
-        Log.d(TAG, "Sending PoLToken to $BASE_URL/api/v1/tokens")
-        Log.d(TAG, "Response from the server: ${resp.bodyAsText()}")
+        val responseBody = resp.bodyAsText()
+        Log.debug { "Sending PoLToken to $BASE_URL/api/v1/tokens" }
+        Log.debug { "Response from the server: $responseBody" }
         return resp.status.isSuccess()
     }
 
@@ -100,6 +99,6 @@ object ApiService {
 
     fun closeClient() {
         client.close()
-        Log.d(TAG, "Ktor HTTP client closed.")
+        Log.debug { "Ktor HTTP client closed." }
     }
 }

@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.le.ScanFilter
 import android.content.Context
 import android.os.ParcelUuid
-import android.util.Log
+import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_app.domain.model.CommonScanFilter
 import ch.drcookie.polaris_app.domain.model.CommonBleScanResult
 import ch.drcookie.polaris_app.domain.model.PoLRequest
@@ -17,10 +17,19 @@ import kotlinx.coroutines.flow.*
 import java.io.IOException
 import java.util.UUID
 import androidx.core.util.size
+import ch.drcookie.polaris_app.domain.interactor.logic.BeaconDataParser
+import ch.drcookie.polaris_app.domain.model.BroadcastPayload
+import ch.drcookie.polaris_app.domain.model.FoundBeacon
+import ch.drcookie.polaris_app.domain.model.dto.BeaconProvisioningDto
+
+private val Log = KotlinLogging.logger {}
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
-class BleDataSourceImpl(context: Context): BleDataSource {
+class BleDataSourceImpl(
+    context: Context,
+    private val beaconDataParser: BeaconDataParser
+) : BleDataSource {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val bleManager = BleManager(context, scope)
@@ -53,6 +62,7 @@ class BleDataSourceImpl(context: Context): BleDataSource {
                     ScanFilter.Builder()
                         .setServiceUuid(ParcelUuid(UUID.fromString(commonFilter.uuid)))
                         .build()
+
                 is CommonScanFilter.ByManufacturerData ->
                     ScanFilter.Builder()
                         .setManufacturerData(commonFilter.id, null)
@@ -149,9 +159,40 @@ class BleDataSourceImpl(context: Context): BleDataSource {
         bleManager.disableIndication()
         val indicationDisabled = bleManager.descriptorWriteSignal.receive()
         if (!indicationDisabled) {
-            Log.w("BleDataSource", "Failed to disable indications cleanly for $indicateUuid")
+            Log.warn { "Failed to disable indications cleanly for $indicateUuid" }
         }
 
         return response
+    }
+
+    override fun findConnectableBeacons(
+        scanConfig: ScanConfig,
+        beaconsToFind: List<BeaconProvisioningDto>
+    ): Flow<FoundBeacon> {
+        val filters = listOf(CommonScanFilter.ByServiceUuid(Constants.POL_SERVICE_UUID))
+
+        // The parsing logic from the interactor moves here.
+        return this.scanForBeacons(filters, scanConfig)
+            .mapNotNull { commonScanResult ->
+                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult)
+                if (beaconId != null) {
+                    val matchedInfo = beaconsToFind.find { it.beaconId == beaconId }
+                    if (matchedInfo != null) {
+                        return@mapNotNull FoundBeacon(
+                            provisioningInfo = matchedInfo,
+                            address = commonScanResult.deviceAddress
+                        )
+                    }
+                }
+                null
+            }
+    }
+
+    override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
+        val filters = listOf(CommonScanFilter.ByManufacturerData(Constants.EXTENDED_MANUFACTURER_ID))
+
+        // The parsing logic from the interactor moves here.
+        return this.scanForBeacons(filters, scanConfig)
+            .mapNotNull { scanResult -> beaconDataParser.parseBroadcastPayload(scanResult) }
     }
 }

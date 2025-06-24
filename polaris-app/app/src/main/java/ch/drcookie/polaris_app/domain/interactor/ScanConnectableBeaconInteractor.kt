@@ -1,20 +1,16 @@
 package ch.drcookie.polaris_app.domain.interactor
 
-import ch.drcookie.polaris_app.domain.interactor.logic.BeaconDataParser
 import ch.drcookie.polaris_app.domain.model.FoundBeacon
 import ch.drcookie.polaris_app.domain.model.ScanConfig
 import ch.drcookie.polaris_app.domain.model.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_app.domain.repository.AuthRepository
 import ch.drcookie.polaris_app.domain.repository.BleDataSource
-import ch.drcookie.polaris_app.domain.repository.startConnectableScan
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.withTimeoutOrNull
 
 class ScanConnectableBeaconInteractor(
     private val bleDataSource: BleDataSource,
-    private val authRepository: AuthRepository,
-    private val beaconDataParser: BeaconDataParser
+    private val authRepository: AuthRepository
 ) {
 
     /**
@@ -32,22 +28,10 @@ class ScanConnectableBeaconInteractor(
             return null
         }
 
+        val scanConfig = ScanConfig()
+
         return withTimeoutOrNull(timeoutMillis) {
-            bleDataSource.startConnectableScan(ScanConfig())
-                .mapNotNull { commonScanResult ->
-                    val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult)
-                    if (beaconId != null) {
-                        val matchedInfo = beaconsToFind.find { it.beaconId == beaconId }
-                        if (matchedInfo != null) {
-                            return@mapNotNull FoundBeacon(
-                                provisioningInfo = matchedInfo,
-                                address = commonScanResult.deviceAddress
-                            )
-                        }
-                    }
-                    null
-                }
-                .firstOrNull()
+            bleDataSource.findConnectableBeacons(scanConfig, beaconsToFind).firstOrNull()
         }
     }
 }

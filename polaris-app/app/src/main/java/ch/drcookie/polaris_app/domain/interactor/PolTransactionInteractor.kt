@@ -1,18 +1,20 @@
 package ch.drcookie.polaris_app.domain.interactor
 
 import ch.drcookie.polaris_app.data.datasource.ble.ConnectionState
-import ch.drcookie.polaris_app.domain.interactor.logic.CryptoManager
 import ch.drcookie.polaris_app.domain.model.FoundBeacon
 import ch.drcookie.polaris_app.domain.model.PoLRequest
 import ch.drcookie.polaris_app.domain.model.PoLToken
+import ch.drcookie.polaris_app.domain.repository.AuthRepository
 import ch.drcookie.polaris_app.domain.repository.BleDataSource
-import ch.drcookie.polaris_app.domain.repository.LocalPreferences
+import ch.drcookie.polaris_app.domain.repository.KeyRepository
+import ch.drcookie.polaris_app.domain.repository.ProtocolRepository
 import kotlinx.coroutines.flow.first
 
 class PolTransactionInteractor(
     private val bleDataSource: BleDataSource,
-    private val localPreferences: LocalPreferences,
-    private val cryptoManager: CryptoManager
+    private val authRepository: AuthRepository,
+    private val keyRepository: KeyRepository,
+    private val protocolRepo: ProtocolRepository
 ) {
     // The 'invoke' operator allows calling the class like a function
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -23,8 +25,8 @@ class PolTransactionInteractor(
             bleDataSource.connectionState.first { it is ConnectionState.Ready }
 
             // get necessary data
-            val (phonePk, phoneSk) = cryptoManager.getOrGeneratePhoneKeyPair()
-            val phoneId = localPreferences.phoneId.toULong()
+            val (phonePk, phoneSk) = keyRepository.getOrCreateSignatureKeyPair()
+            val phoneId = authRepository.getPhoneId().toULong()
             if (phoneId == 0uL) throw IllegalStateException("Phone ID not available. Please register first.")
 
             // Construct the request
@@ -32,18 +34,18 @@ class PolTransactionInteractor(
                 flags = 0u,
                 phoneId = phoneId,
                 beaconId = foundBeacon.provisioningInfo.beaconId,
-                nonce = CryptoManager.generateNonce(),
+                nonce = protocolRepo.generateNonce(),
                 phonePk = phonePk
             )
 
             // Sign the request
-            val signedRequest = cryptoManager.signPoLRequest(request, phoneSk)
+            val signedRequest = protocolRepo.signPoLRequest(request, phoneSk)
 
             // Send and receive the response
             val response = bleDataSource.requestPoL(signedRequest)
 
             // Verify response signatue
-            val isValid = CryptoManager.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
+            val isValid = protocolRepo.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
             if (!isValid) throw SecurityException("Invalid beacon signature during PoL transaction!")
             return PoLToken.create(signedRequest, response, foundBeacon.provisioningInfo.publicKey)
 

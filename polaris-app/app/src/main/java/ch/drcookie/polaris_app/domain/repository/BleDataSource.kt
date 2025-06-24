@@ -1,11 +1,14 @@
 package ch.drcookie.polaris_app.domain.repository
 
 import ch.drcookie.polaris_app.data.datasource.ble.ConnectionState
+import ch.drcookie.polaris_app.domain.model.BroadcastPayload
 import ch.drcookie.polaris_app.domain.model.CommonBleScanResult
 import ch.drcookie.polaris_app.domain.model.CommonScanFilter
+import ch.drcookie.polaris_app.domain.model.FoundBeacon
 import ch.drcookie.polaris_app.domain.model.PoLRequest
 import ch.drcookie.polaris_app.domain.model.PoLResponse
 import ch.drcookie.polaris_app.domain.model.ScanConfig
+import ch.drcookie.polaris_app.domain.model.dto.BeaconProvisioningDto
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -25,4 +28,19 @@ interface BleDataSource {
     suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray
     fun disconnect()
     fun cancelAll()
+
+    /**
+     * Scans for connectable beacons and returns a flow of FOUND beacons,
+     * already parsed and associated with their provisioning info.
+     */
+    fun findConnectableBeacons(
+        scanConfig: ScanConfig,
+        beaconsToFind: List<BeaconProvisioningDto>
+    ): Flow<FoundBeacon>
+
+    /**
+     * Scans for broadcast advertisements and returns a flow of parsed payloads.
+     * Note: This does not verify the signature.
+     */
+    fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload>
 }
