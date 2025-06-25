@@ -4,35 +4,53 @@ import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
+import kotlinx.atomicfu.atomic
 
 public object Polaris : PolarisDependencies {
 
-    public override val apiClient: ApiClient
-        get() = internalSdkInstance?.apiClient ?: error("PolarisSdk not initialized. Call initialize() first.")
-    public override val keyStore: KeyStore
-        get() = internalSdkInstance?.keyStore ?: error("PolarisSdk not initialized.")
-    public override val protocolHandler: ProtocolHandler
-        get() = internalSdkInstance?.protocolHandler ?: error("PolarisSdk not initialized.")
-    public override val bleController: BleController
-        get() = internalSdkInstance?.bleController ?: error("PolarisSdk not initialized.")
+    private lateinit var internalSdkInstance: PolarisDependencies
 
-    private var internalSdkInstance: PolarisDependencies? = null
-    private var isInitialized = false
-
+    // A flag to ensure initialize is called only once.
+    private val isInitialized = atomic(false)
     private val initializer = SdkInitializer()
 
-    public suspend fun initialize(context: PlatformContext) {
-        if (isInitialized) return
+    // Properties access the initialized instance directly.
+    public override val apiClient: ApiClient
+        get() = getInstance().apiClient
+    public override val keyStore: KeyStore
+        get() = getInstance().keyStore
+    public override val protocolHandler: ProtocolHandler
+        get() = getInstance().protocolHandler
+    public override val bleController: BleController
+        get() = getInstance().bleController
 
-        // The platform-specific code will create and return an instance that fulfills the PolarisApi contract.
+    /**
+     * Initializes the SDK. This suspend function MUST be called and awaited
+     * in the Application's onCreate before any other part of the SDK is accessed.
+     */
+    public suspend fun initialize(context: PlatformContext) {
+        if (isInitialized.getAndSet(true)) {
+            // Already initialized or in the process.
+            return
+        }
         internalSdkInstance = initializer.initialize(context)
-        isInitialized = true
+    }
+
+    /**
+     * Gets the instance, which throws if not initialized.
+     */
+    private fun getInstance(): PolarisDependencies {
+        if (!::internalSdkInstance.isInitialized) {
+            error("PolarisSdk not initialized. Call and await Polaris.initialize() in your Application.onCreate() first.")
+        }
+        return internalSdkInstance
     }
 
     public fun shutdown() {
-        if (!isInitialized) return
-        initializer.shutdown()
-        internalSdkInstance = null
-        isInitialized = false
+        if (isInitialized.getAndSet(false)) {
+            if (::internalSdkInstance.isInitialized) {
+                initializer.shutdown()
+            }
+        }
     }
 }

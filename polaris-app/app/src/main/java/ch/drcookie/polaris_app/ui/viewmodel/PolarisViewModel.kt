@@ -9,6 +9,7 @@ import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
 import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
 import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
 import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
+import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -16,7 +17,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
-import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 
 data class UiState(
@@ -125,7 +125,7 @@ class PolarisViewModel(
             }
 
             appendLog("Payload delivered, received ACK/ERR blob (${ackBlob.size} bytes). Submitting to server...")
-            val ackRequest = AckRequestDto(job.deliveryId, ackBlob.toUByteArray())
+            val ackRequest = DeliveryAck(job.deliveryId, ackBlob.toUByteArray())
             apiClient.submitSecureAck(ackRequest)
             appendLog("ACK/ERR submitted successfully.")
         }

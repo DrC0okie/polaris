@@ -33,7 +33,7 @@ public class PolTransactionFlow(
             val request = PoLRequest(
                 flags = 0u,
                 phoneId = phoneId,
-                beaconId = foundBeacon.provisioningInfo.beaconId,
+                beaconId = foundBeacon.provisioningInfo.id,
                 nonce = protocolRepo.generateNonce(),
                 phonePk = phonePk
             )
