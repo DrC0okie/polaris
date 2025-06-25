@@ -25,7 +25,6 @@ public data class FoundBeacon(
 public data class ScanConfig(
     /**
      * If not null, the scan will be filtered to only find devices advertising this service UUID.
-     * Use [ch.drcookie.polaris_sdk.util.Constants.POL_SERVICE_UUID] to find connectable Polaris beacons.
      * A null value will scan for all nearby devices.
      */
     public val filterByServiceUuid: String? = null,

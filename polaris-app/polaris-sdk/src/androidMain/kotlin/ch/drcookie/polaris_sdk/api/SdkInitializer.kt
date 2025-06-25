@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.api
 
+import ch.drcookie.polaris_sdk.api.config.PolarisConfig
 import ch.drcookie.polaris_sdk.ble.AndroidBleController
 import ch.drcookie.polaris_sdk.storage.SharedPreferencesProvider
 import ch.drcookie.polaris_sdk.network.KtorApiClient
@@ -10,7 +11,7 @@ import ch.drcookie.polaris_sdk.crypto.CryptoUtils
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
-import ch.drcookie.polaris_sdk.network.KtorClientFactory
+import ch.drcookie.polaris_sdk.network.DynamicApiKeyProvider
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.storage.SdkPreferences
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
@@ -21,8 +22,7 @@ private val logger = KotlinLogging.logger {}
 // Provide the 'actual' implementation for the SdkInitializer
 internal actual class SdkInitializer {
 
-    // This is a simple data class to hold our initialized repositories.
-    // It implements the common interface.
+    // Holds the initialized repositories.
     private class AndroidSdk(
         override val apiClient: ApiClient,
         override val keyStore: KeyStore,
@@ -31,13 +31,13 @@ internal actual class SdkInitializer {
     ) : PolarisDependencies {
         fun performShutdown() {
             bleController.cancelAll()
-            KtorClientFactory.closeClient()
+            apiClient.closeClient()
         }
     }
 
     private var sdkInstance: AndroidSdk? = null
 
-    internal actual suspend fun initialize(context: PlatformContext): PolarisDependencies {
+    internal actual suspend fun initialize(context: PlatformContext, config: PolarisConfig): PolarisDependencies {
         logger.info { "Initializing Polaris SDK for Android..." }
 
         try {
@@ -53,14 +53,18 @@ internal actual class SdkInitializer {
 
         // Platform-specific implementations
         val sdkPreferences: SdkPreferences = SharedPreferencesProvider(context)
-        val androidBleController: BleController = AndroidBleController(context, beaconDataParser)
+        val androidBleController: BleController = AndroidBleController(context, beaconDataParser, config.bleConfig)
+
+        val apiConfig = config.apiConfig
+        // Check if the user provided a dynamic provider.
+        if (apiConfig?.authInterceptor is DynamicApiKeyProvider) {
+            apiConfig.authInterceptor.preferences = sdkPreferences
+        }
 
         // Common implementations, injecting the platform-specific parts
         val protocolHandler = DefaultProtocolHandler(cryptoUtils)
         val keyStore = DefaultKeyStore(sdkPreferences, cryptoUtils)
-        val apiClient = KtorApiClient(KtorClientFactory, sdkPreferences)
-
-
+        val apiClient = KtorApiClient(sdkPreferences, config.apiConfig)
 
         // Create the holder object and store it.
         val instance = AndroidSdk(

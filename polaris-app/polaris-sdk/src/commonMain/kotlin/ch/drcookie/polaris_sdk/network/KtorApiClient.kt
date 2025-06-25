@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.network
 
+import ch.drcookie.polaris_sdk.api.config.ApiConfig
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
@@ -9,10 +10,16 @@ import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.storage.SdkPreferences
 
 internal class KtorApiClient(
-    private val api: KtorClientFactory,
-    private val userPrefs: SdkPreferences
+    private val userPrefs: SdkPreferences,
+    apiConfig: ApiConfig?,
 ) : ApiClient {
+
+    private val notInitializedErr = "ApiClient not configured. Did you forget the api { ... } block in Polaris.initialize?"
+    // Only create the client factory if config is not null
+    private val api: KtorClientFactory? = apiConfig?.let { KtorClientFactory(it) }
+
     private var _knownBeacons = mutableListOf<Beacon>()
+
     // Holds the list of beacons after a successful registration/fetch
     override val knownBeacons: List<Beacon>
         get() = _knownBeacons
@@ -27,7 +34,7 @@ internal class KtorApiClient(
         publicKey: UByteArray,
         deviceModel: String,
         osVersion: String,
-        appVersion: String
+        appVersion: String,
     ): List<Beacon> {
 
         val requestDto = PhoneRegistrationRequestDto(
@@ -37,7 +44,7 @@ internal class KtorApiClient(
             appVersion = appVersion
         )
 
-        val response = api.registerPhone(requestDto)
+        val response = api?.registerPhone(requestDto)?: throw IllegalStateException(notInitializedErr)
 
         // Store credentials
         userPrefs.apiKey = response.apiKey
@@ -52,7 +59,7 @@ internal class KtorApiClient(
 
     override suspend fun submitPoLToken(token: PoLToken) {
         val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        api.sendPoLToken(token, apiKey)
+        api?.sendPoLToken(token, apiKey)?:throw IllegalStateException(notInitializedErr)
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -63,13 +70,17 @@ internal class KtorApiClient(
             deliveryId = ack.deliveryId,
             ackBlob = ack.ackBlob
         )
-        api.postAck(apiKey, ackDto)
+        api?.postAck(apiKey, ackDto)?: throw IllegalStateException(notInitializedErr)
     }
 
     override suspend fun getPayloadsForDelivery(): List<EncryptedPayload> {
         val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        val dtoList = api.getPayloads(apiKey).payloads
+        val dtoList = api?.getPayloads(apiKey)?.payloads?: throw IllegalStateException(notInitializedErr)
         // MAP the DTOs to Public Models before returning
         return dtoList.map { it.toEncryptedPayload() }
+    }
+
+    override fun closeClient() {
+        api?.closeClient()?: throw IllegalStateException(notInitializedErr)
     }
 }

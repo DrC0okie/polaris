@@ -9,13 +9,13 @@ import ch.drcookie.polaris_sdk.ble.model.CommonScanFilter
 import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
-import ch.drcookie.polaris_sdk.util.Constants
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.io.IOException
 import java.util.UUID
 import androidx.core.util.size
+import ch.drcookie.polaris_sdk.api.config.BleConfig
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
@@ -28,11 +28,12 @@ private val Log = KotlinLogging.logger {}
 @OptIn(ExperimentalUnsignedTypes::class)
 internal class AndroidBleController(
     context: Context,
-    private val beaconDataParser: BeaconDataParser
+    private val beaconDataParser: BeaconDataParser,
+    private val config: BleConfig
 ) : BleController {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val gattManager = GattManager(context, scope)
+    private val gattManager = GattManager(context, scope, config)
     private val transport = FragmentationTransport()
     override val connectionState: StateFlow<ConnectionState> = gattManager.connectionState
 
@@ -96,8 +97,8 @@ internal class AndroidBleController(
     override suspend fun requestPoL(request: PoLRequest): PoLResponse {
         val responseBytes = performRequestResponse(
             requestPayload = request.toBytes(),
-            writeUuid = Constants.TOKEN_WRITE_UUID,
-            indicateUuid = Constants.TOKEN_INDICATE_UUID
+            writeUuid = config.tokenWriteUuid,
+            indicateUuid = config.tokenIndicateUuid
         )
         return PoLResponse.fromBytes(responseBytes)
             ?: throw IOException("Failed to parse PoLResponse from beacon data.")
@@ -106,8 +107,8 @@ internal class AndroidBleController(
     override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray {
         return performRequestResponse(
             requestPayload = encryptedBlob,
-            writeUuid = Constants.ENCRYPTED_WRITE_UUID,
-            indicateUuid = Constants.ENCRYPTED_INDICATE_UUID
+            writeUuid = config.tokenWriteUuid,
+            indicateUuid = config.tokenIndicateUuid
         )
     }
 
@@ -169,12 +170,12 @@ internal class AndroidBleController(
         scanConfig: ScanConfig,
         beaconsToFind: List<Beacon>
     ): Flow<FoundBeacon> {
-        val filters = listOf(CommonScanFilter.ByServiceUuid(Constants.POL_SERVICE_UUID))
+        val filters = listOf(CommonScanFilter.ByServiceUuid(config.polServiceUuid))
 
         // The parsing logic from the interactor moves here.
         return this.scanForBeacons(filters, scanConfig)
             .mapNotNull { commonScanResult ->
-                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult)
+                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult, config.legacyManufacturerId)
                 if (beaconId != null) {
                     val matchedInfo = beaconsToFind.find { it.id == beaconId }
                     if (matchedInfo != null) {
@@ -189,10 +190,11 @@ internal class AndroidBleController(
     }
 
     override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
-        val filters = listOf(CommonScanFilter.ByManufacturerData(Constants.EXTENDED_MANUFACTURER_ID))
+        val manufId = config.extendedManufacturerId
+        val filters = listOf(CommonScanFilter.ByManufacturerData(manufId))
 
         // The parsing logic from the interactor moves here.
         return this.scanForBeacons(filters, scanConfig)
-            .mapNotNull { scanResult -> beaconDataParser.parseBroadcastPayload(scanResult) }
+            .mapNotNull { scanResult -> beaconDataParser.parseBroadcastPayload(scanResult, manufId) }
     }
 }

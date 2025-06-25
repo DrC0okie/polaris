@@ -15,9 +15,9 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Build
+import ch.drcookie.polaris_sdk.api.config.BleConfig
 import ch.drcookie.polaris_sdk.ble.util.BleUtils.gattStatusToString
 import ch.drcookie.polaris_sdk.ble.util.BleUtils.isConnected
-import ch.drcookie.polaris_sdk.util.Constants
 import ch.drcookie.polaris_sdk.ble.model.ScanCallbackType
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import ch.drcookie.polaris_sdk.ble.model.ScanMode
@@ -37,7 +37,11 @@ import java.util.UUID
 private val Log = KotlinLogging.logger {}
 
 @SuppressLint("MissingPermission")
-internal class GattManager(private val context: Context, private val externalScope: CoroutineScope) {
+internal class GattManager(
+    private val context: Context,
+    private val externalScope: CoroutineScope,
+    private val config: BleConfig,
+) {
 
     // Signals completion of a characteristic write (for sending chunks)
     internal val characteristicWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
@@ -73,10 +77,6 @@ internal class GattManager(private val context: Context, private val externalSco
 
     private val _mtu = MutableStateFlow(517) // Default GATT MTU
     internal val mtu = _mtu.asStateFlow()
-
-    internal companion object {
-        const val REQ_MTU = 517
-    }
 
     internal fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
         // Prevent starting scan if already scanning
@@ -166,7 +166,7 @@ internal class GattManager(private val context: Context, private val externalSco
 
     internal fun enableIndication() {
         val gatt = bluetoothGatt ?: return
-        indicateCharacteristic = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
+        indicateCharacteristic = gatt.getService(UUID.fromString(config.polServiceUuid))
             ?.getCharacteristic(currentIndicateUuid)
 
         if (!gatt.device.isConnected(context)) { // Added check for connection state
@@ -223,7 +223,7 @@ internal class GattManager(private val context: Context, private val externalSco
     // Send using byte array directly
     internal fun send(data: ByteArray) {
         val gatt = bluetoothGatt ?: return
-        writeCharacteristic = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
+        writeCharacteristic = gatt.getService(UUID.fromString(config.polServiceUuid))
             ?.getCharacteristic(currentWriteUuid)
         if (writeCharacteristic == null || _connectionState.value !is ConnectionState.Ready) {
             Log.error { "Cannot send, not in ready state." }
@@ -271,7 +271,7 @@ internal class GattManager(private val context: Context, private val externalSco
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     // State remains Connecting, wait for MTU and services
                     Log.info { "Connected to $deviceAddress. Requesting MTU..." }
-                    gatt.requestMtu(REQ_MTU)
+                    gatt.requestMtu(config.mtu)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     _connectionState.value = ConnectionState.Disconnected
                     close()
@@ -286,10 +286,11 @@ internal class GattManager(private val context: Context, private val externalSco
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                val service = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
+                val serviceUuid = config.polServiceUuid
+                val service = gatt.getService(UUID.fromString(serviceUuid))
 
                 if (service != null) {
-                    Log.info { "Main service ${Constants.POL_SERVICE_UUID} found. Device is ready." }
+                    Log.info { "Main service $serviceUuid found. Device is ready." }
                     _connectionState.value = ConnectionState.Ready(gatt.device.address)
                 } else {
                     Log.error { "Required Polaris service not found." }
@@ -326,7 +327,7 @@ internal class GattManager(private val context: Context, private val externalSco
         override fun onCharacteristicChanged(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
-            value: ByteArray
+            value: ByteArray,
         ) {
             handleCharacteristicChange(characteristic.uuid, value)
         }
@@ -334,7 +335,7 @@ internal class GattManager(private val context: Context, private val externalSco
         override fun onCharacteristicWrite(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
-            status: Int
+            status: Int,
         ) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.debug { "Write successful for one chunk." }
@@ -368,7 +369,7 @@ internal class GattManager(private val context: Context, private val externalSco
         override fun onCharacteristicRead(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
-            status: Int
+            status: Int,
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -385,7 +386,7 @@ internal class GattManager(private val context: Context, private val externalSco
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
             value: ByteArray,
-            status: Int
+            status: Int,
         ) {
             handleCharacteristicRead(characteristic.uuid, value, status)
         }
@@ -433,7 +434,7 @@ internal class GattManager(private val context: Context, private val externalSco
         gatt: BluetoothGatt,
         characteristic: BluetoothGattCharacteristic,
         data: ByteArray,
-        writeType: Int
+        writeType: Int,
     ) {
         lastWrittenValue = data
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

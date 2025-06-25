@@ -25,4 +25,5 @@ public interface ApiClient {
     public suspend fun submitPoLToken(token: PoLToken)
     public suspend fun getPayloadsForDelivery(): List<EncryptedPayload>
     public suspend fun submitSecureAck(ack: DeliveryAck)
+    public fun closeClient()
 }
