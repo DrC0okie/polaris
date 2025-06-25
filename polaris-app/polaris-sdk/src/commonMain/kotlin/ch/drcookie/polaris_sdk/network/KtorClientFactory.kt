@@ -28,11 +28,11 @@ import kotlinx.serialization.json.Json
 
 private val Log = KotlinLogging.logger {}
 
-object KtorClientFactory {
+internal object KtorClientFactory {
     private const val BASE_URL = "https://polaris.iict-heig-vd.ch"
 
     // Configure the HttpClient
-    val client = HttpClient(getHttpClientEngine()) {
+    internal val client = HttpClient(getHttpClientEngine()) {
         expectSuccess = true
 
         install(ContentNegotiation) {
@@ -58,20 +58,20 @@ object KtorClientFactory {
         }
     }
 
-    suspend fun registerPhone(request: PhoneRegistrationRequestDto)
+    internal suspend fun registerPhone(request: PhoneRegistrationRequestDto)
             : PhoneRegistrationResponseDto =
         client.post("$BASE_URL/api/v1/register") {
             setBody(request)
         }.body<PhoneRegistrationResponseDto>()
 
 
-    suspend fun fetchBeacons(apiKey: String)
+    internal suspend fun fetchBeacons(apiKey: String)
             : BeaconProvisioningListDto =
         client.get("$BASE_URL/api/v1/beacons") {
             header("x-api-key", apiKey)
         }.body<BeaconProvisioningListDto>()
 
-    suspend fun sendPoLToken(token: PoLToken, apiKey: String): Boolean {
+    internal suspend fun sendPoLToken(token: PoLToken, apiKey: String): Boolean {
         val resp = client.post("$BASE_URL/api/v1/tokens") {
             header("x-api-key", apiKey)
             contentType(ContentType.Application.Json)
@@ -83,12 +83,12 @@ object KtorClientFactory {
         return resp.status.isSuccess()
     }
 
-    suspend fun getPayloads(apiKey: String): EncryptedPayloadListDto =
+    internal suspend fun getPayloads(apiKey: String): EncryptedPayloadListDto =
         client.get("$BASE_URL/api/v1/payloads") {
             header("x-api-key", apiKey)
         }.body<EncryptedPayloadListDto>()
 
-    suspend fun postAck(apiKey: String, request: AckRequestDto): Boolean {
+    internal suspend fun postAck(apiKey: String, request: AckRequestDto): Boolean {
         val resp = client.post("$BASE_URL/api/v1/payloads/ack") {
             header("x-api-key", apiKey)
             setBody(request)
@@ -96,7 +96,7 @@ object KtorClientFactory {
         return resp.status.isSuccess()
     }
 
-    fun closeClient() {
+    internal fun closeClient() {
         client.close()
         Log.debug { "Ktor HTTP client closed." }
     }

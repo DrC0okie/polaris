@@ -5,12 +5,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class PhoneRegistrationRequestDto(
+internal data class PhoneRegistrationRequestDto(
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val publicKey: UByteArray,
-    val deviceModel: String?,
-    val osVersion: String?,
-    val appVersion: String?
+    internal val publicKey: UByteArray,
+    internal val deviceModel: String?,
+    internal val osVersion: String?,
+    internal val appVersion: String?
 ) {
 
     override fun hashCode(): Int {

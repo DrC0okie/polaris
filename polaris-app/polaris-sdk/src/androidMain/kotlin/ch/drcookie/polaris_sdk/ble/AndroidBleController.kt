@@ -16,17 +16,17 @@ import kotlinx.coroutines.flow.*
 import java.io.IOException
 import java.util.UUID
 import androidx.core.util.size
+import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
-import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 
 private val Log = KotlinLogging.logger {}
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
-class AndroidBleController(
+internal class AndroidBleController(
     context: Context,
     private val beaconDataParser: BeaconDataParser
 ) : BleController {
@@ -167,7 +167,7 @@ class AndroidBleController(
 
     override fun findConnectableBeacons(
         scanConfig: ScanConfig,
-        beaconsToFind: List<BeaconProvisioningDto>
+        beaconsToFind: List<Beacon>
     ): Flow<FoundBeacon> {
         val filters = listOf(CommonScanFilter.ByServiceUuid(Constants.POL_SERVICE_UUID))
 
@@ -176,7 +176,7 @@ class AndroidBleController(
             .mapNotNull { commonScanResult ->
                 val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult)
                 if (beaconId != null) {
-                    val matchedInfo = beaconsToFind.find { it.beaconId == beaconId }
+                    val matchedInfo = beaconsToFind.find { it.id == beaconId }
                     if (matchedInfo != null) {
                         return@mapNotNull FoundBeacon(
                             provisioningInfo = matchedInfo,

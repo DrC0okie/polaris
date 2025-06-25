@@ -2,13 +2,13 @@ package ch.drcookie.polaris_sdk.api.flows
 
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
-import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
+import ch.drcookie.polaris_sdk.ble.model.Beacon
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withTimeoutOrNull
 
-class ScanForBeaconFlow(
+public class ScanForBeaconFlow(
     private val bleController: BleController,
     private val apiClient: ApiClient
 ) {
@@ -19,9 +19,9 @@ class ScanForBeaconFlow(
      * @param beaconsToFind The list of beacons we are interested in. Defaults to all known beacons.
      * @return The [FoundBeacon] if one is found within the timeout, otherwise null.
      */
-    suspend operator fun invoke(
+    public suspend operator fun invoke(
         timeoutMillis: Long = 10000L,
-        beaconsToFind: List<BeaconProvisioningDto> = apiClient.knownBeacons
+        beaconsToFind: List<Beacon> = apiClient.knownBeacons
     ): FoundBeacon? {
 
         if (beaconsToFind.isEmpty()) {

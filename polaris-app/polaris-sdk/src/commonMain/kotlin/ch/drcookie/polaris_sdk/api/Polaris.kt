@@ -5,15 +5,15 @@ import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
 
-object Polaris : PolarisDependencies {
+public object Polaris : PolarisDependencies {
 
-    override val apiClient: ApiClient
+    public override val apiClient: ApiClient
         get() = internalSdkInstance?.apiClient ?: error("PolarisSdk not initialized. Call initialize() first.")
-    override val keyStore: KeyStore
+    public override val keyStore: KeyStore
         get() = internalSdkInstance?.keyStore ?: error("PolarisSdk not initialized.")
-    override val protocolHandler: ProtocolHandler
+    public override val protocolHandler: ProtocolHandler
         get() = internalSdkInstance?.protocolHandler ?: error("PolarisSdk not initialized.")
-    override val bleController: BleController
+    public override val bleController: BleController
         get() = internalSdkInstance?.bleController ?: error("PolarisSdk not initialized.")
 
     private var internalSdkInstance: PolarisDependencies? = null
@@ -21,7 +21,7 @@ object Polaris : PolarisDependencies {
 
     private val initializer = SdkInitializer()
 
-    suspend fun initialize(context: PlatformContext) {
+    public suspend fun initialize(context: PlatformContext) {
         if (isInitialized) return
 
         // The platform-specific code will create and return an instance that fulfills the PolarisApi contract.
@@ -29,7 +29,7 @@ object Polaris : PolarisDependencies {
         isInitialized = true
     }
 
-    fun shutdown() {
+    public fun shutdown() {
         if (!isInitialized) return
         initializer.shutdown()
         internalSdkInstance = null

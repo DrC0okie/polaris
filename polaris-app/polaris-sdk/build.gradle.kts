@@ -5,6 +5,10 @@ plugins {
 }
 
 kotlin {
+
+    // This allows to specify which classes are accessible in the sdk API
+    explicitApi()
+
     androidLibrary {
         namespace = "ch.drcookie.polaris_sdk"
         compileSdk = 35

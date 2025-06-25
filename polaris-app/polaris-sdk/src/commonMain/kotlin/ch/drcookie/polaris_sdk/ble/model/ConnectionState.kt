@@ -1,9 +1,9 @@
 package ch.drcookie.polaris_sdk.ble.model
 
-sealed class ConnectionState {
-    object Disconnected : ConnectionState()
-    object Scanning : ConnectionState()
-    data class Connecting(val deviceAddress: String) : ConnectionState()
-    data class Ready(val deviceAddress: String) : ConnectionState()
-    data class Failed(val error: String) : ConnectionState()
+public sealed class ConnectionState {
+    public object Disconnected : ConnectionState()
+    public object Scanning : ConnectionState()
+    public data class Connecting(public val deviceAddress: String) : ConnectionState()
+    public data class Ready(public val deviceAddress: String) : ConnectionState()
+    public data class Failed(public val error: String) : ConnectionState()
 }

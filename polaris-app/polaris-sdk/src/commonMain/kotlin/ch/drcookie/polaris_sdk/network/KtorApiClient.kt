@@ -1,30 +1,53 @@
 package ch.drcookie.polaris_sdk.network
 
+import ch.drcookie.polaris_sdk.ble.model.Beacon
+import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
+import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
 import ch.drcookie.polaris_sdk.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
-import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
-import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.storage.SdkPreferences
 
-class KtorApiClient(
+internal class KtorApiClient(
     private val api: KtorClientFactory,
     private val userPrefs: SdkPreferences
 ) : ApiClient {
+    private var _knownBeacons = mutableListOf<Beacon>()
     // Holds the list of beacons after a successful registration/fetch
-    override var knownBeacons: List<BeaconProvisioningDto> = emptyList()
+    override val knownBeacons: List<Beacon>
+        get() = _knownBeacons
 
     override fun getPhoneId(): Long {
         // It simply delegates the call to the underlying preference storage.
         return userPrefs.phoneId
     }
 
-    override suspend fun registerPhone(request: PhoneRegistrationRequestDto): List<BeaconProvisioningDto> {
-        val response = api.registerPhone(request)
+    @OptIn(ExperimentalUnsignedTypes::class)
+    override suspend fun registerPhone(
+        publicKey: UByteArray,
+        deviceModel: String,
+        osVersion: String,
+        appVersion: String
+    ): List<Beacon> {
+
+        val requestDto = PhoneRegistrationRequestDto(
+            publicKey = publicKey,
+            deviceModel = deviceModel,
+            osVersion = osVersion,
+            appVersion = appVersion
+        )
+
+        val response = api.registerPhone(requestDto)
+
+        // Store credentials
         userPrefs.apiKey = response.apiKey
         userPrefs.phoneId = response.assignedPhoneId ?: -1L
-        knownBeacons = response.beacons.beacons
-        return knownBeacons
+
+        // Map the DTOs to Public Models and store/return them
+        val newBeacons = response.beacons.beacons.map { it.toBeaconInfo() }
+        _knownBeacons.clear()
+        _knownBeacons.addAll(newBeacons)
+        return newBeacons
     }
 
     override suspend fun submitPoLToken(token: PoLToken) {
@@ -32,13 +55,21 @@ class KtorApiClient(
         api.sendPoLToken(token, apiKey)
     }
 
-    override suspend fun submitSecureAck(request: AckRequestDto) {
+    @OptIn(ExperimentalUnsignedTypes::class)
+    override suspend fun submitSecureAck(ack: DeliveryAck) {
         val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        api.postAck(apiKey, request)
+        // MAP the Public Model to an internal DTO to send to the server
+        val ackDto = AckRequestDto(
+            deliveryId = ack.deliveryId,
+            ackBlob = ack.ackBlob
+        )
+        api.postAck(apiKey, ackDto)
     }
 
-    override suspend fun getPayloadsForDelivery(): List<EncryptedPayloadDto> {
+    override suspend fun getPayloadsForDelivery(): List<EncryptedPayload> {
         val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        return api.getPayloads(apiKey).payloads
+        val dtoList = api.getPayloads(apiKey).payloads
+        // MAP the DTOs to Public Models before returning
+        return dtoList.map { it.toEncryptedPayload() }
     }
 }

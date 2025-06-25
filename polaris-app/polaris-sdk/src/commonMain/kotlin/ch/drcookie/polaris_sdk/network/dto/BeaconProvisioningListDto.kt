@@ -4,6 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class BeaconProvisioningListDto(
-    val beacons: List<BeaconProvisioningDto>
+internal data class BeaconProvisioningListDto(
+    internal val beacons: List<BeaconProvisioningDto>
 )

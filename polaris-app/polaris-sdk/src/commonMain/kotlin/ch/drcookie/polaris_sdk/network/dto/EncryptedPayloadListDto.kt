@@ -3,6 +3,6 @@ package ch.drcookie.polaris_sdk.network.dto
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class EncryptedPayloadListDto(
-    val payloads: List<EncryptedPayloadDto>
+internal data class EncryptedPayloadListDto(
+    internal val payloads: List<EncryptedPayloadDto>
 )

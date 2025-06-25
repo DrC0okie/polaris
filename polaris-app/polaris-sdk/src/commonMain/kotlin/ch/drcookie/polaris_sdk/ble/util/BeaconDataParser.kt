@@ -6,14 +6,14 @@ import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.util.Constants
 
 @OptIn(ExperimentalUnsignedTypes::class)
-object BeaconDataParser {
+internal object BeaconDataParser {
     /**
      * Attempts to parse the beacon ID from a legacy advertisement (connectable beacon).
      *
      * @param scanResult The raw scan result from the BLE stack.
      * @return The parsed beacon ID as a [UInt], or null if the data is not present or malformed.
      */
-    fun parseConnectableBeaconId(scanResult: CommonBleScanResult): UInt? {
+    internal fun parseConnectableBeaconId(scanResult: CommonBleScanResult): UInt? {
         val manufData = scanResult.manufacturerData[Constants.LEGACY_MANUFACTURER_ID]
         if (manufData != null && manufData.size >= 4) {
             return manufData.toUByteArray().toUIntLE()
@@ -27,7 +27,7 @@ object BeaconDataParser {
      * @param scanResult The raw scan result from the BLE stack.
      * @return A parsed [BroadcastPayload] object, or null if the data is not present or malformed.
      */
-    fun parseBroadcastPayload(scanResult: CommonBleScanResult): BroadcastPayload? {
+    internal fun parseBroadcastPayload(scanResult: CommonBleScanResult): BroadcastPayload? {
         val manufData = scanResult.manufacturerData[Constants.EXTENDED_MANUFACTURER_ID]
         return if (manufData != null) {
             BroadcastPayload.Companion.fromBytes(manufData.toUByteArray())

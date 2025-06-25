@@ -10,9 +10,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val Log = KotlinLogging.logger {}
 
-object BleUtils {
+internal object BleUtils {
     @SuppressLint("MissingPermission")
-    fun BluetoothDevice.isConnected(context: Context): Boolean {
+    internal fun BluetoothDevice.isConnected(context: Context): Boolean {
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         return try {
             bluetoothManager.getConnectionState(this, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
@@ -22,7 +22,7 @@ object BleUtils {
         }
     }
 
-    fun gattStatusToString(status: Int): String {
+    internal fun gattStatusToString(status: Int): String {
         return when (status) {
             BluetoothGatt.GATT_SUCCESS -> "SUCCESS"
             8 -> "GATT_INSUFFICIENT_ENCRYPTION"

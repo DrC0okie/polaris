@@ -19,7 +19,7 @@ import com.ionspin.kotlin.crypto.LibsodiumInitializer
 private val logger = KotlinLogging.logger {}
 
 // Provide the 'actual' implementation for the SdkInitializer
-actual class SdkInitializer {
+internal actual class SdkInitializer {
 
     // This is a simple data class to hold our initialized repositories.
     // It implements the common interface.
@@ -37,7 +37,7 @@ actual class SdkInitializer {
 
     private var sdkInstance: AndroidSdk? = null
 
-    actual suspend fun initialize(context: PlatformContext): PolarisDependencies {
+    internal actual suspend fun initialize(context: PlatformContext): PolarisDependencies {
         logger.info { "Initializing Polaris SDK for Android..." }
 
         try {
@@ -73,7 +73,7 @@ actual class SdkInitializer {
         return instance
     }
 
-    actual fun shutdown() {
+    internal actual fun shutdown() {
         logger.info { "Shutting down Polaris SDK for Android..." }
         sdkInstance?.performShutdown()
         sdkInstance = null

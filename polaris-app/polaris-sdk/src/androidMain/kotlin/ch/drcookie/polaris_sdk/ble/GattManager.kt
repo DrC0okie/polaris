@@ -37,16 +37,16 @@ import java.util.UUID
 private val Log = KotlinLogging.logger {}
 
 @SuppressLint("MissingPermission")
-class GattManager(private val context: Context, private val externalScope: CoroutineScope) {
+internal class GattManager(private val context: Context, private val externalScope: CoroutineScope) {
 
     // Signals completion of a characteristic write (for sending chunks)
-    val characteristicWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
+    internal val characteristicWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
 
     // Signals completion of a descriptor write (for enabling/disabling indications)
-    val descriptorWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
+    internal val descriptorWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
+    internal val bluetoothAdapter: BluetoothAdapter = bluetoothManager.adapter
     private val scanner = bluetoothAdapter.bluetoothLeScanner
     private var lastWrittenValue: ByteArray? = null
 
@@ -63,22 +63,22 @@ class GattManager(private val context: Context, private val externalScope: Corou
 
     // Flow variables
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
-    val connectionState = _connectionState.asStateFlow()
+    internal val connectionState = _connectionState.asStateFlow()
 
     private val _scanResults = MutableSharedFlow<ScanResult>()
-    val scanResults = _scanResults.asSharedFlow()
+    internal val scanResults = _scanResults.asSharedFlow()
 
     private val _receivedData = MutableSharedFlow<ByteArray>()
-    val receivedData = _receivedData.asSharedFlow()
+    internal val receivedData = _receivedData.asSharedFlow()
 
     private val _mtu = MutableStateFlow(517) // Default GATT MTU
-    val mtu = _mtu.asStateFlow()
+    internal val mtu = _mtu.asStateFlow()
 
-    companion object {
+    internal companion object {
         const val REQ_MTU = 517
     }
 
-    fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
+    internal fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
         // Prevent starting scan if already scanning
         if (isScanning) return
         _connectionState.value = ConnectionState.Scanning
@@ -121,7 +121,7 @@ class GattManager(private val context: Context, private val externalScope: Corou
         }
     }
 
-    fun stopScan() {
+    internal fun stopScan() {
         if (!isScanning) return
         isScanning = false
 
@@ -134,7 +134,7 @@ class GattManager(private val context: Context, private val externalScope: Corou
     }
 
     @SuppressLint("MissingPermission")
-    suspend fun connectToDevice(device: BluetoothDevice) {
+    internal suspend fun connectToDevice(device: BluetoothDevice) {
         if (isScanning) stopScan()
 
         if (bluetoothGatt != null) {
@@ -164,7 +164,7 @@ class GattManager(private val context: Context, private val externalScope: Corou
         }
     }
 
-    fun enableIndication() {
+    internal fun enableIndication() {
         val gatt = bluetoothGatt ?: return
         indicateCharacteristic = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
             ?.getCharacteristic(currentIndicateUuid)
@@ -205,7 +205,7 @@ class GattManager(private val context: Context, private val externalScope: Corou
         writeCccdDescriptor(gatt, cccd, value)
     }
 
-    fun disableIndication() {
+    internal fun disableIndication() {
         val gatt = bluetoothGatt
         val characteristic = indicateCharacteristic ?: return
 
@@ -221,7 +221,7 @@ class GattManager(private val context: Context, private val externalScope: Corou
     }
 
     // Send using byte array directly
-    fun send(data: ByteArray) {
+    internal fun send(data: ByteArray) {
         val gatt = bluetoothGatt ?: return
         writeCharacteristic = gatt.getService(UUID.fromString(Constants.POL_SERVICE_UUID))
             ?.getCharacteristic(currentWriteUuid)
@@ -234,13 +234,13 @@ class GattManager(private val context: Context, private val externalScope: Corou
         writeDataInternal(gatt, writeCharacteristic!!, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
     }
 
-    fun setTransactionUuids(writeUuid: String, indicateUuid: String) {
+    internal fun setTransactionUuids(writeUuid: String, indicateUuid: String) {
         this.currentWriteUuid = UUID.fromString(writeUuid)
         this.currentIndicateUuid = UUID.fromString(indicateUuid)
     }
 
     // Public close function using the helper
-    fun close() {
+    internal fun close() {
         if (isScanning) stopScan()
         bluetoothGatt?.close()
         bluetoothGatt = null

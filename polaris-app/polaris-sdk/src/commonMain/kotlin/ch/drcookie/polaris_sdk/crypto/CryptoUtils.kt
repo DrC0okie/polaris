@@ -13,29 +13,29 @@ import com.ionspin.kotlin.crypto.util.LibsodiumRandom
 private val Log = KotlinLogging.logger {}
 
 @OptIn(ExperimentalUnsignedTypes::class)
-object CryptoUtils {
+internal object CryptoUtils {
 
     /**
      * Generates a new, random Ed25519 key pair. This is a stateless function.
      * It does not store or remember the key.
      */
-    fun generateKeyPair(): Pair<UByteArray, UByteArray> {
+    internal fun generateKeyPair(): Pair<UByteArray, UByteArray> {
         val keyPair: SignatureKeyPair = Signature.keypair()
         return keyPair.publicKey to keyPair.secretKey
     }
 
-    fun generateNonce(): UByteArray {
+    internal fun generateNonce(): UByteArray {
         return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE_SIZE)
     }
 
 
-    fun signPoLRequest(request: PoLRequest, sk: UByteArray): PoLRequest {
+    internal fun signPoLRequest(request: PoLRequest, sk: UByteArray): PoLRequest {
         val dataToSign = request.getSignedData()
         val signature = Signature.detached(dataToSign, sk)
         return request.copy(phoneSig = signature)
     }
 
-    fun verifyPoLResponse(resp: PoLResponse, originalSignedReq: PoLRequest, beaconPk: UByteArray): Boolean {
+    internal fun verifyPoLResponse(resp: PoLResponse, originalSignedReq: PoLRequest, beaconPk: UByteArray): Boolean {
         if (!resp.nonce.contentEquals(originalSignedReq.nonce)) {
             Log.error { "Nonce mismatch in response verification!" }
             return false
@@ -65,7 +65,7 @@ object CryptoUtils {
      * @param beaconPk The public key of the beacon that should have signed this payload.
      * @return True if the signature is valid for the given data and public key, false otherwise.
      */
-    fun verifyBeaconBroadcast(payload: BroadcastPayload, beaconPk: UByteArray): Boolean {
+    internal fun verifyBeaconBroadcast(payload: BroadcastPayload, beaconPk: UByteArray): Boolean {
         // Reconstruct the exact data that was signed on the beacon
         val dataToVerify = payload.getSignedData()
 

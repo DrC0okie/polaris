@@ -10,7 +10,7 @@ import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
 import kotlinx.coroutines.flow.first
 
-class PolTransactionFlow(
+public class PolTransactionFlow(
     private val bleController: BleController,
     private val apiClient: ApiClient,
     private val keyStore: KeyStore,
@@ -18,7 +18,7 @@ class PolTransactionFlow(
 ) {
     // The 'invoke' operator allows calling the class like a function
     @OptIn(ExperimentalUnsignedTypes::class)
-    suspend operator fun invoke(foundBeacon: FoundBeacon): PoLToken {
+    public suspend operator fun invoke(foundBeacon: FoundBeacon): PoLToken {
         try {
             // Connect
             bleController.connect(foundBeacon.address)

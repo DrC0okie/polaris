@@ -5,10 +5,10 @@ import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalUnsignedTypes::class)
 @Serializable
-data class AckRequestDto(
-    val deliveryId: Long,
+internal data class AckRequestDto(
+    internal val deliveryId: Long,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val ackBlob: UByteArray
+    internal val ackBlob: UByteArray
 ) {
     override fun hashCode(): Int {
         var result = deliveryId.hashCode()

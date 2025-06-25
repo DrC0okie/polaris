@@ -9,10 +9,10 @@ import ch.drcookie.polaris_sdk.util.Constants
  * Represents the data structure of a non-connectable extended advertisement broadcast.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-data class BroadcastPayload(
-    val beaconId: UInt,
-    val counter: ULong,
-    val signature: UByteArray
+public data class BroadcastPayload(
+    public val beaconId: UInt,
+    public val counter: ULong,
+    public val signature: UByteArray
 ) {
     init {
         // Enforce size constraint for the signature
@@ -21,9 +21,9 @@ data class BroadcastPayload(
         }
     }
 
-    companion object {
+    public companion object {
         // Total size of the payload: 4 (id) + 8 (counter) + 64 (sig) = 76 bytes
-        const val PACKED_SIZE = 4 + 8 + Constants.SIG_SIZE
+        public const val PACKED_SIZE: Int = 4 + 8 + Constants.SIG_SIZE
 
         /**
          * Attempts to parse a [BroadcastPayload] from a raw UByteArray.
@@ -32,7 +32,7 @@ data class BroadcastPayload(
          * @param data The raw byte array from the advertisement.
          * @return A parsed [BroadcastPayload] object, or null if the data is malformed or too short.
          */
-        fun fromBytes(data: UByteArray): BroadcastPayload? {
+        public fun fromBytes(data: UByteArray): BroadcastPayload? {
             // Ensure the data is at least the expected size
             if (data.size < PACKED_SIZE) {
                 return null
@@ -62,19 +62,19 @@ data class BroadcastPayload(
      *
      * @return A [UByteArray] containing the signed data (beaconId + counter).
      */
-    fun getSignedData(): UByteArray {
+    public fun getSignedData(): UByteArray {
         // Concatenate the little-endian byte representations of beaconId and counter
         return beaconId.toUByteArrayLE() + counter.toUByteArrayLE()
     }
 
-    override fun hashCode(): Int {
+    public override fun hashCode(): Int {
         var result = beaconId.hashCode()
         result = 31 * result + counter.hashCode()
         result = 31 * result + signature.contentHashCode()
         return result
     }
 
-    override fun equals(other: Any?): Boolean {
+    public override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 

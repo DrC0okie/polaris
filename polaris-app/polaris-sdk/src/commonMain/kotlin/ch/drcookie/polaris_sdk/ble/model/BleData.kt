@@ -1,11 +1,11 @@
 package ch.drcookie.polaris_sdk.ble.model
 
-data class CommonBleScanResult(
-    val deviceAddress: String,
-    val deviceName: String?,
-    val manufacturerData: Map<Int, ByteArray>,
+public data class CommonBleScanResult(
+    public val deviceAddress: String,
+    public val deviceName: String?,
+    public val manufacturerData: Map<Int, ByteArray>,
 ){
-    override fun hashCode(): Int {
+    public override fun hashCode(): Int {
         var result = deviceAddress.hashCode()
         result = 31 * result + (deviceName?.hashCode() ?: 0)
         result = 31 * result + manufacturerData.keys.hashCode()
@@ -16,7 +16,7 @@ data class CommonBleScanResult(
         return result
     }
 
-    override fun equals(other: Any?): Boolean {
+    public override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
@@ -30,7 +30,7 @@ data class CommonBleScanResult(
     }
 }
 
-sealed class CommonScanFilter {
-    data class ByServiceUuid(val uuid: String) : CommonScanFilter()
-    data class ByManufacturerData(val id: Int) : CommonScanFilter()
+public sealed class CommonScanFilter {
+    public data class ByServiceUuid(public val uuid: String) : CommonScanFilter()
+    public data class ByManufacturerData(public val id: Int) : CommonScanFilter()
 }

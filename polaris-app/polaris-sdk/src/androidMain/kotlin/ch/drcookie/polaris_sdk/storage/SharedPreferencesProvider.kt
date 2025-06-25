@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 
-class SharedPreferencesProvider(context: Context) : SdkPreferences {
+internal class SharedPreferencesProvider(context: Context) : SdkPreferences {
     private val prefs: SharedPreferences = context.getSharedPreferences("polaris_prefs", Context.MODE_PRIVATE)
 
     override var apiKey: String?

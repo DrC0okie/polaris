@@ -11,9 +11,9 @@ import kotlin.math.min
 private val Log = KotlinLogging.logger {}
 
 @OptIn(ExperimentalUnsignedTypes::class)
-class FragmentationTransport {
+internal class FragmentationTransport {
 
-    companion object {
+    internal companion object {
         enum class ReassemblyState { IDLE, REASSEMBLING }
     }
 
@@ -24,18 +24,18 @@ class FragmentationTransport {
 
     // Use a Flow to emit fully reassembled messages. Replay=0 and extraBuffer=1 makes it behave like a channel.
     private val _reassembledMessages = MutableSharedFlow<UByteArray>(0, 1, BufferOverflow.DROP_OLDEST)
-    val reassembledMessages = _reassembledMessages.asSharedFlow()
+    internal val reassembledMessages = _reassembledMessages.asSharedFlow()
 
     // --- State for Fragmentation (Outgoing Data) ---
     private var maxChunkPayloadSize: Int = 20 // Default: MTU(23) - GATT(3) - frag header(1)
     private val outgoingTransactionId = atomic(0)
 
-    fun onMtuChanged(newMtu: Int) {
+    internal fun onMtuChanged(newMtu: Int) {
         maxChunkPayloadSize = newMtu - 3 - FragmentationHeader.HEADER_SIZE
         Log.info { "MTU updated to $newMtu, max chunk payload is now $maxChunkPayloadSize bytes." }
     }
 
-    suspend fun process(chunkData: ByteArray) {
+    internal suspend fun process(chunkData: ByteArray) {
         val uChunk = chunkData.toUByteArray()
         if (uChunk.size < FragmentationHeader.HEADER_SIZE) {
             Log.warn { "Chunk too small (${uChunk.size} bytes), ignoring." }
@@ -88,7 +88,7 @@ class FragmentationTransport {
         }
     }
 
-    fun fragment(fullMessageData: ByteArray): Sequence<ByteArray> {
+    internal fun fragment(fullMessageData: ByteArray): Sequence<ByteArray> {
         val uMessage = fullMessageData.toUByteArray()
         val transactionId =
             (outgoingTransactionId.getAndIncrement() and FragmentationHeader.MASK_TRANSACTION_ID.toInt()).toUByte()

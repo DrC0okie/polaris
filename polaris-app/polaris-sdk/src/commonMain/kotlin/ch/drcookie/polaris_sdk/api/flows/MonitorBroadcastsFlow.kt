@@ -12,13 +12,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 
-class MonitorBroadcastsFlow(
+public class MonitorBroadcastsFlow(
     private val bleController: BleController,
     private val apiClient: ApiClient,
     private val protocolRepo: ProtocolHandler
 ) {
     @OptIn(ExperimentalUnsignedTypes::class)
-    fun startMonitoring(): Flow<VerifiedBroadcast> {
+    public fun startMonitoring(): Flow<VerifiedBroadcast> {
         if (apiClient.knownBeacons.isEmpty()) {
             // Return an empty flow if we have no keys to verify with.
             return emptyFlow()
@@ -37,7 +37,7 @@ class MonitorBroadcastsFlow(
             .distinctUntilChanged()
             .map { payload ->
                 val beaconPublicKey = apiClient.knownBeacons
-                    .find { it.beaconId == payload.beaconId }?.publicKey
+                    .find { it.id == payload.beaconId }?.publicKey
 
                 val isVerified = if (beaconPublicKey != null) {
                     protocolRepo.verifyBroadcast(payload, beaconPublicKey)

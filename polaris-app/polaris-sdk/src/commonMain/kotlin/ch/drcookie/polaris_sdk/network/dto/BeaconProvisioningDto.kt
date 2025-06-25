@@ -5,13 +5,13 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class BeaconProvisioningDto(
-    val beaconId: UInt,
-    val name: String,
-    val locationDescription: String,
+internal data class BeaconProvisioningDto(
+    internal val beaconId: UInt,
+    internal val name: String,
+    internal val locationDescription: String,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val publicKey: UByteArray,
-    val lastKnownCounter: ULong
+    internal val publicKey: UByteArray,
+    internal val lastKnownCounter: ULong
 ) {
 
     override fun hashCode(): Int {

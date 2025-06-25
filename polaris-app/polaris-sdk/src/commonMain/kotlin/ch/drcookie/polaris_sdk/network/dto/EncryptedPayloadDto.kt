@@ -5,11 +5,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class EncryptedPayloadDto (
-    val deliveryId: Long,
-    val beaconId: UInt,
+internal data class EncryptedPayloadDto (
+    internal val deliveryId: Long,
+    internal val beaconId: UInt,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val encryptedBlob: UByteArray
+    internal val encryptedBlob: UByteArray
 ) {
 
     override fun hashCode(): Int {

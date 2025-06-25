@@ -1,8 +1,8 @@
 package ch.drcookie.polaris_sdk.storage
 
-interface SdkPreferences {
-    var apiKey: String?
-    var phoneId: Long
-    var phonePublicKey: String?
-    var phoneSecretKey: String?
+public interface SdkPreferences {
+    public var apiKey: String?
+    public var phoneId: Long
+    public var phonePublicKey: String?
+    public var phoneSecretKey: String?
 }

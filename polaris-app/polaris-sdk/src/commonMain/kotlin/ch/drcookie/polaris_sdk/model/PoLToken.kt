@@ -8,21 +8,21 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class PoLToken(
-    val flags: UByte,
-    val phoneId: ULong,
-    val beaconId: UInt,
-    val beaconCounter: ULong,
+public data class PoLToken(
+    public val flags: UByte,
+    public val phoneId: ULong,
+    public val beaconId: UInt,
+    public val beaconCounter: ULong,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val nonce: UByteArray,
+    public val nonce: UByteArray,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val phonePk: UByteArray,
+    public val phonePk: UByteArray,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val beaconPk: UByteArray,
+    public val beaconPk: UByteArray,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val phoneSig: UByteArray,
+    public val phoneSig: UByteArray,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val beaconSig: UByteArray
+    public val beaconSig: UByteArray
 ) {
     init {
         require(nonce.size == Constants.PROTOCOL_NONCE_SIZE)
@@ -31,8 +31,8 @@ data class PoLToken(
         require(beaconSig.size == Constants.SIG_SIZE)
     }
 
-    companion object {
-        fun create(request: PoLRequest, response: PoLResponse, beaconPk: UByteArray): PoLToken {
+    public companion object {
+        public fun create(request: PoLRequest, response: PoLResponse, beaconPk: UByteArray): PoLToken {
             val pSig = request.phoneSig ?: throw IllegalArgumentException("PoLRequest must be signed to create a PoLToken")
             return PoLToken(
                 flags = request.flags,
@@ -48,7 +48,7 @@ data class PoLToken(
         }
     }
 
-    override fun hashCode(): Int {
+    public override fun hashCode(): Int {
         var result = flags.hashCode()
         result = 31 * result + phoneId.hashCode()
         result = 31 * result + nonce.contentHashCode()
@@ -61,7 +61,7 @@ data class PoLToken(
         return result
     }
 
-    override fun equals(other: Any?): Boolean {
+    public override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
