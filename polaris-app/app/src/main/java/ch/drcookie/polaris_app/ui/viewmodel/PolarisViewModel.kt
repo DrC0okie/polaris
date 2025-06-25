@@ -4,6 +4,11 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
+import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
+import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
+import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
+import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -11,9 +16,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
-import ch.drcookie.polaris_sdk.domain.repository.*
-import ch.drcookie.polaris_sdk.domain.interactor.*
-import ch.drcookie.polaris_sdk.domain.model.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.model.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.network.ApiClient
 
 data class UiState(
     val log: String = "",
@@ -26,12 +30,12 @@ data class UiState(
 @OptIn(ExperimentalUnsignedTypes::class)
 @RequiresApi(Build.VERSION_CODES.O)
 class PolarisViewModel(
-    private val authRepository: AuthRepository,
-    private val registerDevice: RegisterDeviceInteractor,
-    private val scanForBeacon: ScanConnectableBeaconInteractor,
-    private val performPolTransaction: PolTransactionInteractor,
-    private val deliverSecurePayload: DeliverPayloadInteractor,
-    private val monitorBroadcasts: MonitorBroadcastsInteractor
+    private val apiClient: ApiClient,
+    private val registerDevice: RegisterDeviceFlow,
+    private val scanForBeacon: ScanForBeaconFlow,
+    private val performPolTransaction: PolTransactionFlow,
+    private val deliverSecurePayload: DeliverPayloadFlow,
+    private val monitorBroadcasts: MonitorBroadcastsFlow
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
@@ -50,7 +54,7 @@ class PolarisViewModel(
 
     fun findAndExecuteTokenFlow() {
         runFlow("PoL Token Flow") {
-            if (authRepository.knownBeacons.isEmpty()) {
+            if (apiClient.knownBeacons.isEmpty()) {
                 appendLog("No known beacons. Please register first.")
                 return@runFlow
             }
@@ -68,7 +72,7 @@ class PolarisViewModel(
             val token = performPolTransaction(foundBeacon)
 
             appendLog("PoL transaction successful. Submitting token...")
-            authRepository.submitPoLToken(token)
+            apiClient.submitPoLToken(token)
             appendLog("Token submitted successfully!")
         }
     }
@@ -104,7 +108,7 @@ class PolarisViewModel(
     fun processPayloadFlow() {
         runFlow("Secure Payload Delivery") {
             appendLog("Checking for pending payloads...")
-            val payloads = authRepository.getPayloadsForDelivery()
+            val payloads = apiClient.getPayloadsForDelivery()
             if (payloads.isEmpty()) {
                 appendLog("No pending payloads.")
                 return@runFlow
@@ -122,7 +126,7 @@ class PolarisViewModel(
 
             appendLog("Payload delivered, received ACK/ERR blob (${ackBlob.size} bytes). Submitting to server...")
             val ackRequest = AckRequestDto(job.deliveryId, ackBlob.toUByteArray())
-            authRepository.submitSecureAck(ackRequest)
+            apiClient.submitSecureAck(ackRequest)
             appendLog("ACK/ERR submitted successfully.")
         }
     }

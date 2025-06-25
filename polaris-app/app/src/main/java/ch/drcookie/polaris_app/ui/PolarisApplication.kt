@@ -1,7 +1,7 @@
 package ch.drcookie.polaris_app.ui
 
 import android.app.Application
-import ch.drcookie.polaris_sdk.Polaris
+import ch.drcookie.polaris_sdk.api.Polaris
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

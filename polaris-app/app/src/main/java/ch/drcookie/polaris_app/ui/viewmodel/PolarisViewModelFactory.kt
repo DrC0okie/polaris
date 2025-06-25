@@ -4,23 +4,34 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import ch.drcookie.polaris_sdk.Polaris
-import ch.drcookie.polaris_sdk.domain.interactor.*
+import ch.drcookie.polaris_sdk.api.Polaris
+import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
+import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
+import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
+import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
+import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
 
 class PolarisViewModelFactory() : ViewModelProvider.Factory {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
 
-            val registerDevice = RegisterDeviceInteractor(Polaris.authRepository, Polaris.keyRepository)
-            val scanForBeacon = ScanConnectableBeaconInteractor(Polaris.bleDataSource, Polaris.authRepository)
-            val deliverSecurePayload = DeliverPayloadInteractor(Polaris.bleDataSource, Polaris.authRepository, scanForBeacon)
-            val performPolTransaction = PolTransactionInteractor(Polaris.bleDataSource, Polaris.authRepository, Polaris.keyRepository, Polaris.protocolRepository)
-            val monitorBroadcasts = MonitorBroadcastsInteractor(Polaris.bleDataSource, Polaris.authRepository, Polaris.protocolRepository)
+            val registerDevice = RegisterDeviceFlow(Polaris.apiClient, Polaris.keyStore)
+            val scanForBeacon = ScanForBeaconFlow(Polaris.bleController, Polaris.apiClient)
+            val deliverSecurePayload =
+                DeliverPayloadFlow(Polaris.bleController, Polaris.apiClient, scanForBeacon)
+            val performPolTransaction = PolTransactionFlow(
+                Polaris.bleController,
+                Polaris.apiClient,
+                Polaris.keyStore,
+                Polaris.protocolHandler
+            )
+            val monitorBroadcasts =
+                MonitorBroadcastsFlow(Polaris.bleController, Polaris.apiClient, Polaris.protocolHandler)
 
             @Suppress("UNCHECKED_CAST")
             return PolarisViewModel(
-                authRepository = Polaris.authRepository,
+                apiClient = Polaris.apiClient,
                 registerDevice = registerDevice,
                 scanForBeacon = scanForBeacon,
                 performPolTransaction = performPolTransaction,
