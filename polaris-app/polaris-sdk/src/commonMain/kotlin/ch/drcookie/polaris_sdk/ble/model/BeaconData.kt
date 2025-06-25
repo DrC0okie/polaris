@@ -1,6 +1,6 @@
 package ch.drcookie.polaris_sdk.ble.model
 
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 
 enum class ScanMode {
     LOW_POWER,

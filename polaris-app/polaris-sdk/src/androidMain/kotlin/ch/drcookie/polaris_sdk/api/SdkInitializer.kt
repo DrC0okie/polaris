@@ -3,7 +3,7 @@ package ch.drcookie.polaris_sdk.api
 import ch.drcookie.polaris_sdk.ble.AndroidBleController
 import ch.drcookie.polaris_sdk.storage.SharedPreferencesProvider
 import ch.drcookie.polaris_sdk.network.KtorApiClient
-import ch.drcookie.polaris_sdk.storage.SharedPreferencesKeyStore
+import ch.drcookie.polaris_sdk.storage.DefaultKeyStore
 import ch.drcookie.polaris_sdk.protocol.DefaultProtocolHandler
 import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.crypto.CryptoUtils
@@ -47,20 +47,26 @@ actual class SdkInitializer {
             throw e // Re-throw to fail initialization
         }
 
-        val cryptoManager = CryptoUtils
+        // Common, stateless utilities
+        val cryptoUtils = CryptoUtils
         val beaconDataParser = BeaconDataParser
-        val sdkPreferences: SdkPreferences = SharedPreferencesProvider(context)
 
-        val ktorApiClient = KtorApiClient(KtorClientFactory, sdkPreferences)
-        val sharedPreferencesKeyStore = SharedPreferencesKeyStore(sdkPreferences, cryptoManager)
-        val defaultProtocolHandler = DefaultProtocolHandler(cryptoManager)
-        val androidBleController = AndroidBleController(context, beaconDataParser)
+        // Platform-specific implementations
+        val sdkPreferences: SdkPreferences = SharedPreferencesProvider(context)
+        val androidBleController: BleController = AndroidBleController(context, beaconDataParser)
+
+        // Common implementations, injecting the platform-specific parts
+        val protocolHandler = DefaultProtocolHandler(cryptoUtils)
+        val keyStore = DefaultKeyStore(sdkPreferences, cryptoUtils)
+        val apiClient = KtorApiClient(KtorClientFactory, sdkPreferences)
+
+
 
         // Create the holder object and store it.
         val instance = AndroidSdk(
-            apiClient = ktorApiClient,
-            keyStore = sharedPreferencesKeyStore,
-            protocolHandler = defaultProtocolHandler,
+            apiClient = apiClient,
+            keyStore = keyStore,
+            protocolHandler = protocolHandler,
             bleController = androidBleController,
         )
         this.sdkInstance = instance

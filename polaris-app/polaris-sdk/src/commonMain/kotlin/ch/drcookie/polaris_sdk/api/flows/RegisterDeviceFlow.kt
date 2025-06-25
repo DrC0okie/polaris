@@ -1,6 +1,6 @@
 package ch.drcookie.polaris_sdk.api.flows
 
-import ch.drcookie.polaris_sdk.model.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.storage.KeyStore
 

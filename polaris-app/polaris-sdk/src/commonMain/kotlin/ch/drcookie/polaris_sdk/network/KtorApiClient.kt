@@ -1,10 +1,10 @@
 package ch.drcookie.polaris_sdk.network
 
 import ch.drcookie.polaris_sdk.model.PoLToken
-import ch.drcookie.polaris_sdk.model.dto.AckRequestDto
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningDto
-import ch.drcookie.polaris_sdk.model.dto.EncryptedPayloadDto
-import ch.drcookie.polaris_sdk.model.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
+import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
+import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.storage.SdkPreferences
 
 class KtorApiClient(

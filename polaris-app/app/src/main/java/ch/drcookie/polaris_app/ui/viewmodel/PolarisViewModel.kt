@@ -16,7 +16,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
-import ch.drcookie.polaris_sdk.model.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 
 data class UiState(

@@ -5,7 +5,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.atomicfu.atomic
 import kotlin.math.min
 
 private val Log = KotlinLogging.logger {}
@@ -28,7 +28,7 @@ class FragmentationTransport {
 
     // --- State for Fragmentation (Outgoing Data) ---
     private var maxChunkPayloadSize: Int = 20 // Default: MTU(23) - GATT(3) - frag header(1)
-    private val outgoingTransactionId = AtomicInteger(0)
+    private val outgoingTransactionId = atomic(0)
 
     fun onMtuChanged(newMtu: Int) {
         maxChunkPayloadSize = newMtu - 3 - FragmentationHeader.HEADER_SIZE

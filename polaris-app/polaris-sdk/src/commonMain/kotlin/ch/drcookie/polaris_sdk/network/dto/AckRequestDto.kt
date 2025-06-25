@@ -1,21 +1,18 @@
-package ch.drcookie.polaris_sdk.model.dto
+package ch.drcookie.polaris_sdk.network.dto
 
 import ch.drcookie.polaris_sdk.util.UByteArrayBase64Serializer
 import kotlinx.serialization.Serializable
 
-@Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-data class EncryptedPayloadDto (
+@Serializable
+data class AckRequestDto(
     val deliveryId: Long,
-    val beaconId: UInt,
     @Serializable(with = UByteArrayBase64Serializer::class)
-    val encryptedBlob: UByteArray
+    val ackBlob: UByteArray
 ) {
-
     override fun hashCode(): Int {
         var result = deliveryId.hashCode()
-        result = 31 * result + beaconId.hashCode()
-        result = 31 * result + encryptedBlob.contentHashCode()
+        result = 31 * result + ackBlob.contentHashCode()
         return result
     }
 
@@ -23,11 +20,10 @@ data class EncryptedPayloadDto (
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
-        other as EncryptedPayloadDto
+        other as AckRequestDto
 
         if (deliveryId != other.deliveryId) return false
-        if (beaconId != other.beaconId) return false
-        if (!encryptedBlob.contentEquals(other.encryptedBlob)) return false
+        if (!ackBlob.contentEquals(other.ackBlob)) return false
 
         return true
     }

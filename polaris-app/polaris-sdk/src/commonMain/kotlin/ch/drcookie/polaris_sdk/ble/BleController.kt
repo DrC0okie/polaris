@@ -5,7 +5,7 @@ import ch.drcookie.polaris_sdk.ble.model.CommonScanFilter
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse

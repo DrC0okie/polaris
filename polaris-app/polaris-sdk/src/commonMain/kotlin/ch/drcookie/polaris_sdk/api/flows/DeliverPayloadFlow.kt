@@ -1,7 +1,7 @@
 package ch.drcookie.polaris_sdk.api.flows
 
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
-import ch.drcookie.polaris_sdk.model.dto.EncryptedPayloadDto
+import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import kotlinx.coroutines.flow.first

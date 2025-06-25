@@ -51,6 +51,7 @@ kotlin {
                 implementation(libs.ktor.serialization.kotlinx.json)
                 implementation(libs.ktor.client.logging)
                 implementation(libs.kotlin.logging)
+                implementation(libs.atomicfu)
             }
         }
 
@@ -83,6 +84,7 @@ kotlin {
 
         iosMain {
             dependencies {
+                implementation(libs.ktor.client.darwin)
             }
         }
     }

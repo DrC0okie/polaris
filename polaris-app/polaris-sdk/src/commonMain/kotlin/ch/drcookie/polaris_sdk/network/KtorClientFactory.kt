@@ -1,17 +1,14 @@
 package ch.drcookie.polaris_sdk.network
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.model.PoLToken
-import ch.drcookie.polaris_sdk.model.dto.AckRequestDto
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningListDto
-import ch.drcookie.polaris_sdk.model.dto.EncryptedPayloadListDto
-import ch.drcookie.polaris_sdk.model.dto.PhoneRegistrationRequestDto
-import ch.drcookie.polaris_sdk.model.dto.PhoneRegistrationResponseDto
+import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningListDto
+import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadListDto
+import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationResponseDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
@@ -35,8 +32,7 @@ object KtorClientFactory {
     private const val BASE_URL = "https://polaris.iict-heig-vd.ch"
 
     // Configure the HttpClient
-    @OptIn(ExperimentalUnsignedTypes::class)
-    val client = HttpClient(Android) {
+    val client = HttpClient(getHttpClientEngine()) {
         expectSuccess = true
 
         install(ContentNegotiation) {
@@ -68,7 +64,7 @@ object KtorClientFactory {
             setBody(request)
         }.body<PhoneRegistrationResponseDto>()
 
-    @RequiresApi(Build.VERSION_CODES.O)
+
     suspend fun fetchBeacons(apiKey: String)
             : BeaconProvisioningListDto =
         client.get("$BASE_URL/api/v1/beacons") {

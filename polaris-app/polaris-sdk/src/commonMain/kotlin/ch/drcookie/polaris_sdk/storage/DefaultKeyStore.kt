@@ -4,7 +4,7 @@ import ch.drcookie.polaris_sdk.crypto.CryptoUtils
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toHexString
 
-class SharedPreferencesKeyStore(
+class DefaultKeyStore(
     private val sdkPreferences: SdkPreferences,
     private val cryptoManager: CryptoUtils
 ) : KeyStore {

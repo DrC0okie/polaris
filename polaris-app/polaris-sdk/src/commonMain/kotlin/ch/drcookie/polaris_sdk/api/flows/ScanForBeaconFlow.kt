@@ -2,7 +2,7 @@ package ch.drcookie.polaris_sdk.api.flows
 
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import kotlinx.coroutines.flow.firstOrNull

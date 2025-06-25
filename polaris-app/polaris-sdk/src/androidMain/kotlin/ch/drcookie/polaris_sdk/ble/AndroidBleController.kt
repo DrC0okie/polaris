@@ -20,7 +20,7 @@ import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
-import ch.drcookie.polaris_sdk.model.dto.BeaconProvisioningDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 
 private val Log = KotlinLogging.logger {}
 
