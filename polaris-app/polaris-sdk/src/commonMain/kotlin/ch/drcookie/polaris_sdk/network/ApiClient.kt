@@ -1,5 +1,7 @@
 package ch.drcookie.polaris_sdk.network
 
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
@@ -19,11 +21,11 @@ public interface ApiClient {
         publicKey: UByteArray,
         deviceModel: String,
         osVersion: String,
-        appVersion: String
-    ): List<Beacon>
+        appVersion: String,
+    ): SdkResult<List<Beacon>, SdkError>
 
-    public suspend fun submitPoLToken(token: PoLToken)
-    public suspend fun getPayloadsForDelivery(): List<EncryptedPayload>
-    public suspend fun submitSecureAck(ack: DeliveryAck)
+    public suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError>
+    public suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError>
+    public suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError>
     public fun closeClient()
 }

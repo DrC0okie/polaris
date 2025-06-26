@@ -2,7 +2,6 @@ package ch.drcookie.polaris_sdk.api
 
 import ch.drcookie.polaris_sdk.api.config.PolarisConfig
 import ch.drcookie.polaris_sdk.ble.AndroidBleController
-import ch.drcookie.polaris_sdk.storage.SharedPreferencesProvider
 import ch.drcookie.polaris_sdk.network.KtorApiClient
 import ch.drcookie.polaris_sdk.storage.DefaultKeyStore
 import ch.drcookie.polaris_sdk.protocol.DefaultProtocolHandler
@@ -11,11 +10,11 @@ import ch.drcookie.polaris_sdk.crypto.CryptoUtils
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
-import ch.drcookie.polaris_sdk.network.DynamicApiKeyProvider
+import ch.drcookie.polaris_sdk.network.NoOpApiClient
 import ch.drcookie.polaris_sdk.storage.KeyStore
-import ch.drcookie.polaris_sdk.storage.SdkPreferences
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
+import com.liftric.kvault.KVault
 
 private val logger = KotlinLogging.logger {}
 
@@ -52,19 +51,15 @@ internal actual class SdkInitializer {
         val beaconDataParser = BeaconDataParser
 
         // Platform-specific implementations
-        val sdkPreferences: SdkPreferences = SharedPreferencesProvider(context)
         val androidBleController: BleController = AndroidBleController(context, beaconDataParser, config.bleConfig)
 
-        val apiConfig = config.apiConfig
-        // Check if the user provided a dynamic provider.
-        if (apiConfig?.authInterceptor is DynamicApiKeyProvider) {
-            apiConfig.authInterceptor.preferences = sdkPreferences
-        }
-
         // Common implementations, injecting the platform-specific parts
+        val secureStore = KVault(context, "polaris_secure_store")
         val protocolHandler = DefaultProtocolHandler(cryptoUtils)
-        val keyStore = DefaultKeyStore(sdkPreferences, cryptoUtils)
-        val apiClient = KtorApiClient(sdkPreferences, config.apiConfig)
+        val keyStore = DefaultKeyStore(secureStore, cryptoUtils)
+        val apiClient = config.apiConfig?.let { apiCfg ->
+            KtorApiClient(secureStore, apiCfg)
+        } ?: NoOpApiClient()
 
         // Create the holder object and store it.
         val instance = AndroidSdk(

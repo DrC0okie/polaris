@@ -1,8 +1,5 @@
 package ch.drcookie.polaris_sdk.protocol.model
 
-import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUIntLE
-import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toULongLE
-
 /**
  * Represents the data structure of a non-connectable extended advertisement broadcast.
  */

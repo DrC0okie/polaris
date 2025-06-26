@@ -15,8 +15,8 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -65,16 +65,16 @@ internal class KtorClientFactory(private val config: ApiConfig) {
         }.body<PhoneRegistrationResponseDto>()
 
 
-    internal suspend fun fetchBeacons(apiKey: String)
+    internal suspend fun fetchBeacons(apiKey: String?)
             : BeaconProvisioningListDto =
         client.get("${config.baseUrl}${config.tokensPath}") {
-            applyAuth()
+            apiKey?.let { header("x-api-key", it) }
         }.body<BeaconProvisioningListDto>()
 
-    internal suspend fun sendPoLToken(token: PoLToken, apiKey: String): Boolean {
+    internal suspend fun sendPoLToken(token: PoLToken, apiKey: String?): Boolean {
         val path = config.tokensPath
         val resp = client.post("${config.baseUrl}$path") {
-            applyAuth()
+            apiKey?.let { header("x-api-key", it) }
             contentType(ContentType.Application.Json)
             setBody(token)
         }
@@ -84,14 +84,14 @@ internal class KtorClientFactory(private val config: ApiConfig) {
         return resp.status.isSuccess()
     }
 
-    internal suspend fun getPayloads(apiKey: String): EncryptedPayloadListDto =
+    internal suspend fun getPayloads(apiKey: String?): EncryptedPayloadListDto =
         client.get("${config.baseUrl}${config.payloadsPath}") {
-            applyAuth()
+            apiKey?.let { header("x-api-key", it) }
         }.body<EncryptedPayloadListDto>()
 
-    internal suspend fun postAck(apiKey: String, request: AckRequestDto): Boolean {
+    internal suspend fun postAck(request: AckRequestDto, apiKey: String?): Boolean {
         val resp = client.post("${config.baseUrl}${config.ackPath}") {
-            applyAuth()
+            apiKey?.let { header("x-api-key", it) }
             setBody(request)
         }
         return resp.status.isSuccess()
@@ -100,10 +100,5 @@ internal class KtorClientFactory(private val config: ApiConfig) {
     internal fun closeClient() {
         client.close()
         Log.debug { "Ktor HTTP client closed." }
-    }
-
-    // Helper function to apply the interceptor
-    private fun HttpRequestBuilder.applyAuth() {
-        config.authInterceptor?.intercept(this)
     }
 }

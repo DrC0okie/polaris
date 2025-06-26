@@ -1,10 +1,14 @@
 package ch.drcookie.polaris_sdk.api.flows
 
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Handles the entire flow of delivering a single secure payload to a beacon.
@@ -18,30 +22,48 @@ public class DeliverPayloadFlow(
     private val scanForBeacon: ScanForBeaconFlow
 ) {
     @OptIn(ExperimentalUnsignedTypes::class)
-    public suspend operator fun invoke(payload: EncryptedPayload): ByteArray? {
+    public suspend operator fun invoke(payload: EncryptedPayload): SdkResult<ByteArray, SdkError> {
         // Find the specific beacon required for this job
         val targetBeaconInfo = apiClient.knownBeacons.find { it.id == payload.beaconId }
-        if (targetBeaconInfo == null) {
-            // Internal logic error, the server gave us a job for a beacon we don't know.
-            throw IllegalStateException("Error: Beacon #${payload.beaconId} is not in the known list.")
-        }
+            ?: return SdkResult.Failure(
+                SdkError.PreconditionError("Beacon #${payload.beaconId} is not in the known list.")
+            )
 
-        // Use other interactor to find the beacon
-        val foundBeacon = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))
+        // Scan for the beacon
+        val scanResult = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))
+        val foundBeacon = when (scanResult) {
+            is SdkResult.Success -> scanResult.value
+            is SdkResult.Failure -> return scanResult
+        }
 
         if (foundBeacon == null) {
-            return null
+            return SdkResult.Failure(SdkError.BleError("Beacon #${payload.beaconId} not found within timeout."))
         }
 
-        // Connect, deliver, and disconnect
+        // Connect to the beacon
         try {
-            bleController.connect(foundBeacon.address)
-            bleController.connectionState.first { it is ConnectionState.Ready }
+            when (val connectResult = bleController.connect(foundBeacon.address)) {
+                is SdkResult.Failure -> return connectResult
+                is SdkResult.Success -> { /* Continue */ }
+            }
 
-            val ackBlob = bleController.deliverSecurePayload(payload.blob.asByteArray())
+            // Await a "Ready" or "Failed" state, with a timeout.
+            val status = withTimeoutOrNull(10000L) { // 15-second timeout
+                bleController.connectionState
+                    .filter { it is ConnectionState.Ready || it is ConnectionState.Failed }
+                    .first()
+            }
 
-            // The interactor's job is to get the ACK. The VM's job is to submit it.
-            return ackBlob
+            // Handle the outcome of the connection attempt.
+            when (status) {
+                is ConnectionState.Ready -> { /* Connection successful, continue*/ }
+                is ConnectionState.Failed -> return SdkResult.Failure(SdkError.BleError("Connection failed: ${status.error}"))
+                null -> return SdkResult.Failure(SdkError.BleError("Connection timed out."))
+                else -> return SdkResult.Failure(SdkError.BleError("Unexpected connection state: $status"))
+            }
+
+            return bleController.deliverSecurePayload(payload.blob.asByteArray())
+
         } finally {
             bleController.disconnect()
         }

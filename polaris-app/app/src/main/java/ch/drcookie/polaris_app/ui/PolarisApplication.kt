@@ -2,7 +2,7 @@ package ch.drcookie.polaris_app.ui
 
 import android.app.Application
 import ch.drcookie.polaris_sdk.api.Polaris
-import ch.drcookie.polaris_sdk.network.DynamicApiKeyProvider
+import ch.drcookie.polaris_sdk.api.config.AuthMode
 import kotlinx.coroutines.runBlocking
 
 class PolarisApplication : Application() {
@@ -17,7 +17,7 @@ class PolarisApplication : Application() {
                 }
                 api {
                     baseUrl = "https://polaris.iict-heig-vd.ch"
-                    authInterceptor = DynamicApiKeyProvider()
+                    authMode = AuthMode.ManagedApiKey
                 }
             }
         }

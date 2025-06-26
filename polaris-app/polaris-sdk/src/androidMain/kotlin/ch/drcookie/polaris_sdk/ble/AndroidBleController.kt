@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.*
 import java.io.IOException
 import java.util.UUID
 import androidx.core.util.size
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.config.BleConfig
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
@@ -25,13 +27,14 @@ import ch.drcookie.polaris_sdk.protocol.model.poLResponseFromBytes
 import ch.drcookie.polaris_sdk.protocol.model.toBytes
 
 private val Log = KotlinLogging.logger {}
+private val unknownErr = "Unknown error"
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
 internal class AndroidBleController(
     context: Context,
     private val beaconDataParser: BeaconDataParser,
-    private val config: BleConfig
+    private val config: BleConfig,
 ) : BleController {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -55,7 +58,7 @@ internal class AndroidBleController(
 
     override fun scanForBeacons(
         filters: List<CommonScanFilter>?,
-        scanConfig: ScanConfig
+        scanConfig: ScanConfig,
     ): Flow<CommonBleScanResult> {
 
         // Map our CommonScanFilter to Android's ScanFilter
@@ -90,27 +93,55 @@ internal class AndroidBleController(
             .onCompletion { gattManager.stopScan() }
     }
 
-    override suspend fun connect(deviceAddress: String) {
-        val device = gattManager.bluetoothAdapter.getRemoteDevice(deviceAddress)
-        gattManager.connectToDevice(device)
-    }
-
-
-    override suspend fun requestPoL(request: PoLRequest): PoLResponse {
-        val responseBytes = performRequestResponse(
-            requestPayload = request.toBytes(),
-            writeUuid = config.tokenWriteUuid,
-            indicateUuid = config.tokenIndicateUuid
+    override suspend fun connect(deviceAddress: String): SdkResult<Unit, SdkError> {
+        return runCatching {
+            val device = gattManager.bluetoothAdapter.getRemoteDevice(deviceAddress)
+            gattManager.connectToDevice(device)
+        }.fold(
+            onSuccess = { SdkResult.Success(Unit) },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.BleError(throwable.message ?: "$unknownErr during connection")
+                )
+            }
         )
-        return poLResponseFromBytes(responseBytes)
-            ?: throw IOException("Failed to parse PoLResponse from beacon data.")
     }
 
-    override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray {
-        return performRequestResponse(
-            requestPayload = encryptedBlob,
-            writeUuid = config.encryptedWriteUuid,
-            indicateUuid = config.encryptedIndicateUuid
+
+    override suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError> {
+        return runCatching {
+            val responseBytes = performRequestResponse(
+                requestPayload = request.toBytes(),
+                writeUuid = config.tokenWriteUuid,
+                indicateUuid = config.tokenIndicateUuid
+            )
+            poLResponseFromBytes(responseBytes)
+                ?: throw IOException("Failed to parse PoLResponse from beacon data.")
+        }.fold(
+            onSuccess = { polResponse -> SdkResult.Success(polResponse) },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.BleError(throwable.message ?: "$unknownErr during pol transaction")
+                )
+            }
+        )
+
+    }
+
+    override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError> {
+        return runCatching {
+            performRequestResponse(
+                requestPayload = encryptedBlob,
+                writeUuid = config.encryptedWriteUuid,
+                indicateUuid = config.encryptedIndicateUuid
+            )
+        }.fold(
+            onSuccess = { encryptedBlob -> SdkResult.Success(encryptedBlob) },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.BleError(throwable.message ?: "$unknownErr during secure payload delivering")
+                )
+            }
         )
     }
 
@@ -124,7 +155,7 @@ internal class AndroidBleController(
     private suspend fun performRequestResponse(
         requestPayload: ByteArray,
         writeUuid: String,
-        indicateUuid: String
+        indicateUuid: String,
     ): ByteArray {
         // Ensure we are in a ready state
         if (connectionState.value !is ConnectionState.Ready) {
@@ -170,7 +201,7 @@ internal class AndroidBleController(
 
     override fun findConnectableBeacons(
         scanConfig: ScanConfig,
-        beaconsToFind: List<Beacon>
+        beaconsToFind: List<Beacon>,
     ): Flow<FoundBeacon> {
         val filters = listOf(CommonScanFilter.ByServiceUuid(config.polServiceUuid))
 

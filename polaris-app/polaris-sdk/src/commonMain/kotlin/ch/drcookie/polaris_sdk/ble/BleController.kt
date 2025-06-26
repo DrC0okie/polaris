@@ -1,5 +1,7 @@
 package ch.drcookie.polaris_sdk.ble
 
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.ble.model.CommonScanFilter
@@ -23,9 +25,9 @@ public interface BleController {
      * @return A Flow of found devices that match the filter criteria.
      */
     public fun scanForBeacons(filters: List<CommonScanFilter>?, scanConfig: ScanConfig): Flow<CommonBleScanResult>
-    public suspend fun connect(deviceAddress: String)
-    public suspend fun requestPoL(request: PoLRequest): PoLResponse
-    public suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray
+    public suspend fun connect(deviceAddress: String): SdkResult<Unit, SdkError>
+    public suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError>
+    public suspend fun deliverSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError>
     public fun disconnect()
     public fun cancelAll()
 

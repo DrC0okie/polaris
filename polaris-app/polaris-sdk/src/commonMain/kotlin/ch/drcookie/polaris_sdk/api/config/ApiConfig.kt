@@ -1,20 +1,19 @@
 package ch.drcookie.polaris_sdk.api.config
 
-import ch.drcookie.polaris_sdk.network.HttpInterceptor
+import com.liftric.kvault.KVault
 
 /**
  * Configuration for the Polaris network client.
  * Providing this configuration during SDK initialization enables server communication.
  *
  * @property baseUrl The base URL of the Polaris backend server (e.g., "https://polaris.example.com").
- * @property authInterceptor
  * @property registrationPath The API path for device registration.
  * @property tokensPath The API path for submitting PoL tokens.
  * @property payloadsPath The API path for fetching and acknowledging secure payloads.
  */
 public data class ApiConfig(
     val baseUrl: String,
-    val authInterceptor: HttpInterceptor? = null,
+    val authMode: AuthMode,
     val registrationPath: String,
     val tokensPath: String,
     val payloadsPath: String,
@@ -25,11 +24,11 @@ public data class ApiConfig(
  * A builder for creating an [ApiConfig].
  * Used within the `Polaris.initialize` DSL to configure server communication.
  */
-public class ApiConfigBuilder {
+public class ApiConfigBuilder() {
     /** The base URL of the Polaris backend server (e.g., "https://polaris.example.com"). */
     public lateinit var baseUrl: String
 
-    public var authInterceptor: HttpInterceptor? = null
+    public var authMode: AuthMode = AuthMode.ManagedApiKey
 
     /** The API path for device registration. */
     public var registrationPath: String = "/api/v1/register"
@@ -47,7 +46,7 @@ public class ApiConfigBuilder {
         check(::baseUrl.isInitialized) { "baseUrl must be set in the api { ... } block." }
         return ApiConfig(
             baseUrl = baseUrl,
-            authInterceptor = authInterceptor,
+            authMode = authMode,
             registrationPath = registrationPath,
             tokensPath = tokensPath,
             payloadsPath = payloadsPath,

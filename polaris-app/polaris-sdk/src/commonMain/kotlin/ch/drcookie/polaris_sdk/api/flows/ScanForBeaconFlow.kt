@@ -1,5 +1,7 @@
 package ch.drcookie.polaris_sdk.api.flows
 
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import ch.drcookie.polaris_sdk.network.ApiClient
@@ -10,7 +12,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 public class ScanForBeaconFlow(
     private val bleController: BleController,
-    private val apiClient: ApiClient
+    private val apiClient: ApiClient,
 ) {
 
     /**
@@ -21,17 +23,24 @@ public class ScanForBeaconFlow(
      */
     public suspend operator fun invoke(
         timeoutMillis: Long = 10000L,
-        beaconsToFind: List<Beacon> = apiClient.knownBeacons
-    ): FoundBeacon? {
+        beaconsToFind: List<Beacon> = apiClient.knownBeacons,
+    ): SdkResult<FoundBeacon?, SdkError> {
 
         if (beaconsToFind.isEmpty()) {
-            return null
+            return SdkResult.Success(null)
         }
 
         val scanConfig = ScanConfig()
 
-        return withTimeoutOrNull(timeoutMillis) {
-            bleController.findConnectableBeacons(scanConfig, beaconsToFind).firstOrNull()
-        }
+        return runCatching {
+            withTimeoutOrNull(timeoutMillis) {
+                bleController.findConnectableBeacons(scanConfig, beaconsToFind).firstOrNull()
+            }
+        }.fold(
+            onSuccess = { beacons -> SdkResult.Success(beacons) },
+            onFailure = { throwable ->
+                SdkResult.Failure(SdkError.BleError("Scan failed to execute: ${throwable.message}"))
+            }
+        )
     }
 }

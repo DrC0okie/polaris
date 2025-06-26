@@ -1,5 +1,7 @@
 package ch.drcookie.polaris_sdk.api.flows
 
+import ch.drcookie.polaris_sdk.api.SdkError
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
@@ -8,46 +10,84 @@ import ch.drcookie.polaris_sdk.network.ApiClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 public class PolTransactionFlow(
     private val bleController: BleController,
     private val apiClient: ApiClient,
     private val keyStore: KeyStore,
-    private val protocolRepo: ProtocolHandler
+    private val protocolHandler: ProtocolHandler,
 ) {
     // The 'invoke' operator allows calling the class like a function
     @OptIn(ExperimentalUnsignedTypes::class)
-    public suspend operator fun invoke(foundBeacon: FoundBeacon): PoLToken {
+    public suspend operator fun invoke(foundBeacon: FoundBeacon): SdkResult<PoLToken, SdkError> {
         try {
-            // Connect
-            bleController.connect(foundBeacon.address)
-            bleController.connectionState.first { it is ConnectionState.Ready }
+            // Initiate connection
+            when (val connectResult = bleController.connect(foundBeacon.address)) {
+                is SdkResult.Failure -> return connectResult
+                is SdkResult.Success -> { /* Continue */
+                }
+            }
 
-            // get necessary data
-            val (phonePk, phoneSk) = keyStore.getOrCreateSignatureKeyPair()
+            // Await a "Ready" or "Failed" state from the connection flow, with a timeout.
+            val status = withTimeoutOrNull(10000L) {
+                bleController.connectionState
+                    .filter { it is ConnectionState.Ready || it is ConnectionState.Failed }
+                    .first()
+            }
+
+            // Handle the outcome of the connection attempt.
+            when (status) {
+                is ConnectionState.Ready -> { /* Connection successful, continue */
+                }
+
+                is ConnectionState.Failed -> return SdkResult.Failure(SdkError.BleError("Connection failed: ${status.error}"))
+                null -> return SdkResult.Failure(SdkError.BleError("Connection timed out."))
+                else -> return SdkResult.Failure(SdkError.BleError("Unexpected connection state: $status"))
+            }
+
+            // Get the signature key pair
+            val (phonePk, phoneSk) = when (val keyResult = keyStore.getOrCreateSignatureKeyPair()) {
+                is SdkResult.Success -> keyResult.value
+                is SdkResult.Failure -> return keyResult
+            }
+
+            // Check precondition for Phone ID
             val phoneId = apiClient.getPhoneId().toULong()
-            if (phoneId == 0uL) throw IllegalStateException("Phone ID not available. Please register first.")
+            if (phoneId == 0uL) {
+                return SdkResult.Failure(SdkError.PreconditionError("Phone ID not available. Please register first."))
+            }
 
             // Construct the request
             val request = PoLRequest(
                 flags = 0u,
                 phoneId = phoneId,
                 beaconId = foundBeacon.provisioningInfo.id,
-                nonce = protocolRepo.generateNonce(),
+                nonce = protocolHandler.generateNonce(),
                 phonePk = phonePk
             )
 
             // Sign the request
-            val signedRequest = protocolRepo.signPoLRequest(request, phoneSk)
+            val signedRequest = protocolHandler.signPoLRequest(request, phoneSk)
 
-            // Send and receive the response
-            val response = bleController.requestPoL(signedRequest)
+            // PoL transaction
+            val responseResult = bleController.requestPoL(signedRequest)
+            val response = when (responseResult) {
+                is SdkResult.Success -> responseResult.value
+                is SdkResult.Failure -> return responseResult
+            }
 
-            // Verify response signatue
-            val isValid = protocolRepo.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
-            if (!isValid) throw Exception("Invalid beacon signature during PoL transaction!")
-            return PoLToken.create(signedRequest, response, foundBeacon.provisioningInfo.publicKey)
+            // Step 8: Verify the beacon's response
+            val isValid = protocolHandler.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
+            if (!isValid) {
+                return SdkResult.Failure(SdkError.ProtocolError("Invalid beacon signature during PoL transaction!"))
+            }
+
+            // Create and return the final token
+            val token = PoLToken.create(signedRequest, response, foundBeacon.provisioningInfo.publicKey)
+            return SdkResult.Success(token)
 
         } finally {
             bleController.disconnect()

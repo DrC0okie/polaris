@@ -1,22 +1,30 @@
 package ch.drcookie.polaris_sdk.network
 
+import ch.drcookie.polaris_sdk.api.SdkResult
+import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.config.ApiConfig
+import ch.drcookie.polaris_sdk.api.config.AuthMode
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
 import ch.drcookie.polaris_sdk.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
-import ch.drcookie.polaris_sdk.storage.SdkPreferences
+import com.liftric.kvault.KVault
 
 internal class KtorApiClient(
-    private val userPrefs: SdkPreferences,
-    apiConfig: ApiConfig?,
+    private val store: KVault,
+    private val config: ApiConfig,
 ) : ApiClient {
 
-    private val notInitializedErr = "ApiClient not configured. Did you forget the api { ... } block in Polaris.initialize?"
-    // Only create the client factory if config is not null
-    private val api: KtorClientFactory? = apiConfig?.let { KtorClientFactory(it) }
+    private val factory = KtorClientFactory(config)
+
+    private companion object {
+        const val KEY_API_KEY = "polaris_api_key"
+        const val KEY_PHONE_ID = "polaris_phone_id"
+    }
+
+    private val unknownErr = "Unknown network error"
 
     private var _knownBeacons = mutableListOf<Beacon>()
 
@@ -26,7 +34,7 @@ internal class KtorApiClient(
 
     override fun getPhoneId(): Long {
         // It simply delegates the call to the underlying preference storage.
-        return userPrefs.phoneId
+        return store.long(forKey = KEY_PHONE_ID) ?: -1L
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -35,52 +43,137 @@ internal class KtorApiClient(
         deviceModel: String,
         osVersion: String,
         appVersion: String,
-    ): List<Beacon> {
+    ): SdkResult<List<Beacon>, SdkError> {
+        return runCatching {
 
-        val requestDto = PhoneRegistrationRequestDto(
-            publicKey = publicKey,
-            deviceModel = deviceModel,
-            osVersion = osVersion,
-            appVersion = appVersion
+            val requestDto = PhoneRegistrationRequestDto(
+                publicKey = publicKey,
+                deviceModel = deviceModel,
+                osVersion = osVersion,
+                appVersion = appVersion
+            )
+
+            val response = factory.registerPhone(requestDto)
+
+            // only save the key if we are in ManagedApiKey mode
+            if (config.authMode is AuthMode.ManagedApiKey) {
+                store.set(KEY_API_KEY, response.apiKey)
+            }
+            store.set(KEY_PHONE_ID, response.assignedPhoneId ?: -1L)
+
+            // Map the DTOs to Public Models and store/return them
+            val newBeacons = response.beacons.beacons.map { it.toBeaconInfo() }
+            _knownBeacons.clear()
+            _knownBeacons.addAll(newBeacons)
+            newBeacons
+        }.fold(
+            onSuccess = { SdkResult.Success(it) },
+            onFailure = {
+                SdkResult.Failure(
+                    SdkError.NetworkError(
+                        it.message ?: "$unknownErr during registration"
+                    )
+                )
+            }
         )
-
-        val response = api?.registerPhone(requestDto)?: throw IllegalStateException(notInitializedErr)
-
-        // Store credentials
-        userPrefs.apiKey = response.apiKey
-        userPrefs.phoneId = response.assignedPhoneId ?: -1L
-
-        // Map the DTOs to Public Models and store/return them
-        val newBeacons = response.beacons.beacons.map { it.toBeaconInfo() }
-        _knownBeacons.clear()
-        _knownBeacons.addAll(newBeacons)
-        return newBeacons
     }
 
-    override suspend fun submitPoLToken(token: PoLToken) {
-        val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        api?.sendPoLToken(token, apiKey)?:throw IllegalStateException(notInitializedErr)
+    override suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError> {
+
+        return runCatching {
+
+            val apiKey = when (val mode = config.authMode) {
+                is AuthMode.None -> null // No key needed
+                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
+                is AuthMode.StaticApiKey -> mode.apiKey
+            }
+
+            // Check if a key was required but not found
+            if (config.authMode != AuthMode.None && apiKey == null) {
+                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            }
+
+            factory.sendPoLToken(token, apiKey)
+        }.fold(
+            onSuccess = { isSuccess ->
+                if (isSuccess) SdkResult.Success(Unit)
+                else SdkResult.Failure(SdkError.NetworkError("Server rejected PoL token."))
+            },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.NetworkError(throwable.message ?: "$unknownErr during PoL token submission")
+                )
+            }
+        )
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
-    override suspend fun submitSecureAck(ack: DeliveryAck) {
-        val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        // MAP the Public Model to an internal DTO to send to the server
-        val ackDto = AckRequestDto(
-            deliveryId = ack.deliveryId,
-            ackBlob = ack.ackBlob
+    override suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError> {
+
+        return runCatching {
+
+            val apiKey = when (val mode = config.authMode) {
+                is AuthMode.None -> null
+                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
+                is AuthMode.StaticApiKey -> mode.apiKey
+            }
+
+            // Check if a key was required but not found
+            if (config.authMode != AuthMode.None && apiKey == null) {
+                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            }
+
+            val ackDto = AckRequestDto(
+                deliveryId = ack.deliveryId,
+                ackBlob = ack.ackBlob
+            )
+
+            factory.postAck(ackDto, apiKey)
+        }.fold(
+            onSuccess = { isSuccess ->
+                if (isSuccess) {
+                    SdkResult.Success(Unit)
+                } else {
+                    SdkResult.Failure(SdkError.NetworkError("Server rejected the payload ack."))
+                }
+            },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.NetworkError(throwable.message ?: "$unknownErr during payload ack")
+                )
+            }
         )
-        api?.postAck(apiKey, ackDto)?: throw IllegalStateException(notInitializedErr)
     }
 
-    override suspend fun getPayloadsForDelivery(): List<EncryptedPayload> {
-        val apiKey = userPrefs.apiKey ?: throw IllegalStateException("API Key not available.")
-        val dtoList = api?.getPayloads(apiKey)?.payloads?: throw IllegalStateException(notInitializedErr)
-        // MAP the DTOs to Public Models before returning
-        return dtoList.map { it.toEncryptedPayload() }
+    override suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError> {
+        return runCatching {
+
+            val apiKey = when (val mode = config.authMode) {
+                is AuthMode.None -> null
+                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
+                is AuthMode.StaticApiKey -> mode.apiKey
+            }
+
+            // Check if a key was required but not found
+            if (config.authMode != AuthMode.None && apiKey == null) {
+                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            }
+
+            val dtoList = factory.getPayloads(apiKey)
+            dtoList.payloads.map { it.toEncryptedPayload() }
+        }.fold(
+            onSuccess = { payloads ->
+                SdkResult.Success(payloads)
+            },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.NetworkError(throwable.message ?: "$unknownErr while fetching payloads")
+                )
+            }
+        )
     }
 
     override fun closeClient() {
-        api?.closeClient()?: throw IllegalStateException(notInitializedErr)
+        factory.closeClient()
     }
 }

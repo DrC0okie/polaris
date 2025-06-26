@@ -4,11 +4,13 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
 import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
 import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
 import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
 import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
+import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
@@ -46,9 +48,16 @@ class PolarisViewModel(
     fun register() {
         runFlow("Registration") {
             appendLog("Registering phone with server...")
-            // The ViewModel doesn't know how registration works. It just calls the interactor.
-            val beaconCount = registerDevice(Build.MODEL, Build.VERSION.RELEASE, "1.0")
-            appendLog("Registration successful. Found $beaconCount known beacons.")
+            val result = registerDevice(Build.MODEL, Build.VERSION.RELEASE, "1.0")
+            when (result) {
+                is SdkResult.Success -> {
+                    val beaconCount = result.value
+                    appendLog("Registration successful. Found $beaconCount known beacons.")
+                }
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Registration failed: ${result.error.message()} ---")
+                }
+            }
         }
     }
 
@@ -61,19 +70,45 @@ class PolarisViewModel(
 
             appendLog("Scanning for first known beacon...")
 
-            val foundBeacon = scanForBeacon()
+            val scanResult = scanForBeacon()
 
+            // Check the scan result
+            val foundBeacon = when (scanResult) {
+                is SdkResult.Success -> scanResult.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
+                    return@runFlow
+                }
+            }
+
+            // Check if a beacon was actually found (vs. timeout)
             if (foundBeacon == null) {
                 appendLog("Scan timed out. No known beacons found.")
                 return@runFlow
             }
             appendLog("Found beacon: ${foundBeacon.name}. Performing transaction...")
 
-            val token = performPolTransaction(foundBeacon)
+            // PoL transaction
+            val transactionResult = performPolTransaction(foundBeacon)
+            val token = when (transactionResult) {
+                is SdkResult.Success -> transactionResult.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: PoL Transaction failed: ${transactionResult.error.message()} ---")
+                    return@runFlow
+                }
+            }
 
             appendLog("PoL transaction successful. Submitting token...")
-            apiClient.submitPoLToken(token)
-            appendLog("Token submitted successfully!")
+
+            // Submit the token to the server
+            when (val submitResult = apiClient.submitPoLToken(token)) {
+                is SdkResult.Success -> {
+                    appendLog("Token submitted successfully!")
+                }
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Failed to submit token: ${submitResult.error.message()} ---")
+                }
+            }
         }
     }
 
@@ -90,44 +125,75 @@ class PolarisViewModel(
         _uiState.update { it.copy(isMonitoring = true) }
 
         monitoringJob = monitorBroadcasts.startMonitoring()
-            .onEach { verifiedBroadcast ->
-                val payload = verifiedBroadcast.payload
-                val verificationStatus = if (verifiedBroadcast.isSignatureValid) "VALID" else "INVALID SIG"
-                appendLog("Broadcast from #${payload.beaconId}: Counter=${payload.counter} [${verificationStatus}]")
+            .onEach { result ->
+                when(result){
+                    is SdkResult.Success -> {
+                        val verifiedBroadcast = result.value
+                        val payload = verifiedBroadcast.payload
+                        val verificationStatus = if (verifiedBroadcast.isSignatureValid) "VALID" else "INVALID SIG"
+                        appendLog("Broadcast from #${payload.beaconId}: Counter=${payload.counter} [${verificationStatus}]")
+                    }
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Monitoring stopped. Reason: ${result.error.message()} ---")
+
+                        // Cancel the job to ensure the onCompletion block is called.
+                        monitoringJob?.cancel()
+                    }
+                }
             }
             .onCompletion {
                 _uiState.update { it.copy(isMonitoring = false) }
+                appendLog("--- Finished Flow: Broadcast Monitoring ---")
             }
-            .catch { e ->
-                // Handle any unexpected errors from the flow itself
-                appendLog("ERROR during monitoring: ${e.message}")
-            }
-            .launchIn(viewModelScope) // Use launchIn for a concise launch
+            .launchIn(viewModelScope)
     }
 
     fun processPayloadFlow() {
         runFlow("Secure Payload Delivery") {
             appendLog("Checking for pending payloads...")
-            val payloads = apiClient.getPayloadsForDelivery()
+
+            // Get payloads
+            val payloadsResult = apiClient.getPayloadsForDelivery()
+            val payloads = when (payloadsResult) {
+                is SdkResult.Success -> payloadsResult.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Could not get payloads: ${payloadsResult.error.message()} ---")
+                    return@runFlow
+                }
+            }
+
             if (payloads.isEmpty()) {
                 appendLog("No pending payloads.")
                 return@runFlow
             }
+
             val job = payloads.first()
             appendLog("Found payload #${job.deliveryId} for beacon #${job.beaconId}.")
+
             appendLog("Attempting to deliver...")
 
-            val ackBlob = deliverSecurePayload(job)
-
-            if (ackBlob == null) {
-                appendLog("Failed to deliver payload: Target beacon not found.")
-                return@runFlow
+            // Deliver the payload to the beacon
+            val deliveryResult = deliverSecurePayload(job)
+            val ackBlob = when (deliveryResult) {
+                is SdkResult.Success -> deliveryResult.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Payload delivery failed: ${deliveryResult.error.message()} ---")
+                    return@runFlow
+                }
             }
 
             appendLog("Payload delivered, received ACK/ERR blob (${ackBlob.size} bytes). Submitting to server...")
             val ackRequest = DeliveryAck(job.deliveryId, ackBlob.toUByteArray())
-            apiClient.submitSecureAck(ackRequest)
-            appendLog("ACK/ERR submitted successfully.")
+
+            // Submit the acknowledgement
+            when (val ackResult = apiClient.submitSecureAck(ackRequest)) {
+                is SdkResult.Success -> {
+                    appendLog("ACK/ERR submitted successfully.")
+                }
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Failed to submit ACK: ${ackResult.error.message()} ---")
+                }
+            }
         }
     }
 
