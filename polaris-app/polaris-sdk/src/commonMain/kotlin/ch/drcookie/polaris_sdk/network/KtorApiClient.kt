@@ -82,15 +82,10 @@ internal class KtorApiClient(
 
         return runCatching {
 
-            val apiKey = when (val mode = config.authMode) {
-                is AuthMode.None -> null // No key needed
-                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
-                is AuthMode.StaticApiKey -> mode.apiKey
-            }
-
-            // Check if a key was required but not found
-            if (config.authMode != AuthMode.None && apiKey == null) {
-                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            val apiKeyResult = getApiKeyForRequest()
+            val apiKey = when(apiKeyResult) {
+                is SdkResult.Success -> apiKeyResult.value
+                is SdkResult.Failure -> return apiKeyResult
             }
 
             factory.sendPoLToken(token, apiKey)
@@ -112,15 +107,10 @@ internal class KtorApiClient(
 
         return runCatching {
 
-            val apiKey = when (val mode = config.authMode) {
-                is AuthMode.None -> null
-                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
-                is AuthMode.StaticApiKey -> mode.apiKey
-            }
-
-            // Check if a key was required but not found
-            if (config.authMode != AuthMode.None && apiKey == null) {
-                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            val apiKeyResult = getApiKeyForRequest()
+            val apiKey = when(apiKeyResult) {
+                is SdkResult.Success -> apiKeyResult.value
+                is SdkResult.Failure -> return apiKeyResult
             }
 
             val ackDto = AckRequestDto(
@@ -148,15 +138,10 @@ internal class KtorApiClient(
     override suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError> {
         return runCatching {
 
-            val apiKey = when (val mode = config.authMode) {
-                is AuthMode.None -> null
-                is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
-                is AuthMode.StaticApiKey -> mode.apiKey
-            }
-
-            // Check if a key was required but not found
-            if (config.authMode != AuthMode.None && apiKey == null) {
-                return SdkResult.Failure(SdkError.PreconditionError("API key not found."))
+            val apiKeyResult = getApiKeyForRequest()
+            val apiKey = when(apiKeyResult) {
+                is SdkResult.Success -> apiKeyResult.value
+                is SdkResult.Failure -> return apiKeyResult
             }
 
             val dtoList = factory.getPayloads(apiKey)
@@ -175,5 +160,18 @@ internal class KtorApiClient(
 
     override fun closeClient() {
         factory.closeClient()
+    }
+
+    private fun getApiKeyForRequest(): SdkResult<String?, SdkError> {
+        val apiKey = when (val mode = config.authMode) {
+            is AuthMode.None -> null
+            is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
+            is AuthMode.StaticApiKey -> mode.apiKey
+        }
+
+        if (config.authMode != AuthMode.None && apiKey == null) {
+            return SdkResult.Failure(SdkError.PreconditionError("API key is required but not found."))
+        }
+        return SdkResult.Success(apiKey)
     }
 }

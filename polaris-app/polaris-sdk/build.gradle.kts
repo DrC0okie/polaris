@@ -75,7 +75,6 @@ kotlin {
                 implementation(libs.androidx.lifecycle.viewmodel.ktx)
                 implementation(libs.material)
                 implementation(libs.ktor.client.android)
-                implementation(libs.slf4j.android)
             }
         }
 

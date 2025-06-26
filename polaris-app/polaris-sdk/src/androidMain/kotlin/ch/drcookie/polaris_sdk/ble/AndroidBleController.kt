@@ -23,6 +23,7 @@ import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
+import ch.drcookie.polaris_sdk.ble.model.DiscriminatedScanResult
 import ch.drcookie.polaris_sdk.protocol.model.poLResponseFromBytes
 import ch.drcookie.polaris_sdk.protocol.model.toBytes
 
@@ -125,7 +126,6 @@ internal class AndroidBleController(
                 )
             }
         )
-
     }
 
     override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError> {
@@ -150,6 +150,38 @@ internal class AndroidBleController(
     override fun cancelAll() {
         scope.cancel()
         gattManager.close()
+    }
+
+    override fun findConnectableBeacons(
+        scanConfig: ScanConfig,
+        beaconsToFind: List<Beacon>,
+    ): Flow<FoundBeacon> {
+        return getDiscriminatedScanFlow(scanConfig)
+            .filterIsInstance<DiscriminatedScanResult.Legacy>() // We only care about Legacy ads
+            .mapNotNull { legacyResult ->
+                val commonScanResult = legacyResult.result
+                // Parse the ID
+                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult, config.manufacturerId)
+                if (beaconId != null) {
+                    val matchedInfo = beaconsToFind.find { it.id == beaconId }
+                    if (matchedInfo != null) {
+                        FoundBeacon(
+                            provisioningInfo = matchedInfo,
+                            address = commonScanResult.deviceAddress
+                        )
+                    } else null
+                } else null
+            }
+    }
+
+    override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
+        return getDiscriminatedScanFlow(scanConfig)
+            .filterIsInstance<DiscriminatedScanResult.Extended>() // We only care about Extended ads
+            .mapNotNull { extendedResult ->
+                val scanResult = extendedResult.result
+                // Parse the payload
+                beaconDataParser.parseBroadcastPayload(scanResult, config.manufacturerId)
+            }
     }
 
     private suspend fun performRequestResponse(
@@ -199,35 +231,13 @@ internal class AndroidBleController(
         return response
     }
 
-    override fun findConnectableBeacons(
-        scanConfig: ScanConfig,
-        beaconsToFind: List<Beacon>,
-    ): Flow<FoundBeacon> {
-        val filters = listOf(CommonScanFilter.ByServiceUuid(config.polServiceUuid))
+    private fun getDiscriminatedScanFlow(scanConfig: ScanConfig): Flow<DiscriminatedScanResult> {
+        val filters = listOf(
+            ScanFilter.Builder().setManufacturerData(config.manufacturerId, null).build()
+        )
 
-        // The parsing logic from the interactor moves here.
-        return this.scanForBeacons(filters, scanConfig)
-            .mapNotNull { commonScanResult ->
-                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult, config.legacyManufacturerId)
-                if (beaconId != null) {
-                    val matchedInfo = beaconsToFind.find { it.id == beaconId }
-                    if (matchedInfo != null) {
-                        return@mapNotNull FoundBeacon(
-                            provisioningInfo = matchedInfo,
-                            address = commonScanResult.deviceAddress
-                        )
-                    }
-                }
-                null
-            }
-    }
-
-    override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
-        val manufId = config.extendedManufacturerId
-        val filters = listOf(CommonScanFilter.ByManufacturerData(manufId))
-
-        // The parsing logic from the interactor moves here.
-        return this.scanForBeacons(filters, scanConfig)
-            .mapNotNull { scanResult -> beaconDataParser.parseBroadcastPayload(scanResult, manufId) }
+        return gattManager.discriminatedScanResults
+            .onStart { gattManager.startScan(filters, scanConfig) }
+            .onCompletion { gattManager.stopScan() }
     }
 }

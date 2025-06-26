@@ -34,3 +34,9 @@ public sealed class CommonScanFilter {
     public data class ByServiceUuid(public val uuid: String) : CommonScanFilter()
     public data class ByManufacturerData(public val id: Int) : CommonScanFilter()
 }
+
+public sealed class DiscriminatedScanResult {
+    public data class Legacy(public val result: CommonBleScanResult) : DiscriminatedScanResult()
+    public data class Extended(public val result: CommonBleScanResult) : DiscriminatedScanResult()
+    public data class Other(public val result: CommonBleScanResult) : DiscriminatedScanResult() // For everything else
+}

@@ -16,12 +16,14 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Build
 import ch.drcookie.polaris_sdk.api.config.BleConfig
+import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.ble.util.BleUtils.gattStatusToString
 import ch.drcookie.polaris_sdk.ble.util.BleUtils.isConnected
 import ch.drcookie.polaris_sdk.ble.model.ScanCallbackType
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import ch.drcookie.polaris_sdk.ble.model.ScanMode
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
+import ch.drcookie.polaris_sdk.ble.model.DiscriminatedScanResult
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import androidx.core.util.size
 
 private val Log = KotlinLogging.logger {}
 
@@ -74,6 +77,9 @@ internal class GattManager(
 
     private val _receivedData = MutableSharedFlow<ByteArray>()
     internal val receivedData = _receivedData.asSharedFlow()
+
+    private val _discriminatedScanResults = MutableSharedFlow<DiscriminatedScanResult>()
+    internal val discriminatedScanResults = _discriminatedScanResults.asSharedFlow()
 
     private val _mtu = MutableStateFlow(517) // Default GATT MTU
     internal val mtu = _mtu.asStateFlow()
@@ -255,7 +261,32 @@ internal class GattManager(
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             if (!isScanning) return
-            externalScope.launch { _scanResults.emit(result) }
+
+            // Map to common type first
+            val commonResult = CommonBleScanResult(
+                deviceAddress = result.device.address,
+                deviceName = result.scanRecord?.deviceName,
+                manufacturerData = result.scanRecord?.manufacturerSpecificData?.let { sparseArray ->
+                    (0 until sparseArray.size).associate { i ->
+                        sparseArray.keyAt(i) to sparseArray.valueAt(i)
+                    }
+                } ?: emptyMap()
+            )
+
+            // Discriminate by specific metadata
+            val discriminatedResult = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                when {
+                    result.isLegacy && result.isConnectable -> DiscriminatedScanResult.Legacy(commonResult)
+                    !result.isLegacy && !result.isConnectable -> DiscriminatedScanResult.Extended(commonResult)
+                    else -> DiscriminatedScanResult.Other(commonResult)
+                }
+            } else {
+                // On older Android versions, everything is legacy and connectable is less reliable.
+                // We can assume it's a legacy ad if it's not explicitly an extended one.
+                DiscriminatedScanResult.Legacy(commonResult)
+            }
+
+            externalScope.launch { _discriminatedScanResults.emit(discriminatedResult) }
         }
 
         override fun onScanFailed(errorCode: Int) {

@@ -30,7 +30,6 @@ internal object CryptoUtils {
         return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE)
     }
 
-
     internal fun signPoLRequest(request: PoLRequest, sk: UByteArray): PoLRequest {
         val dataToSign = request.getSignedData()
         val signature = Signature.detached(dataToSign, sk)

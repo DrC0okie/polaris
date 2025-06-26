@@ -18,9 +18,18 @@ import com.liftric.kvault.KVault
 
 private val logger = KotlinLogging.logger {}
 
+private object AndroidLoggingInitializer {
+    init {
+        System.setProperty("kotlin-logging-to-android-native", "true")
+    }
+}
+
 // Provide the 'actual' implementation for the SdkInitializer
 internal actual class SdkInitializer {
 
+    init {
+        AndroidLoggingInitializer
+    }
     // Holds the initialized repositories.
     private class AndroidSdk(
         override val apiClient: ApiClient,
