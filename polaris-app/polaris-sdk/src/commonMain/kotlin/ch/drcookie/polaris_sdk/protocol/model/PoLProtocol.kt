@@ -1,9 +1,17 @@
 package ch.drcookie.polaris_sdk.protocol.model
 
-import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUByteArrayLE
-import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUIntLE
-import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toULongLE
-import ch.drcookie.polaris_sdk.util.Constants
+/**
+ * These constants represent the sizes of every PoL message composant
+ */
+internal object Constants {
+    const val ED25519_PK = 32
+    const val SIG = 64
+    const val PROTOCOL_NONCE = 16
+    const val PHONE_ID = 8
+    const val FLAGS = 1
+    const val BEACON_ID = 4
+    const val BEACON_COUNTER = 8
+}
 
 @OptIn(ExperimentalUnsignedTypes::class)
 public data class PoLRequest(
@@ -12,73 +20,29 @@ public data class PoLRequest(
     public val beaconId: UInt,
     public val nonce: UByteArray, // Size: PoLConstants.PROTOCOL_NONCE_SIZE
     public val phonePk: UByteArray, // Size: PoLConstants.ED25519_PK_SIZE
-    public var phoneSig: UByteArray? = null // Size: PoLConstants.SIG_SIZE, nullable until signed
+    public var phoneSig: UByteArray? = null, // Size: PoLConstants.SIG_SIZE, nullable until signed
 ) {
     init {
-        require(nonce.size == Constants.PROTOCOL_NONCE_SIZE) { "Invalid nonce size" }
-        require(phonePk.size == Constants.ED25519_PK_SIZE) { "Invalid phone PK size" }
-        phoneSig?.let { require(it.size == Constants.SIG_SIZE) { "Invalid signature size" } }
+        require(nonce.size == Constants.PROTOCOL_NONCE) { "Invalid nonce size" }
+        require(phonePk.size == Constants.ED25519_PK) { "Invalid phone PK size" }
+        phoneSig?.let { require(it.size == Constants.SIG) { "Invalid signature size" } }
     }
 
     public companion object {
-        public const val SIGNED_DATA_SIZE: Int = 1 /*flags*/ + 8 /*phoneId*/ + 4 /*beaconId*/ +
-                Constants.PROTOCOL_NONCE_SIZE + Constants.ED25519_PK_SIZE
+        /**
+         * Size of the PoLRequest data tha has been signed
+         */
+        public const val SIGNED_DATA_SIZE: Int =
+            Constants.FLAGS + // 1
+            Constants.PHONE_ID + // 8
+            Constants.BEACON_ID + // 4
+            Constants.PROTOCOL_NONCE + // 16
+            Constants.ED25519_PK // 32
 
-        public const val PACKED_SIZE: Int = SIGNED_DATA_SIZE + Constants.SIG_SIZE
-
-        public fun fromBytes(data: ByteArray): PoLRequest? {
-            if (data.size < PACKED_SIZE) return null
-            var offset = 0
-            val uData = data.toUByteArray() // Work with UByteArrays for unsigned values
-
-            val flags = uData[offset]; offset += 1
-            val phoneId = uData.sliceArray(offset until offset + 8).toULongLE()
-            offset += 8
-            val beaconId = uData.sliceArray(offset until offset + 4).toUIntLE()
-            offset += 4
-            val nonce = uData.sliceArray(offset until offset + Constants.PROTOCOL_NONCE_SIZE)
-            offset += Constants.PROTOCOL_NONCE_SIZE
-            val phonePk = uData.sliceArray(offset until offset + Constants.ED25519_PK_SIZE)
-            offset += Constants.ED25519_PK_SIZE
-            val phoneSig = uData.sliceArray(offset until offset + Constants.SIG_SIZE)
-            offset += Constants.SIG_SIZE
-
-            return PoLRequest(flags, phoneId, beaconId, nonce, phonePk, phoneSig)
-        }
-    }
-
-    public fun getSignedData(): UByteArray {
-        val buffer = UByteArray(SIGNED_DATA_SIZE)
-        var offset = 0
-        buffer[offset] = flags
-        offset += 1
-        phoneId.toUByteArrayLE().copyInto(buffer, offset)
-        offset += 8
-        beaconId.toUByteArrayLE().copyInto(buffer, offset)
-        offset += 4
-        nonce.copyInto(buffer, offset)
-        offset += Constants.PROTOCOL_NONCE_SIZE
-        phonePk.copyInto(buffer, offset) // offset += PoLConstants.ED25519_PK_SIZE
-        return buffer
-    }
-
-    public fun toBytes(): ByteArray {
-        val sig = phoneSig ?: throw IllegalStateException("Signature not set")
-        val buffer = UByteArray(PACKED_SIZE)
-        var offset = 0
-
-        buffer[offset] = flags; offset += 1
-        phoneId.toUByteArrayLE().copyInto(buffer, offset)
-        offset += 8
-        beaconId.toUByteArrayLE().copyInto(buffer, offset)
-        offset += 4
-        nonce.copyInto(buffer, offset)
-        offset += Constants.PROTOCOL_NONCE_SIZE
-        phonePk.copyInto(buffer, offset)
-        offset += Constants.ED25519_PK_SIZE
-        sig.copyInto(buffer, offset) // offset += PoLConstants.SIG_SIZE
-
-        return buffer.asByteArray()
+        /**
+         * Total size of a PoLRequest message
+         */
+        public const val PACKED_SIZE: Int = SIGNED_DATA_SIZE + Constants.SIG // 125 bytes
     }
 
     public override fun hashCode(): Int {
@@ -94,16 +58,13 @@ public data class PoLRequest(
     public override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
-
         other as PoLRequest
-
         if (flags != other.flags) return false
         if (phoneId != other.phoneId) return false
         if (beaconId != other.beaconId) return false
         if (!nonce.contentEquals(other.nonce)) return false
         if (!phonePk.contentEquals(other.phonePk)) return false
         if (!phoneSig.contentEquals(other.phoneSig)) return false
-
         return true
     }
 }
@@ -114,68 +75,36 @@ public data class PoLResponse(
     val beaconId: UInt,
     val counter: ULong,
     val nonce: UByteArray, // Size: PoLConstants.PROTOCOL_NONCE_SIZE
-    val beaconSig: UByteArray // Size: PoLConstants.SIG_SIZE
+    val beaconSig: UByteArray, // Size: PoLConstants.SIG_SIZE
 ) {
     init {
-        require(nonce.size == Constants.PROTOCOL_NONCE_SIZE) { "Invalid nonce size" }
-        require(beaconSig.size == Constants.SIG_SIZE) { "Invalid signature size" }
+        require(nonce.size == Constants.PROTOCOL_NONCE) { "Invalid nonce size" }
+        require(beaconSig.size == Constants.SIG) { "Invalid signature size" }
     }
 
     public companion object {
-        // Data that WAS signed by the beacon (includes request context)
-        public const val EFFECTIVE_SIGNED_DATA_SIZE: Int = 1 /*flags*/ + 4 /*beaconId*/ + 8 /*counter*/ +
-                Constants.PROTOCOL_NONCE_SIZE +
-                8 /*req.phoneId*/ + Constants.ED25519_PK_SIZE /*req.phonePk*/ +
-                Constants.SIG_SIZE /*req.phoneSig*/
 
-        public const val PACKED_SIZE: Int = 1 /*flags*/ + 4 /*beaconId*/ + 8 /*counter*/ +
-                Constants.PROTOCOL_NONCE_SIZE + Constants.SIG_SIZE
+        /**
+         * Size of the data that was signed by the beacon (includes request context)
+         */
+        public const val EFFECTIVE_SIGNED_DATA_SIZE: Int =
+            Constants.FLAGS + // 1
+            Constants.BEACON_ID + // 4
+            Constants.BEACON_COUNTER + // 8
+            Constants.PROTOCOL_NONCE + // 16
+            Constants.PHONE_ID + // 8
+            Constants.ED25519_PK + // 32
+            Constants.SIG // 64
 
-        public fun fromBytes(data: ByteArray): PoLResponse? {
-            if (data.size < PACKED_SIZE) return null
-            var offset = 0
-            val uData = data.toUByteArray()
-
-            val flags = uData[offset]; offset += 1
-            val beaconId = uData.sliceArray(offset until offset + 4).toUIntLE(); offset += 4
-            val counter = uData.sliceArray(offset until offset + 8).toULongLE(); offset += 8
-            val nonce = uData.sliceArray(offset until offset + Constants.PROTOCOL_NONCE_SIZE); offset += Constants.PROTOCOL_NONCE_SIZE
-            val beaconSig = uData.sliceArray(offset until offset + Constants.SIG_SIZE) // offset += PoLConstants.SIG_SIZE
-
-            return PoLResponse(flags, beaconId, counter, nonce, beaconSig)
-        }
-    }
-
-    // Data that is physically sent over BLE
-    public fun toBytes(): ByteArray {
-        val buffer = UByteArray(PACKED_SIZE)
-        var offset = 0
-        buffer[offset] = flags; offset += 1
-        beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
-        counter.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        nonce.copyInto(buffer, offset); offset += Constants.PROTOCOL_NONCE_SIZE
-        beaconSig.copyInto(buffer, offset)
-        return buffer.asByteArray()
-    }
-
-    // Constructs the data that the beacon *actually* signed
-    public fun getEffectivelySignedData(originalRequest: PoLRequest): UByteArray {
-        val buffer = UByteArray(EFFECTIVE_SIGNED_DATA_SIZE)
-        var offset = 0
-
-        // Response fields
-        buffer[offset] = flags; offset += 1
-        beaconId.toUByteArrayLE().copyInto(buffer, offset); offset += 4
-        counter.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        nonce.copyInto(buffer, offset); offset += Constants.PROTOCOL_NONCE_SIZE // This is originalRequest.nonce
-
-        // Original Request fields
-        originalRequest.phoneId.toUByteArrayLE().copyInto(buffer, offset); offset += 8
-        originalRequest.phonePk.copyInto(buffer, offset); offset += Constants.ED25519_PK_SIZE
-        (originalRequest.phoneSig ?: UByteArray(Constants.SIG_SIZE)) // Use placeholder if null, though it should be set
-            .copyInto(buffer, offset) // offset += PoLConstants.SIG_SIZE
-
-        return buffer
+        /**
+         * Total size of the PoLResponse message
+         */
+        public const val PACKED_SIZE: Int =
+            Constants.FLAGS + // 1
+            Constants.BEACON_ID + // 4
+            Constants.BEACON_COUNTER + // 8
+            Constants.PROTOCOL_NONCE + // 16
+            Constants.SIG // 64
     }
 
     public override fun hashCode(): Int {
@@ -190,15 +119,12 @@ public data class PoLResponse(
     public override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
-
         other as PoLResponse
-
         if (flags != other.flags) return false
         if (beaconId != other.beaconId) return false
         if (counter != other.counter) return false
         if (!nonce.contentEquals(other.nonce)) return false
         if (!beaconSig.contentEquals(other.beaconSig)) return false
-
         return true
     }
 }

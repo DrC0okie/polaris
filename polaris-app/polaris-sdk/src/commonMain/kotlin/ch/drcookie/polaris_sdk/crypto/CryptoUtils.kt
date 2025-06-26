@@ -2,9 +2,11 @@ package ch.drcookie.polaris_sdk.crypto
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
+import ch.drcookie.polaris_sdk.protocol.model.Constants
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
-import ch.drcookie.polaris_sdk.util.Constants
+import ch.drcookie.polaris_sdk.protocol.model.getEffectivelySignedData
+import ch.drcookie.polaris_sdk.protocol.model.getSignedData
 import com.ionspin.kotlin.crypto.signature.InvalidSignatureException
 import com.ionspin.kotlin.crypto.signature.Signature
 import com.ionspin.kotlin.crypto.signature.SignatureKeyPair
@@ -25,7 +27,7 @@ internal object CryptoUtils {
     }
 
     internal fun generateNonce(): UByteArray {
-        return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE_SIZE)
+        return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE)
     }
 
 

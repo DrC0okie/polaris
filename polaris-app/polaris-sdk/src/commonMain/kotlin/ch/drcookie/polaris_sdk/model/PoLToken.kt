@@ -1,9 +1,9 @@
 package ch.drcookie.polaris_sdk.model
 
+import ch.drcookie.polaris_sdk.protocol.model.Constants
 import ch.drcookie.polaris_sdk.util.UByteArrayBase64Serializer
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
-import ch.drcookie.polaris_sdk.util.Constants
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -25,10 +25,10 @@ public data class PoLToken(
     public val beaconSig: UByteArray
 ) {
     init {
-        require(nonce.size == Constants.PROTOCOL_NONCE_SIZE)
-        require(phonePk.size == Constants.ED25519_PK_SIZE)
-        require(phoneSig.size == Constants.SIG_SIZE)
-        require(beaconSig.size == Constants.SIG_SIZE)
+        require(nonce.size == Constants.PROTOCOL_NONCE)
+        require(phonePk.size == Constants.ED25519_PK)
+        require(phoneSig.size == Constants.SIG)
+        require(beaconSig.size == Constants.SIG)
     }
 
     public companion object {

@@ -21,6 +21,8 @@ import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
+import ch.drcookie.polaris_sdk.protocol.model.poLResponseFromBytes
+import ch.drcookie.polaris_sdk.protocol.model.toBytes
 
 private val Log = KotlinLogging.logger {}
 
@@ -100,15 +102,15 @@ internal class AndroidBleController(
             writeUuid = config.tokenWriteUuid,
             indicateUuid = config.tokenIndicateUuid
         )
-        return PoLResponse.fromBytes(responseBytes)
+        return poLResponseFromBytes(responseBytes)
             ?: throw IOException("Failed to parse PoLResponse from beacon data.")
     }
 
     override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): ByteArray {
         return performRequestResponse(
             requestPayload = encryptedBlob,
-            writeUuid = config.tokenWriteUuid,
-            indicateUuid = config.tokenIndicateUuid
+            writeUuid = config.encryptedWriteUuid,
+            indicateUuid = config.encryptedIndicateUuid
         )
     }
 

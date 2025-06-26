@@ -3,6 +3,7 @@ package ch.drcookie.polaris_sdk.ble.util
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUIntLE
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
+import ch.drcookie.polaris_sdk.protocol.model.broadcastPayloadFromBytes
 
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object BeaconDataParser {
@@ -29,7 +30,7 @@ internal object BeaconDataParser {
     internal fun parseBroadcastPayload(scanResult: CommonBleScanResult, extendedManufId: Int): BroadcastPayload? {
         val manufData = scanResult.manufacturerData[extendedManufId]
         return if (manufData != null) {
-            BroadcastPayload.Companion.fromBytes(manufData.toUByteArray())
+            broadcastPayloadFromBytes(manufData.toUByteArray())
         } else {
             null
         }
