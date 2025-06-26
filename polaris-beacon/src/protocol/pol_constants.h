@@ -25,6 +25,9 @@ constexpr size_t POL_AEAD_TAG_SIZE = 16;          // For ChaCha20-Poly1305
 constexpr size_t MAX_INNER_PLAINTEXT_SIZE = 200;  // Max size for the inner plaintext
 constexpr size_t MAX_BLE_PAYLOAD_SIZE = 244;
 
+// Ble constants
+constexpr uint16_t MANUFACTURER_ID = 0xFFFF;
+
 // NVS constants
 // WARNING: do not exceed 15 characters for NVS key names!
 constexpr const char* NVS_NAMESPACE = "polaris-beacon";

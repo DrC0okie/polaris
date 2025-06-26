@@ -375,7 +375,7 @@ bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, 
     advData.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
 
     uint8_t manufDataPayload[6];
-    uint16_t manufId = 0xFFFF;
+    uint16_t manufId = MANUFACTURER_ID;
     // Manufacturer id for development/testing
     memcpy(manufDataPayload, &manufId, sizeof(manufId));
 

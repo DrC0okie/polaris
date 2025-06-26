@@ -43,7 +43,7 @@ void BeaconAdvertiser::updateAdvertisement() {
 
     // Construct the actual advertising data (e.g., Manufacturer Specific Data)
     // Format: [Len1][Type1][ManufID_LSB][ManufID_MSB][BroadcastPayload_Bytes]
-    const uint16_t manufacturerId = 0xABCD;  // company ID
+    const uint16_t manufacturerId = MANUFACTURER_ID;  // company ID
     const size_t payloadDataSize = sizeof(payloadContent.beaconId) +
                                    sizeof(payloadContent.counter) +
                                    sizeof(payloadContent.signature);
