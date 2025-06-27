@@ -15,6 +15,8 @@
 #include "../protocol/messages/encrypted_message.h"
 #include "../protocol/messages/pol_request.h"
 #include "characteristics/icharacteristic.h"
+#include "connectable_advertiser.h"
+#include "protocol/handlers/outgoing_message_service.h"
 #include "protocol/transport/fragmentation_transport.h"
 
 // Forward declarations
@@ -35,7 +37,9 @@ public:
     void queueTokenRequest(const uint8_t* data, size_t len);
     void queueEncryptedRequest(const uint8_t* data, size_t len);
     void setTokenRequestProcessor(IMessageHandler* processor);
-    void setEncryptedDataProcessor(IMessageHandler* processor);
+    void setEncryptedDataProcessor(FragmentationTransport* transport);
+    void setConnectableAdvertiser(ConnectableAdvertiser* advertiser);
+    void setOutgoingMessageService(OutgoingMessageService* service);
     void registerTransportForMtuUpdates(FragmentationTransport* transport);
 
     BLECharacteristic* getCharacteristicByUUID(const BLEUUID& targetUuid) const;
@@ -78,9 +82,12 @@ private:
     TaskHandle_t _tokenProcessorTask = nullptr;
     QueueHandle_t _tokenQueue = nullptr;
 
-    IMessageHandler* _encryptedDataProcessor = nullptr;
+    FragmentationTransport* _encryptedDataTransport = nullptr;
     TaskHandle_t _encryptedProcessorTask = nullptr;
     QueueHandle_t _encryptedQueue = nullptr;
+
+    ConnectableAdvertiser* _connectableAdvertiser = nullptr;
+    OutgoingMessageService* _outgoingMessageService = nullptr;
 
     std::vector<FragmentationTransport*> _transportsForMtuUpdate;
     BLEServer* _pServer = nullptr;

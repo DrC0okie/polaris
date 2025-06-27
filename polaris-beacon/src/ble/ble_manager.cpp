@@ -24,11 +24,27 @@ void BleManager::ServerCallbacks::onMtuChanged(BLEServer* _, esp_ble_gatts_cb_pa
 }
 
 void BleManager::ServerCallbacks::onConnect(BLEServer* _) {
-    if (_mngr && _mngr->getMultiAdvertiser()) {
-        Serial.println("[BLE] Client connected.");
-        if (!_mngr->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE)) {
-            Serial.printf("[BLE] Failed to stop legacy advertising instance %d.\n",
-                          LEGACY_TOKEN_ADV_INSTANCE);
+    if (!_mngr)
+        return;
+
+    Serial.println("[BLE] Client connected.");
+    
+    // Stop the legacy advertising instance
+    if (_mngr->getMultiAdvertiser()) {
+        _mngr->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE);
+    }
+    // Reset the "data pending" flag via the ConnectableAdvertiser
+    if (_mngr->_connectableAdvertiser) {
+        _mngr->_connectableAdvertiser->setHasDataPending(false);
+    }
+    // Check for and send any queued outgoing messages
+    if (_mngr->_outgoingMessageService && _mngr->_outgoingMessageService->hasPendingMessages()) {
+        Serial.println("[BLE] Pending messages detected. Triggering send.");
+        std::vector<uint8_t> message = _mngr->_outgoingMessageService->getNextMessageForSending();
+
+        // Send the message using the transport layer's `sendMessage` method
+        if (!message.empty() && _mngr->_encryptedDataTransport) {
+            _mngr->_encryptedDataTransport->sendMessage(message.data(), message.size());
         }
     }
 }
@@ -304,8 +320,8 @@ void BleManager::processEncryptedRequests() {
     EncryptedRequestMessage msg;
     while (!_shutdownRequested) {
         if (xQueueReceive(_encryptedQueue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
-            if (_encryptedDataProcessor) {
-                _encryptedDataProcessor->process(msg.data, msg.len);
+            if (_encryptedDataTransport) {
+                _encryptedDataTransport->process(msg.data, msg.len);
             } else {
                 Serial.println("[BLE Enc] No Encrypted Data processor set, request ignored.");
             }
@@ -337,8 +353,16 @@ void BleManager::setTokenRequestProcessor(IMessageHandler* processor) {
     _tokenRequestProcessor = processor;
 }
 
-void BleManager::setEncryptedDataProcessor(IMessageHandler* processor) {
-    _encryptedDataProcessor = processor;
+void BleManager::setEncryptedDataProcessor(FragmentationTransport* transport) {
+    _encryptedDataTransport = transport;
+}
+
+void BleManager::setConnectableAdvertiser(ConnectableAdvertiser* advertiser) {
+    _connectableAdvertiser = advertiser;
+}
+
+void BleManager::setOutgoingMessageService(OutgoingMessageService* service) {
+    _outgoingMessageService = service;
 }
 
 void BleManager::registerTransportForMtuUpdates(FragmentationTransport* transport) {
@@ -370,7 +394,7 @@ bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, 
         return false;
     }
 
-    // Advertising Data
+    // Default advertising data that can be overridden by the connectable advertiser
     BLEAdvertisementData advData;
     advData.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
 

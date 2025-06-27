@@ -4,8 +4,10 @@
 
 #include "ble/beacon_advertiser.h"
 #include "ble/ble_manager.h"
+#include "ble/connectable_advertiser.h"
 #include "protocol/handlers/commands/command_factory.h"
 #include "protocol/handlers/encrypted_message_handler.h"
+#include "protocol/handlers/outgoing_message_service.h"
 #include "protocol/handlers/token_message_handler.h"
 #include "utils/beacon_counter.h"
 #include "utils/crypto_service.h"
@@ -23,7 +25,9 @@ CryptoService cryptoService(keyManager);
 LedController ledController;
 DisplayController displayController;
 CommandFactory commandFactory(ledController, displayController);
+OutgoingMessageService outgoingMessageService;
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
+std::unique_ptr<ConnectableAdvertiser> connectableAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
 
 void setup() {
@@ -57,14 +61,24 @@ void setup() {
         ESP.restart();
     }
 
+    outgoingMessageService.begin(&cryptoService, &prefs, [&](bool hasData) {
+        if (connectableAdvertiser) {
+            connectableAdvertiser->setHasDataPending(hasData);
+        }
+    });
+
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
-    ble.begin(BLE_DEVICE_NAME);
+    ble.begin(BLE_DEVICE_NAME);  // This starts the advertisement
 
     BLEMultiAdvertising* multiAdv = ble.getMultiAdvertiser();
     if (!multiAdv) {
         Serial.printf("%s CRITICAL: Failed to get MultiAdvertiser! Restarting...\n", TAG);
         ESP.restart();
     }
+
+    connectableAdvertiser =
+        std::unique_ptr<ConnectableAdvertiser>(new ConnectableAdvertiser(*multiAdv));
+    ble.setConnectableAdvertiser(connectableAdvertiser.get());
 
     // create an advertizer to broadcast signed data
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
@@ -91,7 +105,7 @@ void setup() {
         encryptedIndicateChar,
         [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             return std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(
-                cryptoService, counter, prefs, transport, commandFactory));
+                cryptoService, counter, prefs, transport, commandFactory, outgoingMessageService));
         }));
 
     ble.setEncryptedDataProcessor(encryptedTransport.get());

@@ -9,6 +9,7 @@
 #include "../pol_constants.h"
 #include "commands/command_factory.h"
 #include "imessage_handler.h"
+#include "outgoing_message_service.h"
 #include "protocol/transport/imessage_transport.h"
 
 class EncryptedMessageHandler : public IMessageHandler {
@@ -16,7 +17,8 @@ public:
     EncryptedMessageHandler(const CryptoService& cryptoService,
                             const BeaconCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
-                            IMessageTransport& transport, CommandFactory& commandFactory);
+                            IMessageTransport& transport, CommandFactory& commandFactory,
+                            OutgoingMessageService& outgoingMessageService);
 
     void process(const uint8_t* encryptedData, size_t len) override;
 
@@ -28,6 +30,7 @@ private:
     const BeaconCounter& _beaconEventCounter;
     Preferences& _prefs;  // Store reference to NVS
     CommandFactory& _commandFactory;
+    OutgoingMessageService& _outgoingMessageService;
 
     uint32_t _nextResponseMsgId;  // Manages unique msgId for responses from this beacon
 

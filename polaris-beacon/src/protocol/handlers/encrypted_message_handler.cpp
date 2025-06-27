@@ -10,12 +10,14 @@
 EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoService,
                                                  const BeaconCounter& beaconEventCounter,
                                                  Preferences& prefs, IMessageTransport& transport,
-                                                 CommandFactory& commandFactory)
+                                                 CommandFactory& commandFactory,
+                                                 OutgoingMessageService& outgoingMessageService)
     : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
       _prefs(prefs),  // Store NVS reference
       _transport(transport),
       _commandFactory(commandFactory),
+      _outgoingMessageService(outgoingMessageService),
       _beaconIdForAd(BEACON_ID),
       _nextResponseMsgId(0) {
     loadNextResponseMsgId();  // Load from NVS or initialize
@@ -78,14 +80,15 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     } else if (innerPtReceived.msgType == MSG_TYPE_ACK) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
-        // TODO: Handle ACK (e.g., confirm command completion)
+        _outgoingMessageService.handleAck(innerPtReceived.msgId);
     } else if (innerPtReceived.msgType == MSG_TYPE_ERR) {
         Serial.printf("%s ERR for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         if (innerPtReceived.actualPayloadLength > 0) {
             Serial.printf("%s Error code from server: %02X\n", TAG, innerPtReceived.payload[0]);
+            _outgoingMessageService.handleAck(innerPtReceived.msgId);
         }
-        // TODO: Handle ERR
+
     } else {
         Serial.printf("%s Unknown opType %u. Ignoring.\n", TAG, innerPtReceived.opType);
         // Optionally send an ERR
