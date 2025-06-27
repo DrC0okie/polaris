@@ -11,14 +11,19 @@ internal object BeaconDataParser {
      * Attempts to parse the beacon ID from a legacy advertisement (connectable beacon).
      *
      * @param scanResult The raw scan result from the BLE stack.
-     * @return The parsed beacon ID as a [UInt], or null if the data is not present or malformed.
+     * @return The parsed beacon ID as a [UInt], and the flag signalling that a payload is available
      */
-    internal fun parseConnectableBeaconId(scanResult: CommonBleScanResult, legacyManufId: Int): UInt? {
-        val manufData = scanResult.manufacturerData[legacyManufId]
-        if (manufData != null && manufData.size >= 4) {
-            return manufData.toUByteArray().toUIntLE()
-        }
-        return null
+    internal fun parseConnectableBeaconAd(scanResult: CommonBleScanResult, legacyManufId: Int): Pair<UInt?, Byte?> {
+        val manufData = scanResult.manufacturerData[legacyManufId] ?: return null to null
+
+        if (manufData.size < 4) return null to null
+
+        val beaconId = manufData.sliceArray(0 until 4).toUByteArray().toUIntLE()
+
+        // The status byte is optional
+        val statusByte = if (manufData.size >= 5) manufData[4] else null
+
+        return beaconId to statusByte
     }
 
     /**

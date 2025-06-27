@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @OptIn(ExperimentalUnsignedTypes::class)
 @Serializable
-internal data class AckRequestDto(
+internal data class AckDto(
     internal val deliveryId: Long,
     @Serializable(with = UByteArrayBase64Serializer::class)
     internal val ackBlob: UByteArray
@@ -20,7 +20,7 @@ internal data class AckRequestDto(
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
-        other as AckRequestDto
+        other as AckDto
 
         if (deliveryId != other.deliveryId) return false
         if (!ackBlob.contentEquals(other.ackBlob)) return false

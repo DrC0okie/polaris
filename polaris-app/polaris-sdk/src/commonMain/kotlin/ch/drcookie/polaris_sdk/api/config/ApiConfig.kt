@@ -1,7 +1,5 @@
 package ch.drcookie.polaris_sdk.api.config
 
-import com.liftric.kvault.KVault
-
 /**
  * Configuration for the Polaris network client.
  * Providing this configuration during SDK initialization enables server communication.
@@ -9,7 +7,7 @@ import com.liftric.kvault.KVault
  * @property baseUrl The base URL of the Polaris backend server (e.g., "https://polaris.example.com").
  * @property registrationPath The API path for device registration.
  * @property tokensPath The API path for submitting PoL tokens.
- * @property payloadsPath The API path for fetching and acknowledging secure payloads.
+ * @property fetchPayloadsPath The API path for fetching and acknowledging secure payloads.
  */
 public data class ApiConfig(
     val baseUrl: String,
@@ -17,7 +15,8 @@ public data class ApiConfig(
     val registrationPath: String,
     val beaconsPath: String,
     val tokensPath: String,
-    val payloadsPath: String,
+    val fetchPayloadsPath: String,
+    val forwardPayloadPath: String,
     val ackPath: String
 )
 
@@ -41,7 +40,10 @@ public class ApiConfigBuilder() {
     public var tokensPath: String = "/api/v1/tokens"
 
     /** The API path for fetching and acknowledging secure payloads. */
-    public var payloadsPath: String = "/api/v1/payloads"
+    public var fetchPayloadsPath: String = "/api/v1/payloads"
+
+    /** The API path for fetching and acknowledging secure payloads. */
+    public var forwardPayloadPath: String = "/api/v1/payloads" // We will POST here
 
     public var ackPath: String = "/api/v1/payloads/ack"
 
@@ -54,7 +56,8 @@ public class ApiConfigBuilder() {
             registrationPath = registrationPath,
             beaconsPath = beaconsPath,
             tokensPath = tokensPath,
-            payloadsPath = payloadsPath,
+            fetchPayloadsPath = fetchPayloadsPath,
+            forwardPayloadPath = forwardPayloadPath,
             ackPath = ackPath
         )
     }

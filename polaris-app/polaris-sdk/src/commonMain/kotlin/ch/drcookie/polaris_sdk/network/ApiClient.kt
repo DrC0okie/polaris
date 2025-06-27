@@ -28,5 +28,14 @@ public interface ApiClient {
     public suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError>
     public suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError>
     public suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError>
+
+    /**
+     * Forwards an encrypted data blob from a beacon to the server and returns
+     * the server's encrypted ACK/ERR response.
+     *
+     * @param data The raw encrypted data from the beacon.
+     * @return An SdkResult containing the server's raw encrypted ACK/ERR data.
+     */
+    public suspend fun forwardBeaconPayload(payload: ByteArray): SdkResult<ByteArray, SdkError>
     public fun closeClient()
 }

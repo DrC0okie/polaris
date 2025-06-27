@@ -160,18 +160,35 @@ internal class AndroidBleController(
             .filterIsInstance<DiscriminatedScanResult.Legacy>() // We only care about Legacy ads
             .mapNotNull { legacyResult ->
                 val commonScanResult = legacyResult.result
-                // Parse the ID
-                val beaconId = beaconDataParser.parseConnectableBeaconId(commonScanResult, config.manufacturerId)
+                // Parse the advertisement data
+                val (beaconId, statusByte) = beaconDataParser.parseConnectableBeaconAd(
+                    commonScanResult,
+                    config.manufacturerId
+                )
                 if (beaconId != null) {
                     val matchedInfo = beaconsToFind.find { it.id == beaconId }
                     if (matchedInfo != null) {
                         FoundBeacon(
                             provisioningInfo = matchedInfo,
-                            address = commonScanResult.deviceAddress
+                            address = commonScanResult.deviceAddress,
+                            statusByte = statusByte
                         )
                     } else null
                 } else null
             }
+    }
+
+    override suspend fun pullEncryptedData(): SdkResult<ByteArray, SdkError> {
+        return runCatching {
+            performPullTransaction(config.pullDataWriteUuid, config.encryptedIndicateUuid)
+        }.fold(
+            onSuccess = { encryptedBlob -> SdkResult.Success(encryptedBlob) },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.BleError(throwable.message ?: "$unknownErr during secure payload fetching")
+                )
+            }
+        )
     }
 
     override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
@@ -229,6 +246,54 @@ internal class AndroidBleController(
         }
 
         return response
+    }
+
+    private suspend fun performPullTransaction(
+        triggerWriteUuid: String,
+        dataIndicateUuid: String,
+    ): ByteArray {
+        // Precondition Check
+        if (connectionState.value !is ConnectionState.Ready) {
+            throw IOException("Cannot perform pull transaction, not in a ready state.")
+        }
+
+        // Configure the GATT manager for this specific transaction
+        gattManager.setTransactionUuids(triggerWriteUuid, dataIndicateUuid)
+
+        // Enable indications on the data channel, so we are ready to receive.
+        gattManager.enableIndication()
+        val indicationEnabled = gattManager.descriptorWriteSignal.receive()
+        if (!indicationEnabled) {
+            throw IOException("Failed to enable indications for characteristic $dataIndicateUuid")
+        }
+
+        // Listen for the complete reassembled message from the beacon.
+        val responseJob = scope.async {
+            withTimeout(10000) { transport.reassembledMessages.first() }
+        }
+
+        // Send the single trigger byte to the PULL_DATA_WRITE characteristic.
+        val triggerPayload = byteArrayOf(0x01)
+        gattManager.send(triggerPayload)
+
+        // Await confirmation that our trigger byte was successfully written.
+        val writeSuccess = gattManager.characteristicWriteSignal.receive()
+        if (!writeSuccess) {
+            responseJob.cancel() // Don't wait for a response that will never come.
+            throw IOException("Failed to write trigger byte to UUID $triggerWriteUuid.")
+        }
+
+        // Await the reassembled data blob from the beacon.
+        val responseData = responseJob.await().asByteArray()
+
+        // Disable indications before finishing.
+        gattManager.disableIndication()
+        val indicationDisabled = gattManager.descriptorWriteSignal.receive()
+        if (!indicationDisabled) {
+            Log.warn { "Failed to disable indications cleanly for $dataIndicateUuid" }
+        }
+
+        return responseData
     }
 
     private fun getDiscriminatedScanFlow(scanConfig: ScanConfig): Flow<DiscriminatedScanResult> {

@@ -45,4 +45,13 @@ public interface BleController {
      * Note: This does not verify the signature.
      */
     public fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload>
+
+    /**
+     * Triggers the beacon to send its pending data and receives it.
+     * This involves writing a trigger byte to one characteristic and receiving
+     * the fragmented data via indications on another.
+     *
+     * @return The complete encrypted data blob from the beacon.
+     */
+    public suspend fun pullEncryptedData(): SdkResult<ByteArray, SdkError>
 }

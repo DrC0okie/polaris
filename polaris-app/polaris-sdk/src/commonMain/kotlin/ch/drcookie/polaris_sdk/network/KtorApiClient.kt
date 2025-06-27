@@ -8,8 +8,9 @@ import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
 import ch.drcookie.polaris_sdk.model.PoLToken
-import ch.drcookie.polaris_sdk.network.dto.AckRequestDto
+import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
+import ch.drcookie.polaris_sdk.network.dto.RawDataDto
 import com.liftric.kvault.KVault
 
 internal class KtorApiClient(
@@ -62,8 +63,7 @@ internal class KtorApiClient(
 
             // Map the DTOs to Public Models and store/return them
             val newBeacons = response.beacons.beacons.map { it.toBeacon() }
-            _knownBeacons.clear()
-            _knownBeacons.addAll(newBeacons)
+            updateKnownBeacons(newBeacons)
             newBeacons
         }.fold(
             onSuccess = { SdkResult.Success(it) },
@@ -89,14 +89,41 @@ internal class KtorApiClient(
 
             // Map DTOs to public models
             val newBeacons = response.beacons.map { it.toBeacon() }
-            _knownBeacons.clear()
-            _knownBeacons.addAll(newBeacons)
+            updateKnownBeacons(newBeacons)
             newBeacons
         }.fold(
             onSuccess = { beacons -> SdkResult.Success(beacons) },
             onFailure = { throwable ->
                 SdkResult.Failure(
                     SdkError.NetworkError(throwable.message ?: "Unknown error while fetching beacons")
+                )
+            }
+        )
+    }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    override suspend fun forwardBeaconPayload(payload: ByteArray): SdkResult<ByteArray, SdkError> {
+        val apiKey = when (val result = getApiKeyForRequest()) {
+            is SdkResult.Success -> result.value
+            is SdkResult.Failure -> return result
+        }
+
+        return runCatching {
+
+            // Create the generic request DTO
+            val requestDto = RawDataDto(payload.toUByteArray())
+
+            // Call the factory method
+            val responseDto = factory.forwardPayload(requestDto, apiKey)
+
+            responseDto.data.asByteArray()
+        }.fold(
+            onSuccess = { ackData ->
+                SdkResult.Success(ackData)
+            },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.NetworkError(throwable.message ?: "Unknown error while forwarding beacon data")
                 )
             }
         )
@@ -132,7 +159,7 @@ internal class KtorApiClient(
             is SdkResult.Failure -> return apiKeyResult
         }
 
-        val ackDto = AckRequestDto(
+        val ackDto = AckDto(
             deliveryId = ack.deliveryId,
             ackBlob = ack.ackBlob
         )
@@ -163,7 +190,7 @@ internal class KtorApiClient(
         }
 
         return runCatching {
-            val dtoList = factory.getPayloads(apiKey)
+            val dtoList = factory.getPayload(apiKey)
             dtoList.payloads.map { it.toEncryptedPayload() }
         }.fold(
             onSuccess = { payloads ->
@@ -192,5 +219,10 @@ internal class KtorApiClient(
             return SdkResult.Failure(SdkError.PreconditionError("API key is required but not found."))
         }
         return SdkResult.Success(apiKey)
+    }
+
+    private fun updateKnownBeacons(beacons: List<Beacon>) {
+        _knownBeacons.clear()
+        _knownBeacons.addAll(beacons)
     }
 }

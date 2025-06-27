@@ -11,12 +11,16 @@ public enum class ScanCallbackType {
     ALL_MATCHES  // For continuous monitoring
 }
 
-// Represents a known beacon that has been successfully found via a BLE scan.
+// Represents a known beacon that has been found via a BLE scan.
 public data class FoundBeacon(
     public val provisioningInfo: Beacon,
-    public val address: String
+    public val address: String,
+    public val statusByte: Byte?
 ) {
     public val name: String get() = provisioningInfo.name
+
+    public val hasDataPending: Boolean
+        get() = statusByte?.let { (it.toInt() and 0x01) == 1 } ?: false
 }
 
 /**
