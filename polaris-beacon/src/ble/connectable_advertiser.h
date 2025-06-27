@@ -11,7 +11,6 @@ class ConnectableAdvertiser {
 public:
     explicit ConnectableAdvertiser(BLEMultiAdvertising& advertiser);
     void setHasDataPending(bool hasData);
-    void begin();
 
 private:
     void updateAdvertisement();

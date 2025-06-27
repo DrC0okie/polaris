@@ -28,24 +28,10 @@ void BleManager::ServerCallbacks::onConnect(BLEServer* _) {
         return;
 
     Serial.println("[BLE] Client connected.");
-    
+
     // Stop the legacy advertising instance
     if (_mngr->getMultiAdvertiser()) {
         _mngr->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE);
-    }
-    // Reset the "data pending" flag via the ConnectableAdvertiser
-    if (_mngr->_connectableAdvertiser) {
-        _mngr->_connectableAdvertiser->setHasDataPending(false);
-    }
-    // Check for and send any queued outgoing messages
-    if (_mngr->_outgoingMessageService && _mngr->_outgoingMessageService->hasPendingMessages()) {
-        Serial.println("[BLE] Pending messages detected. Triggering send.");
-        std::vector<uint8_t> message = _mngr->_outgoingMessageService->getNextMessageForSending();
-
-        // Send the message using the transport layer's `sendMessage` method
-        if (!message.empty() && _mngr->_encryptedDataTransport) {
-            _mngr->_encryptedDataTransport->sendMessage(message.data(), message.size());
-        }
     }
 }
 
@@ -74,6 +60,11 @@ BleManager::BleManager() {
     _encryptedQueue = xQueueCreate(4, sizeof(EncryptedRequestMessage));
     if (_encryptedQueue == nullptr) {
         Serial.println("[BLE] CRITICAL: Failed to create encrypted request queue!");
+    }
+
+    _pullQueue = xQueueCreate(2, sizeof(uint8_t));
+    if (_pullQueue == nullptr) {
+        Serial.println("[BLE] CRITICAL: Failed to create pull request queue!");
     }
 }
 
@@ -117,6 +108,11 @@ void BleManager::begin(const std::string& deviceName) {
         ENCRYPTED_WRITE,
         [this](const uint8_t* data, size_t len) { this->queueEncryptedRequest(data, len); },
         "Encrypted Data (write)")));
+
+    // Write characteristic to trigger data pull by the phone
+    _polServiceChars.push_back(std::unique_ptr<WriteCharacteristic>(new WriteCharacteristic(
+        PULL_DATA_WRITE, [this](const uint8_t* data, size_t len) { this->queuePullRequest(); },
+        "Pull Beacon Data")));
 
     // Indicate characteristic for pol response
     auto tokenIndicateWrapper = std::unique_ptr<IndicateCharacteristic>(
@@ -180,6 +176,11 @@ void BleManager::begin(const std::string& deviceName) {
     Serial.println("[BLE] Starting Encrypted Data processor task...");
     BaseType_t encTaskRes = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this,
                                                     1, &_encryptedProcessorTask, tskNO_AFFINITY);
+
+    Serial.println("[BLE] Starting Data Pull processor task...");
+    BaseType_t pullTaskRes = xTaskCreatePinnedToCore(pullProcessorTask, "PullProc", 4096, this, 1,
+                                                     &_pullProcessorTask, tskNO_AFFINITY);
+
     if (encTaskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
     }
@@ -193,7 +194,7 @@ void BleManager::stop() {
     if (_tokenProcessorTask != nullptr) {
         Serial.println("[BLE] Signaling processor task to shut down...");
         _shutdownRequested = true;
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(100));
         TaskHandle_t tempHandle = _tokenProcessorTask;
         _tokenProcessorTask = nullptr;
         vTaskDelete(tempHandle);
@@ -201,11 +202,19 @@ void BleManager::stop() {
 
     if (_encryptedProcessorTask != nullptr) {
         Serial.println("[BLE] Waiting for Encrypted Data processor task to shut down...");
-        vTaskDelay(pdMS_TO_TICKS(200));  // Give task time to see flag
+        vTaskDelay(pdMS_TO_TICKS(100));  // Give task time to see flag
         TaskHandle_t tempHandle = _encryptedProcessorTask;
         _encryptedProcessorTask = nullptr;  // Clear before delete
         vTaskDelete(tempHandle);
         Serial.println("[BLE] Encrypted Data processor task deleted.");
+    }
+
+    if (_pullProcessorTask != nullptr) {
+        Serial.println("[BLE] Signaling Data Pull processor task to shut down...");
+        vTaskDelay(pdMS_TO_TICKS(100));
+        TaskHandle_t tempHandle = _pullProcessorTask;
+        _pullProcessorTask = nullptr;
+        vTaskDelete(tempHandle);
     }
 
     if (_multiAdvertiserPtr) {
@@ -222,6 +231,11 @@ void BleManager::stop() {
     if (_encryptedQueue != nullptr) {
         vQueueDelete(_encryptedQueue);
         _encryptedQueue = nullptr;
+    }
+
+    if (_pullQueue != nullptr) {
+        vQueueDelete(_pullQueue);
+        _pullQueue = nullptr;
     }
 
     if (BLEDevice::getInitialized()) {
@@ -283,12 +297,19 @@ void BleManager::queueEncryptedRequest(const uint8_t* data, size_t len) {
     }
 }
 
+// ========== QUEUE PULL REQUEST ==========
+void BleManager::queuePullRequest() {
+    if (!_pullQueue)
+        return;
+    uint8_t dummy = 1;  // The value doesn't matter, it's just a signal.
+    if (xQueueSend(_pullQueue, &dummy, 0) != pdTRUE) {
+        Serial.println("[BLE] Pull request queue full, dropping request.");
+    }
+}
+
 // ========== TOKEN PROCESSOR TASK ==========
 void BleManager::tokenProcessorTask(void* pvParameters) {
-    BleManager* managerInstance = static_cast<BleManager*>(pvParameters);
-    if (managerInstance) {
-        managerInstance->processTokenRequests();
-    }
+    static_cast<BleManager*>(pvParameters)->processTokenRequests();
     vTaskDelete(NULL);
 }
 
@@ -308,10 +329,7 @@ void BleManager::processTokenRequests() {
 
 // ========== ENCRYPTED DATA PROCESSOR TASK ==========
 void BleManager::encryptedProcessorTask(void* pvParameters) {
-    BleManager* managerInstance = static_cast<BleManager*>(pvParameters);
-    if (managerInstance) {
-        managerInstance->processEncryptedRequests();
-    }
+    static_cast<BleManager*>(pvParameters)->processEncryptedRequests();
     vTaskDelete(NULL);
 }
 
@@ -328,6 +346,29 @@ void BleManager::processEncryptedRequests() {
         }
     }
     Serial.println("[BLE] Encrypted Data processor task shutting down.");
+}
+
+// ========== PULL PROCESSOR TASK ==========
+
+void BleManager::pullProcessorTask(void* pvParameters) {
+    static_cast<BleManager*>(pvParameters)->processPullRequests();
+    vTaskDelete(NULL);
+}
+
+void BleManager::processPullRequests() {
+    Serial.println("[BLE] Data Pull processor task started.");
+    uint8_t dummy;
+    while (!_shutdownRequested) {
+        if (xQueueReceive(_pullQueue, &dummy, pdMS_TO_TICKS(100)) == pdTRUE) {
+            if (_pullRequestProcessor) {
+                // The process method doesn't need any data, it's just a trigger.
+                _pullRequestProcessor->process(nullptr, 0);
+            } else {
+                Serial.println("[BLE] No pull request processor set, request ignored.");
+            }
+        }
+    }
+    Serial.println("[BLE] Data Pull processor task shutting down.");
 }
 
 // ========== UTILS ==========
@@ -355,6 +396,10 @@ void BleManager::setTokenRequestProcessor(IMessageHandler* processor) {
 
 void BleManager::setEncryptedDataProcessor(FragmentationTransport* transport) {
     _encryptedDataTransport = transport;
+}
+
+void BleManager::setPullRequestProcessor(IMessageHandler* processor) {
+    _pullRequestProcessor = processor;
 }
 
 void BleManager::setConnectableAdvertiser(ConnectableAdvertiser* advertiser) {

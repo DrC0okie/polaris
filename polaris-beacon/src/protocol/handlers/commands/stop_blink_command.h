@@ -13,4 +13,4 @@ private:
     LedController& _ledController;
 };
 
-#endif // STOP_BLINK_COMMAND_H
+#endif  // STOP_BLINK_COMMAND_H

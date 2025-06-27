@@ -6,6 +6,7 @@
 #include "ble/ble_manager.h"
 #include "ble/connectable_advertiser.h"
 #include "protocol/handlers/commands/command_factory.h"
+#include "protocol/handlers/data_pull_handler.h"
 #include "protocol/handlers/encrypted_message_handler.h"
 #include "protocol/handlers/outgoing_message_service.h"
 #include "protocol/handlers/token_message_handler.h"
@@ -14,6 +15,7 @@
 #include "utils/display_controller.h"
 #include "utils/key_manager.h"
 #include "utils/led_controller.h"
+#include "utils/system_monitor.h"
 
 // Globals that need to have infinite lifecycle
 const char* TAG = "[MAIN]";
@@ -24,11 +26,15 @@ KeyManager keyManager;
 CryptoService cryptoService(keyManager);
 LedController ledController;
 DisplayController displayController;
-CommandFactory commandFactory(ledController, displayController);
+SystemMonitor systemMonitor;
 OutgoingMessageService outgoingMessageService;
+CommandFactory commandFactory(ledController, displayController, systemMonitor,
+                              outgoingMessageService);
 std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
 std::unique_ptr<ConnectableAdvertiser> connectableAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
+std::vector<std::unique_ptr<IMessageHandler>> g_handlers;
+FragmentationTransport* encryptedTransportPtr = nullptr;
 
 void setup() {
     Serial.begin(115200);
@@ -111,6 +117,13 @@ void setup() {
     ble.setEncryptedDataProcessor(encryptedTransport.get());
     ble.registerTransportForMtuUpdates(encryptedTransport.get());
     g_transports.push_back(std::move(encryptedTransport));
+
+    encryptedTransportPtr = encryptedTransport.get();
+    auto dataPullHandler = std::unique_ptr<DataPullHandler>(
+        new DataPullHandler(outgoingMessageService, *encryptedTransportPtr));
+    ble.setPullRequestProcessor(dataPullHandler.get());
+    g_handlers.push_back(std::move(dataPullHandler));
+
     Serial.printf("%s Setup complete. Beacon is operational.\n", TAG);
 }
 

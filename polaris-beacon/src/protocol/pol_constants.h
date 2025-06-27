@@ -56,7 +56,10 @@ enum class OperationType : uint8_t {
     StopBlink = 0x03,
     DisplayText = 0x04,
     ClearDisplay = 0x05,
-    Unknown = 0xFF  // default/error cases
+    RequestBeaconStatus = 0x06,  // Server asks for status
+
+    BeaconStatus = 0x80,  // Beacon sends its status
+    Unknown = 0xFF        // default/error cases
 };
 
 #endif  // POL_CONSTANTS_H

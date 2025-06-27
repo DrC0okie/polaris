@@ -34,10 +34,15 @@ public:
 
     void begin(const std::string& deviceName);
     void stop();
+
     void queueTokenRequest(const uint8_t* data, size_t len);
     void queueEncryptedRequest(const uint8_t* data, size_t len);
+    void queuePullRequest();
+
     void setTokenRequestProcessor(IMessageHandler* processor);
     void setEncryptedDataProcessor(FragmentationTransport* transport);
+    void setPullRequestProcessor(IMessageHandler* processor);
+
     void setConnectableAdvertiser(ConnectableAdvertiser* advertiser);
     void setOutgoingMessageService(OutgoingMessageService* service);
     void registerTransportForMtuUpdates(FragmentationTransport* transport);
@@ -50,6 +55,9 @@ public:
     static constexpr const char* TOKEN_INDICATE = "d234a7d8-ea1f-5299-8221-9cf2f942d3df";
     static constexpr const char* ENCRYPTED_WRITE = "8ed72380-5adb-4d2d-81fb-ae6610122ee8";
     static constexpr const char* ENCRYPTED_INDICATE = "079b34dd-2310-4b61-89bb-494cc67e097f";
+    // This characteristic is used as a signal telling the beacon "You can write your message on
+    // ENCRYPTED_INDICATE"
+    static constexpr const char* PULL_DATA_WRITE = "e914a8e4-843a-4b72-8f2a-f9175d71cf88";
 
 private:
     BleManager(const BleManager&) = delete;
@@ -86,6 +94,10 @@ private:
     TaskHandle_t _encryptedProcessorTask = nullptr;
     QueueHandle_t _encryptedQueue = nullptr;
 
+    IMessageHandler* _pullRequestProcessor = nullptr;
+    TaskHandle_t _pullProcessorTask = nullptr;
+    QueueHandle_t _pullQueue = nullptr;
+
     ConnectableAdvertiser* _connectableAdvertiser = nullptr;
     OutgoingMessageService* _outgoingMessageService = nullptr;
 
@@ -102,6 +114,9 @@ private:
 
     static void encryptedProcessorTask(void* pvParameters);
     void processEncryptedRequests();
+
+    static void pullProcessorTask(void* pvParameters);
+    void processPullRequests();
 
     void addUserDescription(BLECharacteristic* characteristic, const std::string& description);
     bool configureTokenSrvcAdvertisement(const std::string& deviceName, uint8_t instanceNum,

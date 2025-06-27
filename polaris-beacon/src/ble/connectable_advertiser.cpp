@@ -10,18 +10,15 @@ ConnectableAdvertiser::ConnectableAdvertiser(BLEMultiAdvertising& advertiser)
 }
 
 void ConnectableAdvertiser::setHasDataPending(bool hasData) {
-    bool stateChanged = false;
     bool isCurrentlySet = (_statusByte & STATUS_FLAG_DATA_PENDING) != 0;
-
-    if (hasData && !isCurrentlySet) {
-        _statusByte |= STATUS_FLAG_DATA_PENDING;
-        stateChanged = true;
-    } else if (!hasData && isCurrentlySet) {
-        _statusByte &= ~STATUS_FLAG_DATA_PENDING;
-        stateChanged = true;
-    }
+    bool stateChanged = (hasData != isCurrentlySet);
 
     if (stateChanged) {
+        if (hasData) {
+            _statusByte |= STATUS_FLAG_DATA_PENDING;
+        } else {
+            _statusByte &= ~STATUS_FLAG_DATA_PENDING;
+        }
         Serial.printf("[ConnAdv] Data pending flag changed to: %d. Updating advertisement.\n",
                       hasData);
         updateAdvertisement();
@@ -55,9 +52,4 @@ void ConnectableAdvertiser::updateAdvertisement() {
                                            reinterpret_cast<const uint8_t*>(advPayload.data()))) {
         Serial.println("[ConnAdv] Failed to set legacy advertising data.");
     }
-}
-
-void ConnectableAdvertiser::begin() {
-    Serial.println("[ConnAdv] Setting initial advertisement payload.");
-    updateAdvertisement();
 }
