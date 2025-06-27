@@ -49,8 +49,8 @@ kotlin {
             dependencies {
                 implementation(libs.kotlin.stdlib)
                 implementation(libs.multiplatform.crypto.libsodium.bindings)
-                implementation(libs.ktor.client.core)
                 implementation(libs.kotlinx.serialization.json)
+                implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.content.negotiation)
                 implementation(libs.ktor.serialization.kotlinx.json)
                 implementation(libs.ktor.client.logging)
@@ -92,5 +92,4 @@ kotlin {
             }
         }
     }
-
 }

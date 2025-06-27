@@ -282,7 +282,6 @@ internal class GattManager(
                 }
             } else {
                 // On older Android versions, everything is legacy and connectable is less reliable.
-                // We can assume it's a legacy ad if it's not explicitly an extended one.
                 DiscriminatedScanResult.Legacy(commonResult)
             }
 

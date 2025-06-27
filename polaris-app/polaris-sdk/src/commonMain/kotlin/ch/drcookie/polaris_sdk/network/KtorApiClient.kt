@@ -25,7 +25,6 @@ internal class KtorApiClient(
     }
 
     private val unknownErr = "Unknown network error"
-
     private var _knownBeacons = mutableListOf<Beacon>()
 
     // Holds the list of beacons after a successful registration/fetch
@@ -44,15 +43,15 @@ internal class KtorApiClient(
         osVersion: String,
         appVersion: String,
     ): SdkResult<List<Beacon>, SdkError> {
+
+        val requestDto = PhoneRegistrationRequestDto(
+            publicKey = publicKey,
+            deviceModel = deviceModel,
+            osVersion = osVersion,
+            appVersion = appVersion
+        )
+
         return runCatching {
-
-            val requestDto = PhoneRegistrationRequestDto(
-                publicKey = publicKey,
-                deviceModel = deviceModel,
-                osVersion = osVersion,
-                appVersion = appVersion
-            )
-
             val response = factory.registerPhone(requestDto)
 
             // only save the key if we are in ManagedApiKey mode
@@ -62,7 +61,7 @@ internal class KtorApiClient(
             store.set(KEY_PHONE_ID, response.assignedPhoneId ?: -1L)
 
             // Map the DTOs to Public Models and store/return them
-            val newBeacons = response.beacons.beacons.map { it.toBeaconInfo() }
+            val newBeacons = response.beacons.beacons.map { it.toBeacon() }
             _knownBeacons.clear()
             _knownBeacons.addAll(newBeacons)
             newBeacons
@@ -78,16 +77,39 @@ internal class KtorApiClient(
         )
     }
 
-    override suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError> {
+    override suspend fun fetchBeacons(): SdkResult<List<Beacon>, SdkError> {
+
+        val apiKey = when(val apiKeyResult = getApiKeyForRequest()) {
+            is SdkResult.Success -> apiKeyResult.value
+            is SdkResult.Failure -> return apiKeyResult
+        }
 
         return runCatching {
+            val response = factory.fetchBeacons(apiKey)
 
-            val apiKeyResult = getApiKeyForRequest()
-            val apiKey = when(apiKeyResult) {
-                is SdkResult.Success -> apiKeyResult.value
-                is SdkResult.Failure -> return apiKeyResult
+            // Map DTOs to public models
+            val newBeacons = response.beacons.map { it.toBeacon() }
+            _knownBeacons.clear()
+            _knownBeacons.addAll(newBeacons)
+            newBeacons
+        }.fold(
+            onSuccess = { beacons -> SdkResult.Success(beacons) },
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.NetworkError(throwable.message ?: "Unknown error while fetching beacons")
+                )
             }
+        )
+    }
 
+    override suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError> {
+
+        val apiKey = when(val apiKeyResult = getApiKeyForRequest()) {
+            is SdkResult.Success -> apiKeyResult.value
+            is SdkResult.Failure -> return apiKeyResult
+        }
+
+        return runCatching {
             factory.sendPoLToken(token, apiKey)
         }.fold(
             onSuccess = { isSuccess ->
@@ -105,19 +127,17 @@ internal class KtorApiClient(
     @OptIn(ExperimentalUnsignedTypes::class)
     override suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError> {
 
+        val apiKey = when(val apiKeyResult = getApiKeyForRequest()) {
+            is SdkResult.Success -> apiKeyResult.value
+            is SdkResult.Failure -> return apiKeyResult
+        }
+
+        val ackDto = AckRequestDto(
+            deliveryId = ack.deliveryId,
+            ackBlob = ack.ackBlob
+        )
+
         return runCatching {
-
-            val apiKeyResult = getApiKeyForRequest()
-            val apiKey = when(apiKeyResult) {
-                is SdkResult.Success -> apiKeyResult.value
-                is SdkResult.Failure -> return apiKeyResult
-            }
-
-            val ackDto = AckRequestDto(
-                deliveryId = ack.deliveryId,
-                ackBlob = ack.ackBlob
-            )
-
             factory.postAck(ackDto, apiKey)
         }.fold(
             onSuccess = { isSuccess ->
@@ -136,14 +156,13 @@ internal class KtorApiClient(
     }
 
     override suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError> {
+
+        val apiKey = when(val apiKeyResult = getApiKeyForRequest()) {
+            is SdkResult.Success -> apiKeyResult.value
+            is SdkResult.Failure -> return apiKeyResult
+        }
+
         return runCatching {
-
-            val apiKeyResult = getApiKeyForRequest()
-            val apiKey = when(apiKeyResult) {
-                is SdkResult.Success -> apiKeyResult.value
-                is SdkResult.Failure -> return apiKeyResult
-            }
-
             val dtoList = factory.getPayloads(apiKey)
             dtoList.payloads.map { it.toEncryptedPayload() }
         }.fold(

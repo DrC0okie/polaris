@@ -58,16 +58,14 @@ internal class KtorClientFactory(private val config: ApiConfig) {
         }
     }
 
-    internal suspend fun registerPhone(request: PhoneRegistrationRequestDto)
-            : PhoneRegistrationResponseDto =
+    internal suspend fun registerPhone(request: PhoneRegistrationRequestDto) : PhoneRegistrationResponseDto =
         client.post("${config.baseUrl}${config.registrationPath}") {
             setBody(request)
         }.body<PhoneRegistrationResponseDto>()
 
 
-    internal suspend fun fetchBeacons(apiKey: String?)
-            : BeaconProvisioningListDto =
-        client.get("${config.baseUrl}${config.tokensPath}") {
+    internal suspend fun fetchBeacons(apiKey: String?): BeaconProvisioningListDto =
+        client.get("${config.baseUrl}${config.beaconsPath}") {
             apiKey?.let { header("x-api-key", it) }
         }.body<BeaconProvisioningListDto>()
 

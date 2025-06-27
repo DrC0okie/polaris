@@ -15,6 +15,7 @@ public data class ApiConfig(
     val baseUrl: String,
     val authMode: AuthMode,
     val registrationPath: String,
+    val beaconsPath: String,
     val tokensPath: String,
     val payloadsPath: String,
     val ackPath: String
@@ -33,6 +34,9 @@ public class ApiConfigBuilder() {
     /** The API path for device registration. */
     public var registrationPath: String = "/api/v1/register"
 
+    /** The API path for fetching the active beacons from the server. */
+    public var beaconsPath: String = "/api/v1/beacons"
+
     /** The API path for submitting PoL tokens. */
     public var tokensPath: String = "/api/v1/tokens"
 
@@ -48,6 +52,7 @@ public class ApiConfigBuilder() {
             baseUrl = baseUrl,
             authMode = authMode,
             registrationPath = registrationPath,
+            beaconsPath = beaconsPath,
             tokensPath = tokensPath,
             payloadsPath = payloadsPath,
             ackPath = ackPath

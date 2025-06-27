@@ -4,6 +4,10 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ch.drcookie.polaris_sdk.api.Polaris.apiClient
+import ch.drcookie.polaris_sdk.api.Polaris.bleController
+import ch.drcookie.polaris_sdk.api.Polaris.keyStore
+import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
 import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
@@ -19,43 +23,57 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
-import ch.drcookie.polaris_sdk.network.ApiClient
 
 data class UiState(
     val log: String = "",
     val isBusy: Boolean = false,
-    val connectionStatus: String = "Disconnected",
     val canStart: Boolean = true,
-    val isMonitoring: Boolean = false
+    val isMonitoring: Boolean = false,
 )
 
 @OptIn(ExperimentalUnsignedTypes::class)
 @RequiresApi(Build.VERSION_CODES.O)
-class PolarisViewModel(
-    private val apiClient: ApiClient,
-    private val registerDevice: RegisterDeviceFlow,
-    private val scanForBeacon: ScanForBeaconFlow,
-    private val performPolTransaction: PolTransactionFlow,
-    private val deliverSecurePayload: DeliverPayloadFlow,
-    private val monitorBroadcasts: MonitorBroadcastsFlow
-) : ViewModel() {
+class PolarisViewModel() : ViewModel() {
+
+    private val api = apiClient
+    private val registerDevice = RegisterDeviceFlow(api, keyStore)
+    private val scanForBeacon = ScanForBeaconFlow(bleController, api)
+    private val performPolTransaction = PolTransactionFlow(bleController, api, keyStore, protocolHandler)
+    private val deliverSecurePayload = DeliverPayloadFlow(bleController, api, scanForBeacon)
+    private val monitorBroadcasts = MonitorBroadcastsFlow(bleController, api, protocolHandler)
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
     private var monitoringJob: Job? = null
     private val formatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
-    fun register() {
-        runFlow("Registration") {
-            appendLog("Registering phone with server...")
-            val result = registerDevice(Build.MODEL, Build.VERSION.RELEASE, "1.0")
-            when (result) {
-                is SdkResult.Success -> {
-                    val beaconCount = result.value
-                    appendLog("Registration successful. Found $beaconCount known beacons.")
+    fun fetchBeacons() {
+        runFlow("Fetch beacons") {
+            if (apiClient.getPhoneId() > 0) {
+                // We are already registered, just fetch beacons.
+                val fetchResult = apiClient.fetchBeacons()
+                when (fetchResult) {
+                    is SdkResult.Success -> {
+                        val beaconCount = fetchResult.value.size
+                        appendLog("Registration successful. Found $beaconCount known beacons.")
+                    }
+
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Registration failed: ${fetchResult.error.message()} ---")
+                    }
                 }
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Registration failed: ${result.error.message()} ---")
+            } else {
+                appendLog("Registering phone with server...")
+                val result = registerDevice(Build.MODEL, Build.VERSION.RELEASE, "1.0")
+                when (result) {
+                    is SdkResult.Success -> {
+                        val beaconCount = result.value
+                        appendLog("Registration successful. Found $beaconCount known beacons.")
+                    }
+
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Registration failed: ${result.error.message()} ---")
+                    }
                 }
             }
         }
@@ -63,7 +81,7 @@ class PolarisViewModel(
 
     fun findAndExecuteTokenFlow() {
         runFlow("PoL Token Flow") {
-            if (apiClient.knownBeacons.isEmpty()) {
+            if (api.knownBeacons.isEmpty()) {
                 appendLog("No known beacons. Please register first.")
                 return@runFlow
             }
@@ -101,10 +119,11 @@ class PolarisViewModel(
             appendLog("PoL transaction successful. Submitting token...")
 
             // Submit the token to the server
-            when (val submitResult = apiClient.submitPoLToken(token)) {
+            when (val submitResult = api.submitPoLToken(token)) {
                 is SdkResult.Success -> {
                     appendLog("Token submitted successfully!")
                 }
+
                 is SdkResult.Failure -> {
                     appendLog("--- ERROR: Failed to submit token: ${submitResult.error.message()} ---")
                 }
@@ -126,13 +145,14 @@ class PolarisViewModel(
 
         monitoringJob = monitorBroadcasts.startMonitoring()
             .onEach { result ->
-                when(result){
+                when (result) {
                     is SdkResult.Success -> {
                         val verifiedBroadcast = result.value
                         val payload = verifiedBroadcast.payload
                         val verificationStatus = if (verifiedBroadcast.isSignatureValid) "VALID" else "INVALID SIG"
                         appendLog("Broadcast from #${payload.beaconId}: Counter=${payload.counter} [${verificationStatus}]")
                     }
+
                     is SdkResult.Failure -> {
                         appendLog("--- ERROR: Monitoring stopped. Reason: ${result.error.message()} ---")
 
@@ -153,7 +173,7 @@ class PolarisViewModel(
             appendLog("Checking for pending payloads...")
 
             // Get payloads
-            val payloadsResult = apiClient.getPayloadsForDelivery()
+            val payloadsResult = api.getPayloadsForDelivery()
             val payloads = when (payloadsResult) {
                 is SdkResult.Success -> payloadsResult.value
                 is SdkResult.Failure -> {
@@ -186,10 +206,11 @@ class PolarisViewModel(
             val ackRequest = DeliveryAck(job.deliveryId, ackBlob.toUByteArray())
 
             // Submit the acknowledgement
-            when (val ackResult = apiClient.submitSecureAck(ackRequest)) {
+            when (val ackResult = api.submitSecureAck(ackRequest)) {
                 is SdkResult.Success -> {
                     appendLog("ACK/ERR submitted successfully.")
                 }
+
                 is SdkResult.Failure -> {
                     appendLog("--- ERROR: Failed to submit ACK: ${ackResult.error.message()} ---")
                 }

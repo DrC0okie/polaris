@@ -24,10 +24,7 @@ public class RegisterDeviceFlow(
         // Register the phone.
         val registerResult = apiClient.registerPhone(pk, deviceModel, osVersion, appVersion)
         return when (registerResult) {
-            is SdkResult.Success -> {
-                SdkResult.Success(registerResult.value.size)
-            }
-
+            is SdkResult.Success -> SdkResult.Success(registerResult.value.size)
             is SdkResult.Failure -> registerResult
         }
     }

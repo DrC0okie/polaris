@@ -6,7 +6,7 @@ import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
 
 @OptIn(ExperimentalUnsignedTypes::class)
-internal fun BeaconProvisioningDto.toBeaconInfo(): Beacon {
+internal fun BeaconProvisioningDto.toBeacon(): Beacon {
     return Beacon(
         id = this.beaconId,
         name = this.name,

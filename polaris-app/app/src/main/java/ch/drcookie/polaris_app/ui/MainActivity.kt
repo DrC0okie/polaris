@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.registerButton.setOnClickListener {
             requestPermissionsAndRun {
-                viewModel.register()
+                viewModel.fetchBeacons()
             }
         }
 
@@ -92,7 +92,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUi(state: UiState) {
         binding.debugLog.text = state.log
-        binding.messageBox.text = "Status: ${state.connectionStatus}"
 
         // Determine if any major action is in progress
         val isActionInProgress = state.isBusy || state.isMonitoring

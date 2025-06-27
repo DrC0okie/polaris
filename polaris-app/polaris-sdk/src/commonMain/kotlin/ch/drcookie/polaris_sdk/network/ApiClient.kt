@@ -24,6 +24,7 @@ public interface ApiClient {
         appVersion: String,
     ): SdkResult<List<Beacon>, SdkError>
 
+    public suspend fun fetchBeacons(): SdkResult<List<Beacon>, SdkError>
     public suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError>
     public suspend fun getPayloadsForDelivery(): SdkResult<List<EncryptedPayload>, SdkError>
     public suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError>

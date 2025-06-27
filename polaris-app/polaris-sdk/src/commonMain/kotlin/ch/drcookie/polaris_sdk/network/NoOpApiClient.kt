@@ -27,6 +27,7 @@ internal class NoOpApiClient : ApiClient {
         appVersion: String,
     ): SdkResult<List<Beacon>, SdkError> = notConfiguredError()
 
+    override suspend fun fetchBeacons(): SdkResult<List<Beacon>, SdkError> = notConfiguredError()
     override suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError> = notConfiguredError()
     override suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError> = notConfiguredError()
     override suspend fun getPayloadsForDelivery() = notConfiguredError()
