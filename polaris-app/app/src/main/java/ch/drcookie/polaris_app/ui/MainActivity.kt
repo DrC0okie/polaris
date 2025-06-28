@@ -80,6 +80,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.fetchBeaconButton.setOnClickListener {
+            requestPermissionsAndRun {
+                viewModel.pullDataFromBeacon()
+            }
+        }
+
         // Observe UI state from ViewModel
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

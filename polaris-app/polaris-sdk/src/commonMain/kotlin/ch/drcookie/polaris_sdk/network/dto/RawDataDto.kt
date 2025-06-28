@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.network.dto
 
+
 import ch.drcookie.polaris_sdk.util.UByteArrayBase64Serializer
 import kotlinx.serialization.Serializable
 
@@ -9,8 +10,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
-internal data class BeaconPayloadDto(
-    val beaconId: UInt,
+internal data class RawDataDto(
     @Serializable(with = UByteArrayBase64Serializer::class)
     val data: UByteArray
 ) {
@@ -18,17 +18,14 @@ internal data class BeaconPayloadDto(
         if (this === other) return true
         if (other == null || this::class != other::class) return false
 
-        other as BeaconPayloadDto
+        other as RawDataDto
 
-        if (beaconId != other.beaconId) return false
         if (!data.contentEquals(other.data)) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = beaconId.hashCode()
-        result = 31 * result + data.contentHashCode()
-        return result
+        return data.contentHashCode()
     }
 }

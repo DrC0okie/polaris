@@ -29,7 +29,7 @@
         android:id="@+id/TokenFlowButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Token flow"
+        android:text="Token exchange"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/registerButton"
         app:layout_constraintEnd_toStartOf="@+id/payloadFlowButton"/>
@@ -39,12 +39,19 @@
         android:id="@+id/payloadFlowButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Payload flow"
+        android:text="Server payload"
         app:layout_constraintTop_toTopOf="@+id/TokenFlowButton"
         app:layout_constraintStart_toEndOf="@+id/TokenFlowButton"
+        app:layout_constraintEnd_toStartOf="@id/fetchBeaconButton"/>
+
+    <Button
+        android:id="@+id/fetchBeaconButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Beacon payload"
+        app:layout_constraintTop_toTopOf="@+id/TokenFlowButton"
+        app:layout_constraintStart_toEndOf="@+id/payloadFlowButton"
         app:layout_constraintEnd_toEndOf="parent"/>
-
-
 
     <ScrollView
         android:id="@+id/scrollView"

@@ -2,6 +2,7 @@ package ch.drcookie.polaris_sdk.network
 
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
+import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
 

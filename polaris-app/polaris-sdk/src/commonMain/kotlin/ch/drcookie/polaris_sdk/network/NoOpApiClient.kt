@@ -31,6 +31,6 @@ internal class NoOpApiClient : ApiClient {
     override suspend fun submitPoLToken(token: PoLToken): SdkResult<Unit, SdkError> = notConfiguredError()
     override suspend fun submitSecureAck(ack: DeliveryAck): SdkResult<Unit, SdkError> = notConfiguredError()
     override suspend fun getPayloadsForDelivery() = notConfiguredError()
-    override suspend fun forwardBeaconPayload(data: ByteArray): SdkResult<ByteArray, SdkError> = notConfiguredError()
+    override suspend fun forwardBeaconPayload(beaconId: UInt, payload: ByteArray): SdkResult<ByteArray, SdkError> = notConfiguredError()
     override fun closeClient() {}
 }

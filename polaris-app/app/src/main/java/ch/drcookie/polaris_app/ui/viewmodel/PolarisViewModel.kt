@@ -12,6 +12,7 @@ import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
 import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
 import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
+import ch.drcookie.polaris_sdk.api.flows.PullAndForwardFlow
 import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
 import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
 import ch.drcookie.polaris_sdk.api.message
@@ -41,6 +42,7 @@ class PolarisViewModel() : ViewModel() {
     private val performPolTransaction = PolTransactionFlow(bleController, api, keyStore, protocolHandler)
     private val deliverSecurePayload = DeliverPayloadFlow(bleController, api, scanForBeacon)
     private val monitorBroadcasts = MonitorBroadcastsFlow(bleController, api, protocolHandler)
+    private val pullAndForwardData = PullAndForwardFlow(bleController, api)
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -213,6 +215,47 @@ class PolarisViewModel() : ViewModel() {
 
                 is SdkResult.Failure -> {
                     appendLog("--- ERROR: Failed to submit ACK: ${ackResult.error.message()} ---")
+                }
+            }
+        }
+    }
+
+    fun pullDataFromBeacon() {
+        runFlow("Pull Data from Beacon") {
+
+            appendLog("Scanning for beacons with data pending...")
+
+            // Scan for any beacon. We don't filter for a specific one.
+            val scanResult = scanForBeacon(timeoutMillis = 10000L)
+
+            val foundBeacon = when (scanResult) {
+                is SdkResult.Success -> scanResult.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
+                    return@runFlow
+                }
+            }
+
+            // Check if a beacon was found and if it has data.
+            if (foundBeacon == null) {
+                appendLog("Scan timed out. No connectable beacons found.")
+                return@runFlow
+            }
+
+            if (!foundBeacon.hasDataPending) {
+                appendLog("Found beacon '${foundBeacon.name}', but it has no data pending.")
+                return@runFlow
+            }
+
+            // We found a suitable beacon, Execute the flow.
+            appendLog("Found beacon '${foundBeacon.name}' with data. Attempting to pull and forward...")
+
+            when (val pullResult = pullAndForwardData(foundBeacon)) {
+                is SdkResult.Success -> {
+                    appendLog("Successfully pulled and forwarded data from ${foundBeacon.name}.")
+                }
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Failed to process data from ${foundBeacon.name}: ${pullResult.error.message()} ---")
                 }
             }
         }

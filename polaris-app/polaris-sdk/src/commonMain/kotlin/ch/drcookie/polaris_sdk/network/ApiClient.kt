@@ -6,6 +6,7 @@ import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
 import ch.drcookie.polaris_sdk.model.PoLToken
+import ch.drcookie.polaris_sdk.network.dto.RawDataDto
 
 public interface ApiClient {
     public val knownBeacons: List<Beacon>
@@ -36,6 +37,6 @@ public interface ApiClient {
      * @param data The raw encrypted data from the beacon.
      * @return An SdkResult containing the server's raw encrypted ACK/ERR data.
      */
-    public suspend fun forwardBeaconPayload(payload: ByteArray): SdkResult<ByteArray, SdkError>
+    public suspend fun forwardBeaconPayload(beaconId: UInt, payload: ByteArray): SdkResult<ByteArray, SdkError>
     public fun closeClient()
 }

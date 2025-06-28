@@ -23,6 +23,7 @@ public class PullAndForwardFlow(
      * @param foundBeacon The specific beacon to interact with. It should have `hasDataPending` set to true.
      * @return A `Success(Unit)` on a complete successful transaction, or a `Failure` at any step.
      */
+    @OptIn(ExperimentalUnsignedTypes::class)
     public suspend operator fun invoke(foundBeacon: FoundBeacon): SdkResult<Unit, SdkError> {
         // Precondition check
         if (!foundBeacon.hasDataPending) {
@@ -41,7 +42,8 @@ public class PullAndForwardFlow(
             }
 
             // Forward data to the server
-            val serverAck = when (val forwardResult = apiClient.forwardBeaconPayload(beaconData)) {
+            val id = foundBeacon.provisioningInfo.id
+            val serverAck = when (val forwardResult = apiClient.forwardBeaconPayload(id, beaconData)) {
                 is SdkResult.Success -> forwardResult.value
                 is SdkResult.Failure -> return forwardResult
             }

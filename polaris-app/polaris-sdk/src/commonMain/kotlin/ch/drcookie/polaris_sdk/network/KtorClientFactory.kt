@@ -1,6 +1,7 @@
 package ch.drcookie.polaris_sdk.network
 
 import ch.drcookie.polaris_sdk.api.config.ApiConfig
+import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckDto
@@ -8,6 +9,7 @@ import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningListDto
 import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadListDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationResponseDto
+import ch.drcookie.polaris_sdk.network.dto.BeaconPayloadDto
 import ch.drcookie.polaris_sdk.network.dto.RawDataDto
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -88,7 +90,7 @@ internal class KtorClientFactory(private val config: ApiConfig) {
             apiKey?.let { header("x-api-key", it) }
         }.body<EncryptedPayloadListDto>()
 
-    internal suspend fun forwardPayload(request: RawDataDto, apiKey: String?): RawDataDto  =
+    internal suspend fun forwardPayload(request: BeaconPayloadDto, apiKey: String?): RawDataDto =
         client.post("${config.baseUrl}${config.forwardPayloadPath}") {
             apiKey?.let { header("x-api-key", it) }
             setBody(request)
