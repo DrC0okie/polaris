@@ -1,7 +1,9 @@
 package ch.heigvd.iict.web.rest
 
 import ch.heigvd.iict.dto.api.AckRequestDto
+import ch.heigvd.iict.dto.api.BeaconPayloadDto
 import ch.heigvd.iict.dto.api.PayloadListDto
+import ch.heigvd.iict.dto.api.RawDataDto
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.services.payload.PayloadService
 import ch.heigvd.iict.web.rest.auth.Secured
@@ -33,6 +35,15 @@ class PayloadResource(
         val payloads = payloadService.getPendingPayloadsForPhone(phone)
         val responseWrapper = PayloadListDto(payloads)
         return Response.ok(responseWrapper).build()
+    }
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    fun submitInboundPayload(@Valid request: BeaconPayloadDto): Response {
+        val responseBlob: RawDataDto = payloadService.processInboundPayload(request)
+
+        return Response.ok(responseBlob).build()
     }
 
     @POST

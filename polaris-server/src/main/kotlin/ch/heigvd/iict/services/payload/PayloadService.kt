@@ -2,7 +2,9 @@ package ch.heigvd.iict.services.payload
 
 import ch.heigvd.iict.dto.api.AckRequestDto
 import ch.heigvd.iict.dto.api.AckResponseDto
+import ch.heigvd.iict.dto.api.BeaconPayloadDto
 import ch.heigvd.iict.dto.api.PhonePayloadDto
+import ch.heigvd.iict.dto.api.RawDataDto
 import ch.heigvd.iict.entities.*
 import ch.heigvd.iict.repositories.BeaconRepository
 import ch.heigvd.iict.services.protocol.AckStatus
@@ -23,7 +25,8 @@ class PayloadService(
     private val sealer: IMessageSealer,
     private val ackProcessor: PayloadAckProcessor,
     private val beaconRepository: BeaconRepository,
-    private val outboundMessageRepository: OutboundMessageRepository
+    private val outboundMessageRepository: OutboundMessageRepository,
+    private val inboundPayloadProcessor: InboundPayloadProcessor
 ) {
     @Transactional
     fun createOutboundMessage(
@@ -96,6 +99,36 @@ class PayloadService(
                 encryptedBlob = claimedMessage.encryptedBlob!!.asUByteArray()
             )
         }
+    }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    @Transactional
+    fun processInboundPayload(request: BeaconPayloadDto): RawDataDto {
+        val beacon = beaconRepository.findByBeaconTechnicalId(request.beaconId.toInt())
+            ?: throw NotFoundException("Beacon with technical ID ${request.beaconId} not found.")
+
+        if (beacon.publicKeyX25519 == null) {
+            // Can't process if we can't establish a secure channel
+            throw IllegalStateException("Beacon ${request.beaconId} is not provisioned for encrypted communication.")
+        }
+
+        // 1. Delegate processing and storage to the dedicated processor
+        val receivedPlaintext = inboundPayloadProcessor.process(request, beacon) // Inject inboundPayloadProcessor
+
+        // 2. Craft the ACK response to send back
+        val ackPlaintext = PlaintextMessage(
+            msgId = outboundMessageRepository.getNextServerMsgId(), // A new, unique ID for our ACK
+            msgType = MessageType.ACK,
+            opType = receivedPlaintext.opType, // Echo back the opType from the beacon's request
+            beaconCounter = 0L, // The server's counter is not used in this context
+            payload = ByteArray(0) // ACK has no payload
+        )
+
+        // 3. Seal the ACK
+        val sealedAck = sealer.seal(ackPlaintext, beacon)
+
+        // 4. Wrap it in the DTO for the phone
+        return RawDataDto(data = sealedAck.toBlob().asUByteArray())
     }
 
     @OptIn(ExperimentalUnsignedTypes::class)
