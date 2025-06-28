@@ -8,7 +8,12 @@ import kotlinx.serialization.encoding.Encoder
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-// Custom serializer for UByteArray to Base64 String
+/**
+ * Serializer for [kotlinx.serialization].
+ *
+ * Handles the conversion of [UByteArray] instances to and from Base64-encoded strings
+ * within our DTOs and other serializable models.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object UByteArrayBase64Serializer : KSerializer<UByteArray> {
     override val descriptor = PrimitiveSerialDescriptor("UByteArray", PrimitiveKind.STRING)

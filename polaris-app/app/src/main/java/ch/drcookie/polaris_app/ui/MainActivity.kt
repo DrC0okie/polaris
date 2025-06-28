@@ -25,6 +25,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory() }
+
+    // Lambda to hold an action that should be run after permissions are granted.
     private var onPermissionsGranted: (() -> Unit)? = null
 
     private val permissions = mutableListOf<String>().apply {
@@ -40,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         }
     }.toTypedArray()
 
+     // For requesting multiple permissions. It executes the `onPermissionsGranted` action on success.
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.all { it }) {
@@ -86,7 +89,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Observe UI state from ViewModel
+        // Observe UI state from the ViewModel
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
@@ -96,6 +99,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Updates the UI elements based on the current [UiState].
+     */
     private fun updateUi(state: UiState) {
         binding.debugLog.text = state.log
 
@@ -106,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         binding.TokenFlowButton.isEnabled = !isActionInProgress
         binding.payloadFlowButton.isEnabled = !isActionInProgress
         binding.registerButton.isEnabled = !isActionInProgress
+        binding.fetchBeaconButton.isEnabled = !isActionInProgress
 
         // The monitor button should be disabled only when a *different* flow is busy
         binding.monitorBoradcastButton.isEnabled = !state.isBusy

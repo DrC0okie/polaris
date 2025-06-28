@@ -5,18 +5,28 @@ import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
-import ch.drcookie.polaris_sdk.network.ApiClient
+import ch.drcookie.polaris_sdk.network.NetworkClient
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * A one-shot Use Case that connects to a specific beacon that has data pending,
- * pulls the data, forwards it to the server, and relays the server's ACK back to the beacon.
+ * A high-level use case that handles the full beacon-to-server data flow.
+ *
+ * Performs the following sequence:
+ * 1. Connects to a beacon that has its "data pending" flag set.
+ * 2. Pulls the encrypted data from the beacon.
+ * 3. Forwards that data to the server.
+ * 4. Receives an encrypted ACK from the server.
+ * 5. Relays the server's ACK back to the beacon to complete the transaction.
+ * 6. Disconnects from the beacon.
+ *
+ * @property bleController The controller for all BLE operations.
+ * @property networkClient The client for forwarding the data to the server.
  */
 public class PullAndForwardFlow(
     private val bleController: BleController,
-    private val apiClient: ApiClient
+    private val networkClient: NetworkClient
 ) {
     /**
      * Executes the full data pull and forward flow.
@@ -43,7 +53,7 @@ public class PullAndForwardFlow(
 
             // Forward data to the server
             val id = foundBeacon.provisioningInfo.id
-            val serverAck = when (val forwardResult = apiClient.forwardBeaconPayload(id, beaconData)) {
+            val serverAck = when (val forwardResult = networkClient.forwardBeaconPayload(id, beaconData)) {
                 is SdkResult.Success -> forwardResult.value
                 is SdkResult.Failure -> return forwardResult
             }

@@ -1,7 +1,13 @@
 package ch.drcookie.polaris_sdk.protocol.model
 
 /**
- * Represents the data structure of a non-connectable extended advertisement broadcast.
+ * Structure of a non-connectable extended advertisement broadcast.
+ *
+ * Designed for passive monitoring, allowing to prove its presence without requiring a BLE connection.
+ *
+ * @property beaconId Unique identifier of the beacon sending the broadcast.
+ * @property counter Monotonic counter from the beacon.
+ * @property signature Ed25519 signature of the concatenated [beaconId] and [counter]
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 public data class BroadcastPayload(
@@ -17,7 +23,10 @@ public data class BroadcastPayload(
     }
 
     public companion object {
-        // Total size of the payload: 4 (id) + 8 (counter) + 64 (sig) = 76 bytes
+        /**
+         * The total packed size in bytes of a serialized [BroadcastPayload].
+         * This is useful for pre-validating the length of raw advertisement data.
+         */
         public const val PACKED_SIZE: Int = Constants.BEACON_ID + Constants.BEACON_COUNTER + Constants.SIG
     }
 

@@ -2,7 +2,7 @@ package ch.drcookie.polaris_sdk.network
 
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.SdkError
-import ch.drcookie.polaris_sdk.api.config.ApiConfig
+import ch.drcookie.polaris_sdk.api.config.NetworkConfig
 import ch.drcookie.polaris_sdk.api.config.AuthMode
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
@@ -11,13 +11,18 @@ import ch.drcookie.polaris_sdk.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.network.dto.BeaconPayloadDto
-import ch.drcookie.polaris_sdk.network.dto.RawDataDto
 import com.liftric.kvault.KVault
 
-internal class KtorApiClient(
+/**
+ * The default implementation of the [NetworkClient] interface using Ktor as the HTTP client.
+ *
+ * @property store The [KVault] instance for securely reading/writing the managed API key and phone ID.
+ * @property config The network configuration containing the base URL, paths, and authentication mode.
+ */
+internal class KtorNetworkClient(
     private val store: KVault,
-    private val config: ApiConfig,
-) : ApiClient {
+    private val config: NetworkConfig,
+) : NetworkClient {
 
     private val factory = KtorClientFactory(config)
 
@@ -206,6 +211,10 @@ internal class KtorApiClient(
         factory.closeClient()
     }
 
+    /**
+     * Helper to determine the API key to use for a request based on the configured [AuthMode].
+     * Returns a [SdkError.PreconditionError] if an API key is required but not found.
+     */
     private fun getApiKeyForRequest(): SdkResult<String?, SdkError> {
         val apiKey = when (val mode = config.authMode) {
             is AuthMode.None -> null

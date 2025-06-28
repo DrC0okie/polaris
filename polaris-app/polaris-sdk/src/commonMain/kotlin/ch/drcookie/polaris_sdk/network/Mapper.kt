@@ -6,6 +6,9 @@ import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningDto
 import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadDto
 
+/**
+ * Maps a [BeaconProvisioningDto] from the network layer to a public-facing [Beacon] model.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal fun BeaconProvisioningDto.toBeacon(): Beacon {
     return Beacon(
@@ -17,6 +20,9 @@ internal fun BeaconProvisioningDto.toBeacon(): Beacon {
     )
 }
 
+/**
+ * Maps an [EncryptedPayloadDto] from the network layer to a public-facing [EncryptedPayload] model.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal fun EncryptedPayloadDto.toEncryptedPayload(): EncryptedPayload {
     return EncryptedPayload(

@@ -2,15 +2,15 @@ package ch.drcookie.polaris_sdk.api
 
 import ch.drcookie.polaris_sdk.api.config.PolarisConfig
 import ch.drcookie.polaris_sdk.ble.AndroidBleController
-import ch.drcookie.polaris_sdk.network.KtorApiClient
+import ch.drcookie.polaris_sdk.network.KtorNetworkClient
 import ch.drcookie.polaris_sdk.storage.DefaultKeyStore
 import ch.drcookie.polaris_sdk.protocol.DefaultProtocolHandler
 import ch.drcookie.polaris_sdk.ble.util.BeaconDataParser
 import ch.drcookie.polaris_sdk.crypto.CryptoUtils
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ch.drcookie.polaris_sdk.network.ApiClient
+import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.ble.BleController
-import ch.drcookie.polaris_sdk.network.NoOpApiClient
+import ch.drcookie.polaris_sdk.network.NoOpNetworkClient
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
 import com.ionspin.kotlin.crypto.LibsodiumInitializer
@@ -24,59 +24,58 @@ private object AndroidLoggingInitializer {
     }
 }
 
-// Provide the 'actual' implementation for the SdkInitializer
+/**
+ * Android implementation of the [SdkInitializer].
+ */
 internal actual class SdkInitializer {
 
+    /** Sets up the native Android logger for kotlin-logging. */
     init {
         AndroidLoggingInitializer
     }
-    // Holds the initialized repositories.
+
+    /** Holds the SDK components for Android. */
     private class AndroidSdk(
-        override val apiClient: ApiClient,
+        override val networkClient: NetworkClient,
         override val keyStore: KeyStore,
         override val protocolHandler: ProtocolHandler,
         override val bleController: BleController,
-    ) : PolarisDependencies {
+    ) : PolarisAPI {
         fun performShutdown() {
             bleController.cancelAll()
-            apiClient.closeClient()
+            networkClient.closeClient()
         }
     }
 
     private var sdkInstance: AndroidSdk? = null
 
-    internal actual suspend fun initialize(context: PlatformContext, config: PolarisConfig): PolarisDependencies {
+    /**  The platform-specific initialization logic for Android. */
+    internal actual suspend fun initialize(context: PlatformContext, config: PolarisConfig): PolarisAPI {
         logger.info { "Initializing Polaris SDK for Android..." }
 
         try {
             LibsodiumInitializer.initialize()
         } catch (e: Exception) {
             logger.error(e) { "FATAL: Libsodium initialization failed." }
-            throw e // Re-throw to fail initialization
+            throw e // Re-throw to fail the application's startup, as this is unrecoverable.
         }
 
-        // Common, stateless utilities
+        // Instantiate common, stateless utility classes.
         val cryptoUtils = CryptoUtils
         val beaconDataParser = BeaconDataParser
 
-        // Platform-specific implementations
+        // Instantiate platform-specific components using the provided Android context.
         val androidBleController: BleController = AndroidBleController(context, beaconDataParser, config.bleConfig)
 
-        // Common implementations, injecting the platform-specific parts
+        // Instantiate common components, injecting their dependencies.
         val secureStore = KVault(context, "polaris_secure_store")
         val protocolHandler = DefaultProtocolHandler(cryptoUtils)
         val keyStore = DefaultKeyStore(secureStore, cryptoUtils)
-        val apiClient = config.apiConfig?.let { apiCfg ->
-            KtorApiClient(secureStore, apiCfg)
-        } ?: NoOpApiClient()
+        val networkClient = config.networkConfig?.let { apiCfg ->
+            KtorNetworkClient(secureStore, apiCfg)
+        } ?: NoOpNetworkClient()
+        val instance = AndroidSdk(networkClient, keyStore, protocolHandler, androidBleController)
 
-        // Create the holder object and store it.
-        val instance = AndroidSdk(
-            apiClient = apiClient,
-            keyStore = keyStore,
-            protocolHandler = protocolHandler,
-            bleController = androidBleController,
-        )
         this.sdkInstance = instance
         return instance
     }

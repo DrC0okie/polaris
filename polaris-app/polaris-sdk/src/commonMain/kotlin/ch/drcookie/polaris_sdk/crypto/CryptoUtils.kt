@@ -14,28 +14,33 @@ import com.ionspin.kotlin.crypto.util.LibsodiumRandom
 
 private val Log = KotlinLogging.logger {}
 
+/**
+ * Centralizes all low-level cryptographic operations.
+ *
+ * This object wraps libsodium to provide simple functions for key generation, signing, and verification.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object CryptoUtils {
 
-    /**
-     * Generates a new, random Ed25519 key pair. This is a stateless function.
-     * It does not store or remember the key.
-     */
+    /** Generates a new, random Ed25519 key pair. */
     internal fun generateKeyPair(): Pair<UByteArray, UByteArray> {
         val keyPair: SignatureKeyPair = Signature.keypair()
         return keyPair.publicKey to keyPair.secretKey
     }
 
+    /** Generates a cryptographically secure random nonce. */
     internal fun generateNonce(): UByteArray {
         return LibsodiumRandom.buf(Constants.PROTOCOL_NONCE)
     }
 
+    /** Creates a signature for a [PoLRequest] and returns a new, signed instance. */
     internal fun signPoLRequest(request: PoLRequest, sk: UByteArray): PoLRequest {
         val dataToSign = request.getSignedData()
         val signature = Signature.detached(dataToSign, sk)
         return request.copy(phoneSig = signature)
     }
 
+    /** Verifies a [PoLResponse], checking both the nonce and the signature. */
     internal fun verifyPoLResponse(resp: PoLResponse, originalSignedReq: PoLRequest, beaconPk: UByteArray): Boolean {
         if (!resp.nonce.contentEquals(originalSignedReq.nonce)) {
             Log.error { "Nonce mismatch in response verification!" }
@@ -59,13 +64,7 @@ internal object CryptoUtils {
         }
     }
 
-    /**
-     * Verifies the signature of a broadcast payload.
-     *
-     * @param payload The broadcast payload containing the data and signature to verify.
-     * @param beaconPk The public key of the beacon that should have signed this payload.
-     * @return True if the signature is valid for the given data and public key, false otherwise.
-     */
+    /** Verifies the signature of a [BroadcastPayload]. */
     internal fun verifyBeaconBroadcast(payload: BroadcastPayload, beaconPk: UByteArray): Boolean {
         // Reconstruct the exact data that was signed on the beacon
         val dataToVerify = payload.getSignedData()

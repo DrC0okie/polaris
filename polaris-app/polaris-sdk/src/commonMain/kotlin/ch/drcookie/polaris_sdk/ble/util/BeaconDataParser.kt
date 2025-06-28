@@ -5,13 +5,15 @@ import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.protocol.model.broadcastPayloadFromBytes
 
+/** Used for parsing raw BLE advertisements data into SDK models. */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object BeaconDataParser {
     /**
-     * Attempts to parse the beacon ID from a legacy advertisement (connectable beacon).
+     * Parses a connectable beacon's advertisement data.
      *
      * @param scanResult The raw scan result from the BLE stack.
-     * @return The parsed beacon ID as a [UInt], and the flag signalling that a payload is available
+     * @param legacyManufId The manufacturer ID to look for in the advertisement data.
+     * @return A [Pair] containing the parsed beacon ID and status byte.
      */
     internal fun parseConnectableBeaconAd(scanResult: CommonBleScanResult, legacyManufId: Int): Pair<UInt?, Byte?> {
         val manufData = scanResult.manufacturerData[legacyManufId] ?: return null to null
@@ -27,10 +29,11 @@ internal object BeaconDataParser {
     }
 
     /**
-     * Attempts to parse a full [BroadcastPayload] from an extended advertisement.
+     * Parses a full [BroadcastPayload] from an extended advertisement.
      *
      * @param scanResult The raw scan result from the BLE stack.
-     * @return A parsed [BroadcastPayload] object, or null if the data is not present or malformed.
+     * @param extendedManufId The manufacturer ID to look for in the advertisement data.
+     * @return A parsed [BroadcastPayload] object, or `null` if the data is not present or malformed.
      */
     internal fun parseBroadcastPayload(scanResult: CommonBleScanResult, extendedManufId: Int): BroadcastPayload? {
         val manufData = scanResult.manufacturerData[extendedManufId]

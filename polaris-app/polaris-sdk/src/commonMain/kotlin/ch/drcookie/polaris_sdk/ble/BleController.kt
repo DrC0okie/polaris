@@ -14,45 +14,103 @@ import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * The primary interface for all BLE interactions.
+ *
+ * This controller provides a unified API for scanning, connecting, and performing data transactions.
+ * All asynchronous operations that involve I/O return an [SdkResult] to handle potential failures.
+ */
 public interface BleController {
+
+    /**
+     * A [StateFlow] that emits the current state of the BLE connection.
+     * Can be collected by the UI to show connection status (e.g., "Scanning", "Connecting", "Ready").
+     */
     public val connectionState: StateFlow<ConnectionState>
 
     /**
-     * The core, generic scanning function. Allows developers to provide any combination of custom filters.
+     * Initiates a BLE scan for devices matching the given filters.
+     * This is a low-level scanning function. For higher-level, parsed flows, use [findConnectableBeacons]
+     * or [monitorBroadcasts].
      *
-     * @param filters A list of [ch.drcookie.polaris_sdk.ble.model.CommonScanFilter] to apply. Can be null for an open scan.
+     * @param filters A list of [CommonScanFilter]s to apply. A `null` or empty list will scan for all nearby devices.
      * @param scanConfig The configuration for the scan's power and callback settings.
-     * @return A Flow of found devices that match the filter criteria.
+     * @return An [SdkResult] containing a [Flow] of found devices on success.
      */
-    public fun scanForBeacons(filters: List<CommonScanFilter>?, scanConfig: ScanConfig): SdkResult<Flow<CommonBleScanResult>, SdkError>
+    public fun scanForBeacons(
+        filters: List<CommonScanFilter>?,
+        scanConfig: ScanConfig,
+    ): SdkResult<Flow<CommonBleScanResult>, SdkError>
+
+    /**
+     * Initiates a connection to a BLE device at the given address.
+     * Collect the [connectionState] flow to know when the device is `Ready` or if the connection has `Failed`.
+     *
+     * @param deviceAddress The MAC address of the device to connect to.
+     * @return An [SdkResult] containing [Unit] if the connection process was initiated successfully.
+     */
     public suspend fun connect(deviceAddress: String): SdkResult<Unit, SdkError>
+
+    /**
+     * Full PoL transaction, which is a request-response exchange.
+     *
+     * @param request The signed [PoLRequest] to send to the beacon.
+     * @return An [SdkResult] containing the beacon's [PoLResponse] on success.
+     */
     public suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError>
+
+    /**
+     * Sends an encrypted payload and waits for an encrypted ACK.
+     *
+     * @param payload The encrypted data blob to send to the beacon.
+     * @return An [SdkResult] containing the beacon's encrypted ACK/ERR response as a [ByteArray].
+     */
     public suspend fun exchangeSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError>
+
+    /**
+     * Sends a secure data payload in a "fire-and-forget" manner, without waiting for a response.
+     *
+     * @param payload The encrypted data blob to send to the beacon.
+     * @return An [SdkResult] containing [Unit] if the data was successfully written.
+     */
     public suspend fun postSecurePayload(payload: ByteArray): SdkResult<Unit, SdkError>
+
+
+    /**
+     * Disconnects from the currently connected BLE device.
+     */
     public fun disconnect()
+
+    /**
+     * Cancels all ongoing operations, including scans and connections, and releases all SDK resources.
+     */
     public fun cancelAll()
 
     /**
-     * Scans for connectable beacons and returns a flow of FOUND beacons,
-     * already parsed and associated with their provisioning info.
+     * Scans for connectable beacons advertising the Polaris service.
+     *
+     * @param scanConfig The configuration for the scan.
+     * @param beaconsToFind A list of known [Beacon]s to filter against.
+     * @return An [SdkResult] containing a [Flow] of found beacons on success.
      */
     public fun findConnectableBeacons(
         scanConfig: ScanConfig,
-        beaconsToFind: List<Beacon>
+        beaconsToFind: List<Beacon>,
     ): SdkResult<Flow<FoundBeacon>, SdkError>
 
     /**
-     * Scans for broadcast advertisements and returns a flow of parsed payloads.
-     * Note: This does not verify the signature.
+     * Scans for non-connectable broadcast advertisements from Polaris beacons.
+     * This method does not perform signature verification.
+     *
+     * @param scanConfig The configuration for the scan.
+     * @return A [Flow] of parsed [BroadcastPayload].
      */
-    public fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload>
+    public fun monitorBroadcasts(scanConfig: ScanConfig): SdkResult<Flow<BroadcastPayload>, SdkError>
 
     /**
-     * Triggers the beacon to send its pending data and receives it.
-     * This involves writing a trigger byte to one characteristic and receiving
-     * the fragmented data via indications on another.
+     * Triggers a connected beacon to send its pending data and receives it.
      *
-     * @return The complete encrypted data blob from the beacon.
+     * @return An [SdkResult] containing the beacon's complete encrypted data blob as a [ByteArray].
      */
     public suspend fun pullEncryptedData(): SdkResult<ByteArray, SdkError>
 }

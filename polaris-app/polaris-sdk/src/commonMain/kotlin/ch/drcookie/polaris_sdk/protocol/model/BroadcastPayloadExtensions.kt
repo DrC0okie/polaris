@@ -5,16 +5,15 @@ import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUIntLE
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toULongLE
 
 /**
- * Attempts to parse a [BroadcastPayload] from a raw UByteArray.
- * This is used to decode the manufacturer-specific data from a BLE scan result.
+ * Attempts to parse a [BroadcastPayload] from a raw byte array.
  *
  * @param data The raw byte array from the advertisement.
- * @return A parsed [BroadcastPayload] object, or null if the data is malformed or too short.
+ * @return A parsed [BroadcastPayload] object, or `null` if the data is malformed or has an incorrect length.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun broadcastPayloadFromBytes(data: UByteArray): BroadcastPayload? {
     // Ensure the data is at least the expected size
-    if (data.size < BroadcastPayload.PACKED_SIZE) { // We can still access the public const
+    if (data.size < BroadcastPayload.PACKED_SIZE) {
         return null
     }
     var offset = 0
@@ -34,9 +33,7 @@ public fun broadcastPayloadFromBytes(data: UByteArray): BroadcastPayload? {
 }
 
 /**
- * Returns the portion of the data that was signed by the beacon.
- * On the beacon, the signature is calculated over the concatenation of `beaconId` and `counter`.
- * We must reconstruct this exact byte sequence to verify the signature.
+ * Reconstructs the portion of the data that was originally signed by the beacon.
  *
  * @return A [UByteArray] containing the signed data (beaconId + counter).
  */

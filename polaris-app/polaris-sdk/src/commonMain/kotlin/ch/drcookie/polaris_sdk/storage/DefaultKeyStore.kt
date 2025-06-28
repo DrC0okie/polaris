@@ -10,9 +10,18 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val Log = KotlinLogging.logger {}
 
+
+/**
+ * The default, cross-platform implementation of the [KeyStore] interface.
+ *
+ * This class uses [KVault] to store cryptographic keys as hexadecimal strings.
+ *
+ * @property store The [KVault] instance used for secure key-value storage.
+ * @property cryptoUtils The utility object for performing cryptographic operations like key generation.
+ */
 internal class DefaultKeyStore(
     private val store: KVault,
-    private val cryptoManager: CryptoUtils,
+    private val cryptoUtils: CryptoUtils,
 ) : KeyStore {
 
     private companion object {
@@ -36,7 +45,7 @@ internal class DefaultKeyStore(
             } else {
                 Log.warn { "No keys found in store. Generating a new pair." }
 
-                val (publicKey, secretKey) = cryptoManager.generateKeyPair()
+                val (publicKey, secretKey) = cryptoUtils.generateKeyPair()
 
                 Log.info { "New public key generated: ${publicKey.toHexString()}"}
 

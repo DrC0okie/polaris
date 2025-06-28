@@ -1,18 +1,26 @@
 package ch.drcookie.polaris_sdk.api
 
 /**
- * A generic class that represents the result of an SDK operation, which can either
- * be a success containing a value or a failure containing an error.
- * This class is inspired by the Either/Result monad and is used to handle
- * errors explicitly without relying on exceptions for control flow.
+ * Encapsulates the result of a fallible SDK operation.
  *
- * @param T The type of the success value.
- * @param E The type of the error value.
+ * An operation can either succeed, returning a [Success] containing the desired `value`,
+ * or fail, returning a [Failure] containing a [SdkError].
+ *
+ * Used as the return type for all asynchronous operations in the SDK that can have a predictable failure.
+ *
+ * @param T The type of the value in case of success.
+ * @param E The type of the error in case of failure, typically [SdkError].
  */
 public sealed class SdkResult<out T, out E> {
-    /** Represents a successful result containing a value. */
+    /**
+     * Represents a successful result of an operation.
+     * @property value The data returned by the successful operation.
+     */
     public data class Success<out T>(public val value: T) : SdkResult<T, Nothing>()
 
-    /** Represents a failed result containing an error. */
+    /**
+     * Represents a failed result of an operation.
+     * @property error A structured [SdkError] object containing details about the failure.
+     */
     public data class Failure<out E>(public val error: E) : SdkResult<Nothing, E>()
 }

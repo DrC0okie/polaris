@@ -22,6 +22,9 @@ internal object BleUtils {
         }
     }
 
+    /**
+     * Converts a raw integer GATT status code from Android's BLE stack
+     */
     internal fun gattStatusToString(status: Int): String {
         return when (status) {
             BluetoothGatt.GATT_SUCCESS -> "SUCCESS"

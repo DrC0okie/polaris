@@ -1,7 +1,6 @@
 package ch.drcookie.polaris_sdk.network
 
-import ch.drcookie.polaris_sdk.api.config.ApiConfig
-import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
+import ch.drcookie.polaris_sdk.api.config.NetworkConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckDto
@@ -32,9 +31,14 @@ import kotlinx.serialization.json.Json
 
 private val Log = KotlinLogging.logger {}
 
-internal class KtorClientFactory(private val config: ApiConfig) {
+/**
+ * Factory responsible for creating and configuring the Ktor HTTP client and executing raw network requests.
+ *
+ * @property config The network configuration containing the base URL and API paths.
+ */
+internal class KtorClientFactory(private val config: NetworkConfig) {
 
-    // Configure the HttpClient
+    /** The configured Ktor [HttpClient] instance. */
     internal val client = HttpClient(getHttpClientEngine()) {
         expectSuccess = true
 
@@ -61,17 +65,20 @@ internal class KtorClientFactory(private val config: ApiConfig) {
         }
     }
 
+    /** Performs a POST request to the registration endpoint. */
     internal suspend fun registerPhone(request: PhoneRegistrationRequestDto) : PhoneRegistrationResponseDto =
         client.post("${config.baseUrl}${config.registrationPath}") {
             setBody(request)
         }.body<PhoneRegistrationResponseDto>()
 
 
+    /** Performs a GET request to the beacons list endpoint. */
     internal suspend fun fetchBeacons(apiKey: String?): BeaconProvisioningListDto =
         client.get("${config.baseUrl}${config.beaconsPath}") {
             apiKey?.let { header("x-api-key", it) }
         }.body<BeaconProvisioningListDto>()
 
+    /** Performs a POST request to submit a PoL token. */
     internal suspend fun sendPoLToken(token: PoLToken, apiKey: String?): Boolean {
         val path = config.tokensPath
         val resp = client.post("${config.baseUrl}$path") {
@@ -85,17 +92,20 @@ internal class KtorClientFactory(private val config: ApiConfig) {
         return resp.status.isSuccess()
     }
 
+    /** Performs a GET request to fetch pending server-to-beacon payloads. */
     internal suspend fun getPayload(apiKey: String?): EncryptedPayloadListDto =
         client.get("${config.baseUrl}${config.fetchPayloadsPath}") {
             apiKey?.let { header("x-api-key", it) }
         }.body<EncryptedPayloadListDto>()
 
+    /** Performs a POST request to forward a beacon-to-server payload. */
     internal suspend fun forwardPayload(request: BeaconPayloadDto, apiKey: String?): RawDataDto =
         client.post("${config.baseUrl}${config.forwardPayloadPath}") {
             apiKey?.let { header("x-api-key", it) }
             setBody(request)
         }.body<RawDataDto>()
 
+    /** Performs a POST request to submit an acknowledgement. */
     internal suspend fun postAck(request: AckDto, apiKey: String?): Boolean {
         val resp = client.post("${config.baseUrl}${config.ackPath}") {
             apiKey?.let { header("x-api-key", it) }

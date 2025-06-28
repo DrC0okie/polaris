@@ -3,8 +3,9 @@ package ch.drcookie.polaris_app.ui.viewmodel
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import ch.drcookie.polaris_sdk.api.Polaris.apiClient
+import ch.drcookie.polaris_sdk.api.Polaris.networkClient
 import ch.drcookie.polaris_sdk.api.Polaris.bleController
 import ch.drcookie.polaris_sdk.api.Polaris.keyStore
 import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
@@ -13,7 +14,7 @@ import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
 import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
 import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
 import ch.drcookie.polaris_sdk.api.flows.PullAndForwardFlow
-import ch.drcookie.polaris_sdk.api.flows.RegisterDeviceFlow
+import ch.drcookie.polaris_sdk.api.flows.FetchBeaconsFlow
 import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
 import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
@@ -32,17 +33,26 @@ data class UiState(
     val isMonitoring: Boolean = false,
 )
 
+/**
+ * The ViewModel for the main activity, acting as a bridge between the UI and the Polaris SDK.
+ *
+ * @param scanForBeacon Use case for performing a one-shot scan for a connectable beacon.
+ * @param performPolTransaction Use case for executing a full Proof-of-Location transaction.
+ * @param deliverSecurePayload Use case for delivering a server-originated payload to a beacon.
+ * @param monitorBroadcasts Use case for listening to non-connectable beacon advertisements.
+ * @param pullAndForwardData Use case for pulling data from a beacon and forwarding it to the server.
+ * @param registerDevice Use case for registering a phone to the server
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 @RequiresApi(Build.VERSION_CODES.O)
-class PolarisViewModel() : ViewModel() {
-
-    private val api = apiClient
-    private val registerDevice = RegisterDeviceFlow(api, keyStore)
-    private val scanForBeacon = ScanForBeaconFlow(bleController, api)
-    private val performPolTransaction = PolTransactionFlow(bleController, api, keyStore, protocolHandler)
-    private val deliverSecurePayload = DeliverPayloadFlow(bleController, api, scanForBeacon)
-    private val monitorBroadcasts = MonitorBroadcastsFlow(bleController, api, protocolHandler)
-    private val pullAndForwardData = PullAndForwardFlow(bleController, api)
+class PolarisViewModel(
+    private val scanForBeacon: ScanForBeaconFlow,
+    private val performPolTransaction: PolTransactionFlow,
+    private val deliverSecurePayload: DeliverPayloadFlow,
+    private val monitorBroadcasts: MonitorBroadcastsFlow,
+    private val pullAndForwardData: PullAndForwardFlow,
+    private val registerDevice: FetchBeaconsFlow,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -51,9 +61,9 @@ class PolarisViewModel() : ViewModel() {
 
     fun fetchBeacons() {
         runFlow("Fetch beacons") {
-            if (apiClient.getPhoneId() > 0) {
+            if (networkClient.getPhoneId() > 0) {
                 // We are already registered, just fetch beacons.
-                val fetchResult = apiClient.fetchBeacons()
+                val fetchResult = networkClient.fetchBeacons()
                 when (fetchResult) {
                     is SdkResult.Success -> {
                         val beaconCount = fetchResult.value.size
@@ -83,7 +93,7 @@ class PolarisViewModel() : ViewModel() {
 
     fun findAndExecuteTokenFlow() {
         runFlow("PoL Token Flow") {
-            if (api.knownBeacons.isEmpty()) {
+            if (networkClient.knownBeacons.isEmpty()) {
                 appendLog("No known beacons. Please register first.")
                 return@runFlow
             }
@@ -121,7 +131,7 @@ class PolarisViewModel() : ViewModel() {
             appendLog("PoL transaction successful. Submitting token...")
 
             // Submit the token to the server
-            when (val submitResult = api.submitPoLToken(token)) {
+            when (val submitResult = networkClient.submitPoLToken(token)) {
                 is SdkResult.Success -> {
                     appendLog("Token submitted successfully!")
                 }
@@ -175,7 +185,7 @@ class PolarisViewModel() : ViewModel() {
             appendLog("Checking for pending payloads...")
 
             // Get payloads
-            val payloadsResult = api.getPayloadsForDelivery()
+            val payloadsResult = networkClient.getPayloadsForDelivery()
             val payloads = when (payloadsResult) {
                 is SdkResult.Success -> payloadsResult.value
                 is SdkResult.Failure -> {
@@ -208,7 +218,7 @@ class PolarisViewModel() : ViewModel() {
             val ackRequest = DeliveryAck(job.deliveryId, ackBlob.toUByteArray())
 
             // Submit the acknowledgement
-            when (val ackResult = api.submitSecureAck(ackRequest)) {
+            when (val ackResult = networkClient.submitSecureAck(ackRequest)) {
                 is SdkResult.Success -> {
                     appendLog("ACK/ERR submitted successfully.")
                 }
@@ -286,5 +296,32 @@ class PolarisViewModel() : ViewModel() {
             val newLog = if (it.log.isEmpty()) "$timestamp: $message" else "${it.log}\n$timestamp: $message"
             it.copy(log = newLog)
         }
+    }
+}
+
+class PolarisViewModelFactory() : ViewModelProvider.Factory {
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
+
+            val scanForBeacon = ScanForBeaconFlow(bleController, networkClient)
+            val performPolTransaction = PolTransactionFlow(bleController, networkClient, keyStore, protocolHandler)
+            val deliverSecurePayload = DeliverPayloadFlow(bleController, networkClient, scanForBeacon)
+            val monitorBroadcasts = MonitorBroadcastsFlow(bleController, networkClient, protocolHandler)
+            val pullAndForwardData = PullAndForwardFlow(bleController, networkClient)
+            val registerDevice = FetchBeaconsFlow(networkClient, keyStore)
+
+
+            @Suppress("UNCHECKED_CAST")
+            return PolarisViewModel(
+                scanForBeacon,
+                performPolTransaction,
+                deliverSecurePayload,
+                monitorBroadcasts,
+                pullAndForwardData,
+                registerDevice
+            ) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

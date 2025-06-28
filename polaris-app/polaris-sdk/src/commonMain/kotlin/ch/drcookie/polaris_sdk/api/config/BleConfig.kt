@@ -1,15 +1,21 @@
 package ch.drcookie.polaris_sdk.api.config
 
+import ch.drcookie.polaris_sdk.api.Polaris
+
 /**
- * Configuration for Bluetooth Low Energy interactions.
+ * Configuration for all Bluetooth Low Energy (BLE) interactions.
  *
- * @property polServiceUuid The primary service UUID for discovering connectable Polaris beacons.
- * @property manufacturerId The manufacturer ID used in advertisements.
- * @property tokenWriteUuid The characteristic UUID for writing a PoL request.
- * @property tokenIndicateUuid The characteristic UUID for receiving a PoL response.
- * @property encryptedWriteUuid The characteristic UUID for writing a secure payload.
- * @property encryptedIndicateUuid The characteristic UUID for receiving a secure payload acknowledgement.
- * @property mtu The MTU to negotiate with the beacon.
+ * An instance of this class can be modified within the `ble { ... }` block of the
+ * [Polaris.initialize] function to adapt the SDK to custom beacon firmware.
+ *
+ * @property polServiceUuid The GATT service UUID for discovering and interacting with Polaris beacons.
+ * @property manufacturerId The manufacturer ID used in BLE advertisements to identify Polaris beacons.
+ * @property tokenWriteUuid The characteristic UUID for writing a Proof-of-Location request to the beacon.
+ * @property tokenIndicateUuid The characteristic UUID for receiving a PoL response from the beacon.
+ * @property encryptedWriteUuid The characteristic UUID for writing a secure, server-originated payload to the beacon.
+ * @property encryptedIndicateUuid The characteristic UUID for receiving an ACK from the beacon for a server-originated payload, and for receiving data in the beacon-to-server flow.
+ * @property pullDataWriteUuid The characteristic UUID to write to in order to trigger the beacon to send its pending data.
+ * @property mtu The Maximum Transmission Unit size to request upon connecting to a beacon. A larger MTU allows for faster data transfer.
  */
 public data class BleConfig(
     var polServiceUuid: String = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6",

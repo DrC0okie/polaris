@@ -10,6 +10,11 @@ import kotlin.math.min
 
 private val Log = KotlinLogging.logger {}
 
+/**
+ * Stateful transport layer responsible for handling the fragmentation of BLE packets.
+ *
+ * This allows the SDK to send and receive data larger than the current MTU size.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal class FragmentationTransport {
 
@@ -17,24 +22,28 @@ internal class FragmentationTransport {
         enum class ReassemblyState { IDLE, REASSEMBLING }
     }
 
-    // --- State for Reassembly (Incoming Data) ---
+    // State for Reassembly (Incoming Data)
     private var reassemblyState = ReassemblyState.IDLE
     private var reassemblyBuffer = mutableListOf<UByte>()
     private var currentInTransactionId: UByte = 0u
 
-    // Use a Flow to emit fully reassembled messages. Replay=0 and extraBuffer=1 makes it behave like a channel.
     private val _reassembledMessages = MutableSharedFlow<UByteArray>(0, 1, BufferOverflow.DROP_OLDEST)
+
+    /** A flow that emits a reassembled data message whenever one is successfully received. */
     internal val reassembledMessages = _reassembledMessages.asSharedFlow()
 
-    // --- State for Fragmentation (Outgoing Data) ---
+    // State for Fragmentation (Outgoing Data)
     private var maxChunkPayloadSize: Int = 20 // Default: MTU(23) - GATT(3) - frag header(1)
     private val outgoingTransactionId = atomic(0)
 
+    /** Called by the controller when the connection MTU changes. */
     internal fun onMtuChanged(newMtu: Int) {
+        // MTU - 3 (ATT Opcode & Handle) - 1 (Fragmentation Header)
         maxChunkPayloadSize = newMtu - 3 - FragmentationHeader.HEADER_SIZE
         Log.info { "MTU updated to $newMtu, max chunk payload is now $maxChunkPayloadSize bytes." }
     }
 
+    /** Processes an incoming raw data chunk from a BLE indication. */
     internal suspend fun process(chunkData: ByteArray) {
         val uChunk = chunkData.toUByteArray()
         if (uChunk.size < FragmentationHeader.HEADER_SIZE) {
@@ -88,6 +97,7 @@ internal class FragmentationTransport {
         }
     }
 
+    /** Takes a message and splits it into smaller chunks, with the good fragmentation header.*/
     internal fun fragment(fullMessageData: ByteArray): Sequence<ByteArray> {
         val uMessage = fullMessageData.toUByteArray()
         val transactionId =

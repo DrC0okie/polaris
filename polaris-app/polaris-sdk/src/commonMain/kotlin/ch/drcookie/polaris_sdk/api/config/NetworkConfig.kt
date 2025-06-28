@@ -1,15 +1,23 @@
 package ch.drcookie.polaris_sdk.api.config
 
+import ch.drcookie.polaris_sdk.api.Polaris
+
 /**
- * Configuration for the Polaris network client.
- * Providing this configuration during SDK initialization enables server communication.
+ * An immutable configuration holder for the Polaris network client.
+ *
+ * This object is created by the [NetworkConfigBuilder] within the `api { ... }` block
+ * of the [Polaris.initialize] function.
  *
  * @property baseUrl The base URL of the Polaris backend server (e.g., "https://polaris.example.com").
+ * @property authMode The authentication strategy to use for network requests. See [AuthMode] for options.
  * @property registrationPath The API path for device registration.
- * @property tokensPath The API path for submitting PoL tokens.
- * @property fetchPayloadsPath The API path for fetching and acknowledging secure payloads.
+ * @property beaconsPath The API path for fetching the list of known beacons for an already-registered device.
+ * @property tokensPath The API path for submitting Proof-of-Location tokens.
+ * @property fetchPayloadsPath The API path for fetching secure payloads from the server (Server -> Beacon).
+ * @property forwardPayloadPath The API path for forwarding secure payloads from a beacon to the server (Beacon -> Server).
+ * @property ackPath The API path for submitting acknowledgements for server-to-beacon payloads.
  */
-public data class ApiConfig(
+public data class NetworkConfig(
     val baseUrl: String,
     val authMode: AuthMode,
     val registrationPath: String,
@@ -21,13 +29,29 @@ public data class ApiConfig(
 )
 
 /**
- * A builder for creating an [ApiConfig].
- * Used within the `Polaris.initialize` DSL to configure server communication.
+ * A builder for creating an [NetworkConfig] for the network client.
+ *
+ * Use this builder within the `api { ... }` block of the [Polaris.initialize] function
+ * to configure and enable all server communication features.
+ *
+ * ### Example:
+ * ```
+ * Polaris.initialize(context) {
+ *     api {
+ *         baseUrl = "https://my-polaris-server.com"
+ *         authMode = AuthMode.ManagedApiKey
+ *     }
+ * }
+ * ```
  */
-public class ApiConfigBuilder() {
-    /** The base URL of the Polaris backend server (e.g., "https://polaris.example.com"). */
+public class NetworkConfigBuilder() {
+    /** The base URL of the Polaris backend server (e.g., "https://polaris.example.com"). This property is mandatory. */
     public lateinit var baseUrl: String
 
+    /**
+     * The authentication strategy to use. Defaults to [AuthMode.ManagedApiKey].
+     * @see AuthMode for all available options.
+     */
     public var authMode: AuthMode = AuthMode.ManagedApiKey
 
     /** The API path for device registration. */
@@ -47,10 +71,10 @@ public class ApiConfigBuilder() {
 
     public var ackPath: String = "/api/v1/payloads/ack"
 
-    internal fun build(): ApiConfig {
+    internal fun build(): NetworkConfig {
         // This check runs when the DSL block is finished, ensuring the user provided the mandatory fields.
         check(::baseUrl.isInitialized) { "baseUrl must be set in the api { ... } block." }
-        return ApiConfig(
+        return NetworkConfig(
             baseUrl = baseUrl,
             authMode = authMode,
             registrationPath = registrationPath,

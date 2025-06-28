@@ -1,5 +1,16 @@
 package ch.drcookie.polaris_sdk.ble.model
 
+import ch.drcookie.polaris_sdk.network.NetworkClient
+
+/**
+ * Acknowledgement data that must be sent to the server after delivering a server payload to a beacon.
+ *
+ * @property deliveryId The unique ID of the delivery job.
+ * @property ackBlob The raw ACK or ERR data blob received from the beacon after it processed the payload.
+ *
+ * @see NetworkClient.submitSecureAck
+ * @see EncryptedPayload
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public data class DeliveryAck(
     val deliveryId: Long,

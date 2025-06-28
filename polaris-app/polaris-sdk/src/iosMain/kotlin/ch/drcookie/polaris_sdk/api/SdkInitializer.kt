@@ -4,7 +4,7 @@ import ch.drcookie.polaris_sdk.api.config.PolarisConfig
 
 internal actual class SdkInitializer {
 
-    internal actual suspend fun initialize(context: PlatformContext, config: PolarisConfig): PolarisDependencies {
+    internal actual suspend fun initialize(context: PlatformContext, config: PolarisConfig): PolarisAPI {
         throw NotImplementedError("iOS Initializer has not been implemented yet.")
     }
 

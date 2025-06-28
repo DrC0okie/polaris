@@ -6,6 +6,19 @@ import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
 import kotlinx.serialization.Serializable
 
+/**
+ * Represents a PoL token
+ *
+ * @property flags Protocol-specific flags from the transaction.
+ * @property phoneId The unique ID of the phone that initiated the transaction.
+ * @property beaconId The unique ID of the beacon that responded to the transaction.
+ * @property beaconCounter The beacon's internal counter at the time of the transaction. This acts as a form of timestamp.
+ * @property nonce The random nonce used to prevent replay attacks for this specific transaction.
+ * @property phonePk The public key of the phone.
+ * @property beaconPk The public key of the beacon.
+ * @property phoneSig The phone's signature over the request data.
+ * @property beaconSig The beacon's signature over the response data.
+ */
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
 public data class PoLToken(
@@ -32,6 +45,16 @@ public data class PoLToken(
     }
 
     public companion object {
+
+        /**
+         * Factory method to create a [PoLToken] from a transaction.
+         *
+         * @param request The original, signed [PoLRequest] sent by the phone.
+         * @param response The verified [PoLResponse] received from the beacon.
+         * @param beaconPk The public key of the beacon involved in the transaction.
+         * @return A new, fully populated [PoLToken] instance.
+         * @throws IllegalArgumentException if the provided [request] is not signed.
+         */
         public fun create(request: PoLRequest, response: PoLResponse, beaconPk: UByteArray): PoLToken {
             val pSig = request.phoneSig ?: throw IllegalArgumentException("PoLRequest must be signed to create a PoLToken")
             return PoLToken(

@@ -12,7 +12,7 @@ Built with a configuration-driven, and type-safe API, the Polaris SDK is designe
 - Robust Error Handling: All asynchronous I/O operations return a clear SdkResult, eliminating unexpected crashes and forcing developers to handle failures gracefully.
 - Multiple API Layers:
   - High-Level Use Cases: Simple, one-shot classes (...Flow) for common operations like device registration and PoL transactions.
-  - Low-Level Controllers: Direct access to core components like BleController and ApiClient for building custom logic.
+  - Low-Level Controllers: Direct access to core components like BleController and NetworkClient for building custom logic.
 
 ## Requirements
 
@@ -127,11 +127,11 @@ The Polaris SDK offers two layers of API access through the Polaris singleton ob
 
 These are pre-packaged classes that perform a complete end-to-end operation.  This is the recommended way to get started quickly. They are created by  your app (e.g., in a ViewModelFactory) and injected with dependencies  from Polaris.
 
-- RegisterDeviceFlow(apiClient, keyStore): Registers the device with the backend and retrieves a list of known beacons.
-- ScanForBeaconFlow(bleController, apiClient): Scans for a nearby connectable beacon from the list of known beacons.
-- PolTransactionFlow(bleController, apiClient, keyStore, protocolHandler): Performs the full Proof-of-Location transaction with a found beacon.
-- MonitorBroadcastsFlow(bleController, apiClient, protocolHandler): Starts a continuous scan to listen for and verify beacon broadcasts.
-- DeliverPayloadFlow(bleController, apiClient, scanForBeacon):Finds a beacon and delivers a secure payload to it.
+- RegisterDeviceFlow(networkClient, keyStore): Registers the device with the backend and retrieves a list of known beacons.
+- ScanForBeaconFlow(bleController, networkClient): Scans for a nearby connectable beacon from the list of known beacons.
+- PolTransactionFlow(bleController, networkClient, keyStore, protocolHandler): Performs the full Proof-of-Location transaction with a found beacon.
+- MonitorBroadcastsFlow(bleController, networkClient, protocolHandler): Starts a continuous scan to listen for and verify beacon broadcasts.
+- DeliverPayloadFlow(bleController, networkClient, scanForBeacon):Finds a beacon and delivers a secure payload to it.
 
 ### Low-Level API: core components
 
@@ -142,7 +142,7 @@ For advanced use cases or custom logic, you can directly access the core compone
   - `connect()`, `disconnect()`, `requestPoL()`, `deliverSecurePayload()`
   - `findConnectableBeacons()`, `monitorBroadcasts()`
   - Exposes connectionState: `StateFlow<ConnectionState>`
-- `ApiClient`
+- `NetworkClient`
   - The main interface for all network interactions. Returns SdkResult for all operations.
   - `registerPhone()`, `submitPoLToken()`, `getPayloadsForDelivery()`, `submitSecureAck()`.
   - Exposes knownBeacons: `List<Beacon>` after a successful registration.
@@ -162,9 +162,9 @@ All operations that can fail return an SdkResult. You should handle this in your
 This would typically be in your ViewModel.
 
 ```kotlin
-class MyViewModel(private val apiClient: ApiClient) : ViewModel() {
+class MyViewModel(private val networkClient: NetworkClient) : ViewModel() {
 
-	private val registerDevice = RegisterDeviceFlow(Polaris.apiClient, Polaris.keyStore)
+	private val registerDevice = RegisterDeviceFlow(Polaris.networkClient, Polaris.keyStore)
 
     fun performRegistration() {
         viewModelScope.launch {
@@ -195,10 +195,10 @@ class MyViewModel(private val apiClient: ApiClient) : ViewModel() {
 ```kotlin
 class MyViewModel(...) : ViewModel() {
 
-    private val scanForBeacon = ScanForBeaconFlow(Polaris.bleController, Polaris.apiClient)
+    private val scanForBeacon = ScanForBeaconFlow(Polaris.bleController, Polaris.networkClient)
     private val performPolTransaction = PolTransactionFlow(
         Polaris.bleController,
-        Polaris.apiClient,
+        Polaris.networkClient,
         Polaris.keyStore,
         Polaris.protocolHandler
     )
@@ -230,7 +230,7 @@ class MyViewModel(...) : ViewModel() {
                     log("PoL Token created successfully! Submitting to server...")
                     
                     // Now submit the token
-                    val submitResult = Polaris.apiClient.submitPoLToken(token)
+                    val submitResult = Polaris.networkClient.submitPoLToken(token)
                     if (submitResult is SdkResult.Failure) {
                         log("Failed to submit token: ${submitResult.error.message()}")
                     } else {

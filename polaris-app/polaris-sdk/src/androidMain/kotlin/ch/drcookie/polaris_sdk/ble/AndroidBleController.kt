@@ -30,6 +30,15 @@ import ch.drcookie.polaris_sdk.protocol.model.toBytes
 private val Log = KotlinLogging.logger {}
 private const val unknownErr = "Unknown error"
 
+/**
+ * Android implementation of the [BleController] interface.
+ *
+ * This class orchestrates the lower-level [GattManager] and [FragmentationTransport] to provide
+ * the high-level BLE operations defined in the common interface.
+ *
+ * @property beaconDataParser A utility for parsing raw advertisement data.
+ * @property config The global BLE configuration for UUIDs and other parameters.
+ */
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
 internal class AndroidBleController(
@@ -62,25 +71,26 @@ internal class AndroidBleController(
         scanConfig: ScanConfig,
     ): SdkResult<Flow<CommonBleScanResult>, SdkError> {
 
-            // Map CommonScanFilter to Android's ScanFilter
-            val androidFilters = filters?.map { commonFilter ->
-                when (commonFilter) {
-                    is CommonScanFilter.ByServiceUuid ->
-                        ScanFilter.Builder()
-                            .setServiceUuid(ParcelUuid(UUID.fromString(commonFilter.uuid)))
-                            .build()
+        // Map CommonScanFilter to Android's ScanFilter
+        val androidFilters = filters?.map { commonFilter ->
+            when (commonFilter) {
+                is CommonScanFilter.ByServiceUuid ->
+                    ScanFilter.Builder()
+                        .setServiceUuid(ParcelUuid(UUID.fromString(commonFilter.uuid)))
+                        .build()
 
-                    is CommonScanFilter.ByManufacturerData ->
-                        ScanFilter.Builder()
-                            .setManufacturerData(commonFilter.id, null)
-                            .build()
-                }
+                is CommonScanFilter.ByManufacturerData ->
+                    ScanFilter.Builder()
+                        .setManufacturerData(commonFilter.id, null)
+                        .build()
             }
+        }
+
+        if (!gattManager.isReady()) {
+            return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+        }
 
         return runCatching {
-            if (!gattManager.isReady()) {
-                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
-            }
             // Start the underlying scan, which emits Android's ScanResult
             gattManager.scanResults
                 .map {
@@ -97,7 +107,7 @@ internal class AndroidBleController(
                 .onStart { gattManager.startScan(androidFilters, scanConfig) }
                 .onCompletion { gattManager.stopScan() }
         }.fold(
-            onSuccess = {scanResults -> SdkResult.Success(scanResults)},
+            onSuccess = { scanResults -> SdkResult.Success(scanResults) },
             onFailure = { throwable ->
                 SdkResult.Failure(
                     SdkError.BleError(throwable.message ?: "$unknownErr during scanning")
@@ -122,7 +132,6 @@ internal class AndroidBleController(
             }
         )
     }
-
 
     override suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError> {
         return runCatching {
@@ -221,14 +230,18 @@ internal class AndroidBleController(
         )
     }
 
-    override fun monitorBroadcasts(scanConfig: ScanConfig): Flow<BroadcastPayload> {
-        return getDiscriminatedScanFlow(scanConfig)
+    override fun monitorBroadcasts(scanConfig: ScanConfig): SdkResult<Flow<BroadcastPayload>, SdkError> {
+        if (!gattManager.isReady()) {
+            return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+        }
+        val flow = getDiscriminatedScanFlow(scanConfig)
             .filterIsInstance<DiscriminatedScanResult.Extended>() // We only care about Extended ads
             .mapNotNull { extendedResult ->
                 val scanResult = extendedResult.result
                 // Parse the payload
                 beaconDataParser.parseBroadcastPayload(scanResult, config.manufacturerId)
             }
+        return SdkResult.Success(flow)
     }
 
     private suspend fun performRequestResponse(

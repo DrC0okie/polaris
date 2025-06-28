@@ -6,7 +6,7 @@ import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.model.PoLToken
-import ch.drcookie.polaris_sdk.network.ApiClient
+import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.storage.KeyStore
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
@@ -14,13 +14,29 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
+/**
+ * A high-level use case that performs a PoL transaction.
+ *
+ * This manages the entire connection lifecycle. It connects to a
+ * beacon, performs the cryptographic challenge-response, verifies the outcome, and disconnects.
+ *
+ * @property bleController The controller for the BLE connection and data exchange.
+ * @property networkClient The client to retrieve the device phone ID.
+ * @property keyStore The store for retrieving the device signing keys.
+ * @property protocolHandler The handler for signing the request and verifying the response.
+ */
 public class PolTransactionFlow(
     private val bleController: BleController,
-    private val apiClient: ApiClient,
+    private val networkClient: NetworkClient,
     private val keyStore: KeyStore,
     private val protocolHandler: ProtocolHandler,
 ) {
-    // The 'invoke' operator allows calling the class like a function
+    /**
+     * Executes the Proof-of-Location transaction with a given beacon.
+     *
+     * @param foundBeacon The [FoundBeacon] to connect to.
+     * @return An [SdkResult] containing the verified [PoLToken] on success.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     public suspend operator fun invoke(foundBeacon: FoundBeacon): SdkResult<PoLToken, SdkError> {
         try {
@@ -55,7 +71,7 @@ public class PolTransactionFlow(
             }
 
             // Check precondition for Phone ID
-            val phoneId = apiClient.getPhoneId().toULong()
+            val phoneId = networkClient.getPhoneId().toULong()
             if (phoneId == 0uL) {
                 return SdkResult.Failure(SdkError.PreconditionError("Phone ID not available. Please register first."))
             }

@@ -39,6 +39,17 @@ import androidx.core.util.size
 
 private val Log = KotlinLogging.logger {}
 
+/**
+ * Manager for a single Android Bluetooth GATT connection.
+ *
+ * This class encapsulates the complex `BluetoothGatt` API.
+ * It manages the connection state, service discovery, and raw read/write/indication operations,
+ * exposing them to the [AndroidBleController] through cleaner `Flow` and `Channel`.
+ *
+ * @param context The Android Context.
+ * @param externalScope The CoroutineScope from the controller, used to launch callbacks and emit flows.
+ * @param config The global BLE configuration.
+ */
 @SuppressLint("MissingPermission")
 internal class GattManager(
     private val context: Context,
@@ -46,10 +57,10 @@ internal class GattManager(
     private val config: BleConfig,
 ) {
 
-    // Signals completion of a characteristic write (for sending chunks)
+    /** A channel to signal the completion of a characteristic write operation. */
     internal val characteristicWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
 
-    // Signals completion of a descriptor write (for enabling/disabling indications)
+    /** A channel to signal the completion of a CCCD descriptor write. */
     internal val descriptorWriteSignal = Channel<Boolean>(Channel.RENDEZVOUS)
 
     private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
@@ -68,20 +79,23 @@ internal class GattManager(
     @Volatile
     private var isScanning = false
 
-    // Flow variables
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+    /** A flow that emits the current [ConnectionState]. */
     internal val connectionState = _connectionState.asStateFlow()
 
     private val _scanResults = MutableSharedFlow<ScanResult>()
     internal val scanResults = _scanResults.asSharedFlow()
 
     private val _receivedData = MutableSharedFlow<ByteArray>()
+    /** A flow that emits raw data received from BLE indications. */
     internal val receivedData = _receivedData.asSharedFlow()
 
     private val _discriminatedScanResults = MutableSharedFlow<DiscriminatedScanResult>()
+    /** A flow that emits scan results that have been sorted into Legacy, Extended, or Other. */
     internal val discriminatedScanResults = _discriminatedScanResults.asSharedFlow()
 
-    private val _mtu = MutableStateFlow(517) // Default GATT MTU
+    private val _mtu = MutableStateFlow(517)
+    /** A flow that emits the negotiated MTU size. */
     internal val mtu = _mtu.asStateFlow()
 
     internal fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {

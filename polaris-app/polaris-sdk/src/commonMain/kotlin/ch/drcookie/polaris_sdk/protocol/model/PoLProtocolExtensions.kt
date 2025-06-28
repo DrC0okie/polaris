@@ -6,6 +6,10 @@ import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUByteArrayLE
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toUIntLE
 import ch.drcookie.polaris_sdk.util.ByteConversionUtils.toULongLE
 
+/**
+ * Reconstructs the portion of a [PoLRequest] that is signed by the phone.
+ * @return A [UByteArray] containing the data to be signed or verified.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun PoLRequest.getSignedData(): UByteArray {
     val buffer = UByteArray(PoLRequest.SIGNED_DATA_SIZE)
@@ -22,6 +26,11 @@ public fun PoLRequest.getSignedData(): UByteArray {
     return buffer
 }
 
+/**
+ * Tries to parse a [PoLRequest] from a raw byte array.
+ * @param data The raw byte array received over BLE.
+ * @return A parsed [PoLRequest] object, or `null` if the data is malformed or has an incorrect length.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun poLRequestFromBytes(data: ByteArray): PoLRequest? {
     if (data.size < PoLRequest.Companion.PACKED_SIZE) return null
@@ -44,6 +53,11 @@ public fun poLRequestFromBytes(data: ByteArray): PoLRequest? {
     return PoLRequest(flags, phoneId, beaconId, nonce, phonePk, phoneSig)
 }
 
+/**
+ * Serializes a signed [PoLRequest] into a [ByteArray].
+ * @return The serialized byte array representation of the request.
+ * @throws IllegalStateException if the `phoneSig` property is null.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun PoLRequest.toBytes(): ByteArray {
     val sig = phoneSig ?: throw IllegalStateException("Signature not set before serializing PoLRequest")
@@ -64,7 +78,12 @@ public fun PoLRequest.toBytes(): ByteArray {
     return buffer.asByteArray()
 }
 
-// Constructs the data that the beacon *actually* signed
+/**
+ * Reconstructs the data the beacon signed for a [PoLResponse].
+ * The beacon signature covers not only its own response fields but also some fields from the original request.
+ * @param originalRequest The original request that prompted this response.
+ * @return A [UByteArray] containing the data to be verified against the beacon signature.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun PoLResponse.getEffectivelySignedData(originalRequest: PoLRequest): UByteArray {
     val buffer = UByteArray(EFFECTIVE_SIGNED_DATA_SIZE)
@@ -85,6 +104,11 @@ public fun PoLResponse.getEffectivelySignedData(originalRequest: PoLRequest): UB
     return buffer
 }
 
+/**
+ * Attempts to parse a [PoLResponse] from a raw byte array.
+ * @param data The raw byte array received over BLE.
+ * @return A parsed [PoLResponse] object, or `null` if the data is malformed or has an incorrect length.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun poLResponseFromBytes(data: ByteArray): PoLResponse? {
     if (data.size < PACKED_SIZE) return null
@@ -105,7 +129,11 @@ public fun poLResponseFromBytes(data: ByteArray): PoLResponse? {
     return PoLResponse(flags, beaconId, counter, nonce, beaconSig)
 }
 
-// Data that is physically sent over BLE
+/**
+ * An extension function that serializes a [PoLResponse] into a [ByteArray].
+ * This is primarily for testing or simulation, as the beacon handles the actual serialization.
+ * @return The serialized byte array representation of the response.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public fun PoLResponse.toBytes(): ByteArray {
     val buffer = UByteArray(PACKED_SIZE)

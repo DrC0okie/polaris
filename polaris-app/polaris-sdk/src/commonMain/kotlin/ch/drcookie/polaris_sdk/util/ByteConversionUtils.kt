@@ -1,8 +1,13 @@
 package ch.drcookie.polaris_sdk.util
 
+/**
+ * Utility extension functions for byte array conversions.
+ * Handles Little-Endian number conversions and Hex string representations.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 internal object ByteConversionUtils {
-    // Helper extension functions for UByteArray <-> Number conversions (Little Endian)
+
+    /** Converts a [UByteArray] to a [ULong] assuming little-endian byte order. */
     internal fun UByteArray.toULongLE(): ULong {
         var value = 0uL
         for (i in indices.reversed()) { // Little-endian: LSB first
@@ -16,6 +21,7 @@ internal object ByteConversionUtils {
         return correctedValue
     }
 
+    /** Converts a [ULong] to a [UByteArray] of a given size using little-endian byte order. */
     internal fun ULong.toUByteArrayLE(size: Int = 8): UByteArray {
         val bytes = UByteArray(size)
         for (i in 0 until size) {
@@ -24,6 +30,7 @@ internal object ByteConversionUtils {
         return bytes
     }
 
+    /** Converts a [UByteArray] to a [UInt] assuming little-endian byte order. */
     internal fun UByteArray.toUIntLE(): UInt {
         var value = 0u
         for (i in 0 until minOf(4, this.size)) {
@@ -32,6 +39,7 @@ internal object ByteConversionUtils {
         return value
     }
 
+    /** Converts a [UInt] to a [UByteArray] of a given size using little-endian byte order. */
     internal fun UInt.toUByteArrayLE(size: Int = 4): UByteArray {
         val bytes = UByteArray(size)
         for (i in 0 until size) {
@@ -40,10 +48,18 @@ internal object ByteConversionUtils {
         return bytes
     }
 
-    internal fun UByteArray.toHexString(): String = joinToString("") { it.toString(16).padStart(2, '0') }
+    /** Converts a [UByteArray] to its hexadecimal string representation. */
+    internal fun UByteArray.toHexString(): String {
+        return joinToString("") { it.toString(16).padStart(2, '0') }
+    }
 
+    /** Converts a [ByteArray] to its hexadecimal string representation. */
     internal fun ByteArray.toHexString(): String = asUByteArray().toHexString()
 
+    /**
+     * Converts a hexadecimal string to a [UByteArray].
+     * @throws IllegalStateException if the hex string has an odd number of characters.
+     */
     internal fun hexStringToUByteArray(hex: String): UByteArray {
         check(hex.length % 2 == 0) { "Must have an even length" }
         return hex.chunked(2).map { it.toInt(16).toUByte() }.toUByteArray()

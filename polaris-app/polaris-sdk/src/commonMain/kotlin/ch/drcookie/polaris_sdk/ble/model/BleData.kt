@@ -1,5 +1,12 @@
 package ch.drcookie.polaris_sdk.ble.model
 
+/**
+ * A platform-agnostic representation of a raw BLE scan result.
+ *
+ * @property deviceAddress The MAC address of the discovered device.
+ * @property deviceName The advertised local name of the device, if available.
+ * @property manufacturerData A map of manufacturer IDs to their corresponding raw data from the advertisement packet.
+ */
 public data class CommonBleScanResult(
     public val deviceAddress: String,
     public val deviceName: String?,
@@ -30,13 +37,22 @@ public data class CommonBleScanResult(
     }
 }
 
+/**
+ * Represents a filter to be applied to a BLE scan.
+ */
 public sealed class CommonScanFilter {
+    /** A filter that scans for devices advertising a specific GATT service UUID. */
     public data class ByServiceUuid(public val uuid: String) : CommonScanFilter()
+    /** A filter that scans for devices containing a specific manufacturer ID in their advertisement data. */
     public data class ByManufacturerData(public val id: Int) : CommonScanFilter()
 }
 
-public sealed class DiscriminatedScanResult {
-    public data class Legacy(public val result: CommonBleScanResult) : DiscriminatedScanResult()
-    public data class Extended(public val result: CommonBleScanResult) : DiscriminatedScanResult()
-    public data class Other(public val result: CommonBleScanResult) : DiscriminatedScanResult() // For everything else
+/**
+ * Represents a sorted scan result.
+ */
+@PublishedApi
+internal sealed class DiscriminatedScanResult {
+    internal  data class Legacy(internal  val result: CommonBleScanResult) : DiscriminatedScanResult()
+    internal  data class Extended(internal  val result: CommonBleScanResult) : DiscriminatedScanResult()
+    internal  data class Other(internal  val result: CommonBleScanResult) : DiscriminatedScanResult()
 }

@@ -1,5 +1,17 @@
 package ch.drcookie.polaris_sdk.ble.model
 
+import ch.drcookie.polaris_sdk.network.NetworkClient
+/**
+ * Encrypted payload job fetched from the server, intended for delivery to a specific beacon.
+ *
+ * @property deliveryId A unique identifier for this specific delivery job, assigned by the server.
+ *                      This ID must be sent back to the server in the [DeliveryAck].
+ * @property beaconId The ID of the target beacon that this payload must be delivered to.
+ * @property blob The raw, encrypted data payload to be sent to the beacon.
+ *
+ * @see NetworkClient.getPayloadsForDelivery
+ * @see DeliveryAck
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 public data class EncryptedPayload(
     val deliveryId: Long,
