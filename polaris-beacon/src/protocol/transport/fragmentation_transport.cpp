@@ -10,15 +10,16 @@ FragmentationTransport::FragmentationTransport(BLECharacteristic* indicateChar,
     : _indicateChar(indicateChar) {
     _reassemblyBuffer.reserve(512);  // Pre-allocate some memory
 
-    // We call the factory to create the wrapped handler. So we pass a reference to ourselves to the
-    // factory.
+    // The factory allows the creator of this transport to inject the specific protocol handler
+    // (e.g., Token or Encrypted) that should process the reassembled messages. This keeps the
+    // transport layer decoupled from the protocol logic.
     if (factory) {
         _wrappedHandler = factory(*this);
     }
 }
 
 void FragmentationTransport::onMtuChanged(uint16_t newMtu) {
-    // New MTU - GATT Header - fragmentation Header
+    // The actual data payload size for a single BLE packet is the negotiated
     _maxChunkPayloadSize = newMtu - GATT_HEADER_SIZE - fragmentation::Header::SIZE;
     Serial.printf("%s MTU updated to %u, max chunk payload is now %u bytes.\n", TAG, newMtu,
                   _maxChunkPayloadSize);
@@ -115,10 +116,11 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
         return false;
     }
 
-    // Increment transaction ID for this new message transfer
+    // Increment and wrap the transaction ID for this new message transfer.
     _outgoingTransactionId = (_outgoingTransactionId + 1) & fragmentation::MASK_TRANSACTION_ID;
 
-    // Check if message fits in a single packet (Unfragmented optimization)
+    // A small optimization: if the entire message fits in one chunk, send it
+    // with a special flag and avoid the fragmentation state machine.
     if (len <= _maxChunkPayloadSize) {
         std::vector<uint8_t> packet(len + fragmentation::Header::SIZE);
         packet[0] = fragmentation::FLAG_UNFRAGMENTED | _outgoingTransactionId;
@@ -130,7 +132,7 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
         return true;
     }
 
-    // Message needs fragmentation
+    // Message is too large and must be fragmented.
     Serial.printf("%s Fragmenting message of size %zu into chunks of max %u bytes.\n", TAG, len,
                   _maxChunkPayloadSize);
     size_t bytesSent = 0;
@@ -159,7 +161,10 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
         Serial.printf("%s Sent chunk type %02X, size %zu.\n", TAG, packetType, chunkSize);
 
         bytesSent += chunkSize;
-        vTaskDelay(pdMS_TO_TICKS(10));  // Small delay for flow control, can be tuned
+
+        // A small, non-blocking delay between sending fragments can help with flow control and
+        // prevent overwhelming the receiver buffer.
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     Serial.printf("%s Fragmentation complete for transaction %u.\n", TAG, _outgoingTransactionId);

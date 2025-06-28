@@ -112,7 +112,7 @@ polaris-beacon/
 
 ## License
 
-This project's original code is currently distributed for educational and internal research purposes only. Licensing terms for the original contributions to Polaris Beacon will be defined at a later date.
+This project original code is currently distributed for educational and internal research purposes only. Licensing terms for the original contributions to Polaris Beacon will be defined at a later date.
 
 This project relies on several third-party libraries and components, each with its own license:
 

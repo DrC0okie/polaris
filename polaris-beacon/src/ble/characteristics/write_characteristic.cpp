@@ -1,9 +1,8 @@
 // write_characteristic.cpp
 #include "write_characteristic.h"
 
-#include <HardwareSerial.h>  // For Serial
+#include <HardwareSerial.h>
 
-// --- CharacteristicWriteHandler Implementation ---
 WriteCharacteristic::CharacteristicWriteHandler::CharacteristicWriteHandler(
     WriteCallback onWriteAction)
     : _onWriteAction(onWriteAction) {

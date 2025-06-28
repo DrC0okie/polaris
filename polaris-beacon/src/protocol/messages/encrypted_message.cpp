@@ -66,9 +66,7 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     this->beaconIdAd = senderBeaconIdAd;
 
     // Generate a unique 12-byte nonce for this message
-    //    IMPORTANT: This nonce MUST be unique for each message encrypted with the same key.
-    //    For a beacon, a simple incrementing counter stored in NVS
-    //    could work, or random bytes. For PoC, random is fine.
+    // IMPORTANT: This nonce MUST be unique for each message encrypted with the same key.
     randombytes_buf(this->nonce, POL_AEAD_NONCE_SIZE);
 
     // Serialize InnerPlaintext

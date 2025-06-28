@@ -13,59 +13,48 @@
 #include "characteristics/write_characteristic.h"
 
 // ========== SERVER CALLBACKS ==========
-BleManager::ServerCallbacks::ServerCallbacks(BleManager* mngr) : _mngr(mngr) {
+BleManager::ServerCallbacks::ServerCallbacks(BleManager* mngr) : _parentManager(mngr) {
 }
 
 void BleManager::ServerCallbacks::onMtuChanged(BLEServer* _, esp_ble_gatts_cb_param_t* param) {
     Serial.printf("[BLE] Negotiated MTU: %u bytes\n", param->mtu.mtu);
-    if (_mngr) {
-        _mngr->updateMtu(param->mtu.mtu);
+    if (_parentManager) {
+        _parentManager->updateMtu(param->mtu.mtu);
     }
 }
 
 void BleManager::ServerCallbacks::onConnect(BLEServer* _) {
-    if (!_mngr)
+    if (!_parentManager)
         return;
 
     Serial.println("[BLE] Client connected.");
 
-    // Stop the legacy advertising instance
-    if (_mngr->getMultiAdvertiser()) {
-        _mngr->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE);
+    // While in a connection, we stop the connectable advertisement.
+    // It will be restarted on disconnect.
+    if (_parentManager->getMultiAdvertiser()) {
+        _parentManager->getMultiAdvertiser()->stop(1, &LEGACY_TOKEN_ADV_INSTANCE);
     }
 }
 
 void BleManager::ServerCallbacks::onDisconnect(BLEServer* _) {
-    if (_mngr && _mngr->getMultiAdvertiser()) {
-        Serial.println("[BLE] Client disconnected. Restarting legacy "
-                       "advertising instance.");
-        if (!_mngr->getMultiAdvertiser()->start(1, LEGACY_TOKEN_ADV_INSTANCE)) {
-            Serial.printf("[BLE] Failed to restart legacy advertising instance %d.\n",
-                          LEGACY_TOKEN_ADV_INSTANCE);
-        }
+    if (_parentManager && _parentManager->getMultiAdvertiser()) {
+        Serial.println("[BLE] Client disconnected. Restarting legacy adv instance.");
+        _parentManager->getMultiAdvertiser()->start(1, LEGACY_TOKEN_ADV_INSTANCE);
     }
 }
 
 // ========== CONSTRUCTOR & DESTRUCTOR ==========
 BleManager::BleManager() {
+    // We create a multi-advertising instance to manage different advertising sets.
     _multiAdvertiserPtr =
         std::unique_ptr<BLEMultiAdvertising>(new BLEMultiAdvertising(NUM_ADV_INSTANCES));
-    if (!_multiAdvertiserPtr) {
-        Serial.println("[BLE] CRITICAL: Failed to allocate BLEMultiAdvertising!");
-    }
-    _tokenQueue = xQueueCreate(4, sizeof(TokenRequestMessage));
-    if (_tokenQueue == nullptr) {
-        Serial.println("[BLE] CRITICAL: Failed to create request queue!");
-    }
-    _encryptedQueue = xQueueCreate(4, sizeof(EncryptedRequestMessage));
-    if (_encryptedQueue == nullptr) {
-        Serial.println("[BLE] CRITICAL: Failed to create encrypted request queue!");
-    }
 
+    // Create a dedicated FreeRTOS queue for each type of incoming request.
+    // This decouples the BLE callback (which should be fast) from the potentially
+    // slow processing of the request itself.
+    _tokenQueue = xQueueCreate(4, sizeof(TokenRequestMessage));
+    _encryptedQueue = xQueueCreate(4, sizeof(EncryptedRequestMessage));
     _pullQueue = xQueueCreate(4, sizeof(uint8_t));
-    if (_pullQueue == nullptr) {
-        Serial.println("[BLE] CRITICAL: Failed to create pull request queue!");
-    }
 }
 
 BleManager::~BleManager() {
@@ -73,12 +62,15 @@ BleManager::~BleManager() {
 }
 
 void BleManager::begin(const std::string& deviceName) {
+    // Standard BLE stack initialization.
     Serial.println("[BLE] Initializing BLE Device stack...");
     BLEDevice::init("");
 
+    // Request a large MTU for faster data transfer.
     Serial.println("[BLE] Setting global MTU...");
     BLEDevice::setMTU(517);
 
+    // Create the main GATT server and register our callback handler.
     Serial.println("[BLE] Creating GATT Server...");
     _pServer = BLEDevice::createServer();
     if (!_pServer) {
@@ -96,6 +88,9 @@ void BleManager::begin(const std::string& deviceName) {
     _pServer->setCallbacks(_serverCallbacks.get());
 
     // Setup all characteristics
+    // The manager creates the characteristic wrappers. Each wrapper onWrite callback
+    // is a lambda that calls the appropriate queuing function in this class.
+    // This keeps the BLE event handler (onWrite) fast.
 
     // Write characteristic for pol request
     _polServiceChars.push_back(std::unique_ptr<WriteCharacteristic>(new WriteCharacteristic(
@@ -125,9 +120,10 @@ void BleManager::begin(const std::string& deviceName) {
     _polServiceChars.push_back(std::move(encryptedIndicateWrapper));
 
     // pol service configuration
+    // Create the main service and specify the number of handles. Each service, characteristic, and
+    // descriptor consumes a handle. If this number is too low, characteristic creation will fail
+    // silently and you will loose your mind trying to find why...
     Serial.println("[BLE] Creating pol service and Characteristics...");
-    // If you ever want to add more characteristics / descriptors, increase the number of handles,
-    // otherwise it won't work... wasted 6 hours to solve the issue!
     int numHandles = 20;
     BLEService* polService = _pServer->createService(BLEUUID(POL_SERVICE), numHandles, 0);
     if (!polService) {
@@ -136,7 +132,8 @@ void BleManager::begin(const std::string& deviceName) {
         return;
     }
 
-    // Add characteristics to the service
+    // Add all the created characteristic wrappers to the service. The wrapper `configure` method
+    // does the actual work of calling the underlying BLE library `createCharacteristic`.
     for (const auto& charWrapper : _polServiceChars) {
         Serial.printf("[BLE] Adding %s characteristic...\n", charWrapper->getName().c_str());
         if (!charWrapper->configure(*polService)) {
@@ -148,6 +145,8 @@ void BleManager::begin(const std::string& deviceName) {
     }
 
     // Advertising configuration for token service
+    // Configure the parameters for both legacy and extended advertising instances.
+    // The actual *data* for these ads will be set by the dedicated advertiser classes.
     Serial.println("[BLE] Configuring Legacy Advertisement...");
     if (!configureTokenSrvcAdvertisement(deviceName, LEGACY_TOKEN_ADV_INSTANCE, POL_SERVICE)) {
         stop();
@@ -159,8 +158,10 @@ void BleManager::begin(const std::string& deviceName) {
         Serial.println("[BLE] WARNING: Failed to configure extended advertisement.");
     }
 
+    // Commit and start the service, making it visible to clients.
     polService->start();
 
+    // Start all configured advertising instances.
     Serial.println("[BLE] Starting Multi-Advertising instances...");
     if (!_multiAdvertiserPtr->start(NUM_ADV_INSTANCES, 0)) {
         Serial.printf("[BLE] CRITICAL: Failed to start multi-advertising.\n");
@@ -168,8 +169,12 @@ void BleManager::begin(const std::string& deviceName) {
         return;
     }
 
-    Serial.println("[BLE] Starting PoL processor task...");
     _shutdownRequested = false;
+
+    // For each queue, we create a dedicated FreeRTOS task to process items from it. This offloads
+    // all complex logic from the main BLE thread, ensuring responsiveness. Using `tskNO_AFFINITY`
+    // allows the FreeRTOS scheduler to place the task on either core.
+    Serial.println("[BLE] Starting PoL processor task...");
     BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
                                                  &_tokenProcessorTask, tskNO_AFFINITY);
     if (taskRes != pdPASS) {
@@ -181,61 +186,43 @@ void BleManager::begin(const std::string& deviceName) {
                                                     1, &_encryptedProcessorTask, tskNO_AFFINITY);
 
     Serial.println("[BLE] Starting Data Pull processor task...");
-    BaseType_t pullTaskRes = xTaskCreatePinnedToCore(pullProcessorTask, "PullProc", 4096, this, 1,
+    BaseType_t pullTaskRes = xTaskCreatePinnedToCore(pullProcessorTask, "PullProc", 1024, this, 1,
                                                      &_pullProcessorTask, tskNO_AFFINITY);
 
     if (encTaskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create Encrypted Data processor task!");
     }
-
-    Serial.println("[BLE] Configuration complete.");
 }
 
 // ========== STOP ==========
 void BleManager::stop() {
-    Serial.println("[BLE] Stopping BleManager...");
+    // Shut down all tasks and free all resources in reverse order of creation.
+    _shutdownRequested = true;
+    vTaskDelay(pdMS_TO_TICKS(100));  // Give tasks a moment to see the shutdown flag.
+
     if (_tokenProcessorTask != nullptr) {
-        Serial.println("[BLE] Signaling processor task to shut down...");
-        _shutdownRequested = true;
-        vTaskDelay(pdMS_TO_TICKS(100));
-        TaskHandle_t tempHandle = _tokenProcessorTask;
+        vTaskDelete(_tokenProcessorTask);
         _tokenProcessorTask = nullptr;
-        vTaskDelete(tempHandle);
     }
-
     if (_encryptedProcessorTask != nullptr) {
-        Serial.println("[BLE] Waiting for Encrypted Data processor task to shut down...");
-        vTaskDelay(pdMS_TO_TICKS(100));  // Give task time to see flag
-        TaskHandle_t tempHandle = _encryptedProcessorTask;
-        _encryptedProcessorTask = nullptr;  // Clear before delete
-        vTaskDelete(tempHandle);
-        Serial.println("[BLE] Encrypted Data processor task deleted.");
+        vTaskDelete(_encryptedProcessorTask);
+        _encryptedProcessorTask = nullptr;
     }
-
     if (_pullProcessorTask != nullptr) {
-        Serial.println("[BLE] Signaling Data Pull processor task to shut down...");
-        vTaskDelay(pdMS_TO_TICKS(100));
-        TaskHandle_t tempHandle = _pullProcessorTask;
+        vTaskDelete(_pullProcessorTask);
         _pullProcessorTask = nullptr;
-        vTaskDelete(tempHandle);
     }
 
-    if (_multiAdvertiserPtr) {
-        Serial.println("[BLE] Stopping and clearing multi-advertiser instances...");
-        _multiAdvertiserPtr->stop(NUM_ADV_INSTANCES, 0);
-        _multiAdvertiserPtr->clear();
-    }
+    _multiAdvertiserPtr->stop(NUM_ADV_INSTANCES, 0);
 
     if (_tokenQueue != nullptr) {
         vQueueDelete(_tokenQueue);
         _tokenQueue = nullptr;
     }
-
     if (_encryptedQueue != nullptr) {
         vQueueDelete(_encryptedQueue);
         _encryptedQueue = nullptr;
     }
-
     if (_pullQueue != nullptr) {
         vQueueDelete(_pullQueue);
         _pullQueue = nullptr;
@@ -244,10 +231,11 @@ void BleManager::stop() {
     if (BLEDevice::getInitialized()) {
         BLEDevice::deinit(true);
     }
-
     _pServer = nullptr;
 }
 
+// These methods are designed to be called from fast BLE callbacks. They just
+// copy the data and place it on a queue, returning immediately.
 // ========== QUEUE TOKEN REQUEST ==========
 void BleManager::queueTokenRequest(const uint8_t* data, size_t len) {
     if (!_tokenQueue) {
@@ -304,12 +292,15 @@ void BleManager::queueEncryptedRequest(const uint8_t* data, size_t len) {
 void BleManager::queuePullRequest() {
     if (!_pullQueue)
         return;
-    uint8_t dummy = 1;  // The value doesn't matter, it's just a signal.
+    uint8_t dummy = 1;  // The value doesn't matter, it just a signal.
     if (xQueueSend(_pullQueue, &dummy, 0) != pdTRUE) {
         Serial.println("[BLE] Pull request queue full, dropping request.");
     }
 }
 
+// Each of these methods runs in its own FreeRTOS task. They block on `xQueueReceive`
+// until a request is queued, then wake up, process it by calling the appropriate
+// registered handler, and go back to sleep.
 // ========== TOKEN PROCESSOR TASK ==========
 void BleManager::tokenProcessorTask(void* pvParameters) {
     static_cast<BleManager*>(pvParameters)->processTokenRequests();
@@ -352,7 +343,6 @@ void BleManager::processEncryptedRequests() {
 }
 
 // ========== PULL PROCESSOR TASK ==========
-
 void BleManager::pullProcessorTask(void* pvParameters) {
     static_cast<BleManager*>(pvParameters)->processPullRequests();
     vTaskDelete(NULL);
@@ -377,6 +367,8 @@ void BleManager::processPullRequests() {
 // ========== UTILS ==========
 
 BLECharacteristic* BleManager::getCharacteristicByUUID(const BLEUUID& uuid) const {
+    // This uses a lambda with std::find_if to search our vector of
+    // characteristic wrappers for one with a matching UUID.
     auto it = std::find_if(_polServiceChars.begin(), _polServiceChars.end(),
                            [&](const std::unique_ptr<ICharacteristic>& ptr) {
                                if (ptr) {
@@ -385,6 +377,7 @@ BLECharacteristic* BleManager::getCharacteristicByUUID(const BLEUUID& uuid) cons
                                return false;
                            });
 
+    // If found, return the raw pointer to the underlying library object.
     if (it != _polServiceChars.end()) {
         return (*it)->getRawCharacteristic();
     }
@@ -438,7 +431,7 @@ bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, 
         return false;
     }
 
-    // Default advertising data that can be overridden by the connectable advertiser
+    // Set the initial, default advertising data. ConnectableAdvertiser will overwrite this
     BLEAdvertisementData advData;
     advData.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
 
@@ -465,9 +458,9 @@ bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, 
         return false;
     }
 
-    // Scan Response Data
+    // Set the scan response data, which contains the device name.
     BLEAdvertisementData scanRspData;
-    scanRspData.setName(deviceName);  // Full name in scan response
+    scanRspData.setName(deviceName);
 
     std::string scanRspPayload = scanRspData.getPayload();
     if (scanRspPayload.length() > ESP_BLE_SCAN_RSP_DATA_LEN_MAX) {
@@ -484,7 +477,7 @@ bool BleManager::configureTokenSrvcAdvertisement(const std::string& deviceName, 
         }
     }
 
-    _multiAdvertiserPtr->setDuration(instanceNum, 0, 0);
+    _multiAdvertiserPtr->setDuration(instanceNum, 0, 0);  // Advertise indefinitely
     return true;
 }
 
@@ -509,7 +502,7 @@ bool BleManager::configureExtendedAdvertisement() {
         return false;
     }
 
-    // The BeaconAdvertiser will overwrite this with the actual dynamic data.
+    // Set a minimal placeholder for the advertising data. BeaconAdvertiser will overwrite this
     uint8_t placeholder_data[] = {0x02, 0x01, 0x06};
 
     if (!_multiAdvertiserPtr->setAdvertisingData(EXTENDED_BROADCAST_ADV_INSTANCE,
@@ -522,7 +515,8 @@ bool BleManager::configureExtendedAdvertisement() {
     return true;
 }
 
-//  Informs the transport layers
+// This method acts as an event broadcaster. It iterates through all registered
+// transport layers and notifies them of the new MTU for the connection.
 void BleManager::updateMtu(uint16_t newMtu) {
     for (auto transport : _transportsForMtuUpdate) {
         if (transport) {

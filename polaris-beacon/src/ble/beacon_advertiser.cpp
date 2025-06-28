@@ -18,7 +18,7 @@ void BeaconAdvertiser::begin() {
 
     _counterRef.setIncrementCallback(BeaconAdvertiser::onCounterIncremented, this);
 
-    // Perform an initial update to set the first advertisement
+    // initial update to set the first advertisement
     updateAdvertisement();
 }
 
@@ -41,7 +41,7 @@ void BeaconAdvertiser::updateAdvertisement() {
     // Sign beaconId and counter
     _cryptoService.signBeaconBroadcast(payloadContent.signature, _beaconId, currentCounter);
 
-    // Construct the actual advertising data (e.g., Manufacturer Specific Data)
+    // Construct the advertising data (e.g., Manufacturer Specific Data)
     // Format: [Len1][Type1][ManufID_LSB][ManufID_MSB][BroadcastPayload_Bytes]
     const uint16_t manufacturerId = MANUFACTURER_ID;  // company ID
     const size_t payloadDataSize = sizeof(payloadContent.beaconId) +

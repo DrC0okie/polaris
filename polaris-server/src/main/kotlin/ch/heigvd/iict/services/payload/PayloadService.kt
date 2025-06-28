@@ -117,7 +117,7 @@ class PayloadService(
 
         // 2. Craft the ACK response to send back
         val ackPlaintext = PlaintextMessage(
-            msgId = outboundMessageRepository.getNextServerMsgId(), // A new, unique ID for our ACK
+            msgId = receivedPlaintext.msgId, // Echo the message ID in the ack
             msgType = MessageType.ACK,
             opType = receivedPlaintext.opType, // Echo back the opType from the beacon's request
             beaconCounter = 0L, // The server's counter is not used in this context

@@ -26,12 +26,11 @@ class InboundPayloadProcessor(
         }
 
         // Validate the plaintext and update beacon state
-        // This is a great place to put the counter update logic
         if (plaintext.beaconCounter > sourceBeacon.lastKnownCounter) {
             sourceBeacon.lastKnownCounter = plaintext.beaconCounter
         }
 
-        // 3. Create a record of the inbound message
+        // Create a record of the inbound message
         val inboundRecord = InboundMessage().apply {
             beacon = sourceBeacon
             beaconMsgId = plaintext.msgId

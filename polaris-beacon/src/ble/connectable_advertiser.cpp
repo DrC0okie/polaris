@@ -3,14 +3,14 @@
 #include <BLEDevice.h>
 #include <HardwareSerial.h>
 
-#include "ble_manager.h"  // For LEGACY_TOKEN_ADV_INSTANCE and POL_SERVICE
+#include "ble_manager.h"
 
 ConnectableAdvertiser::ConnectableAdvertiser(BLEMultiAdvertising& advertiser)
     : _advertiserRef(advertiser) {
 }
 
 void ConnectableAdvertiser::begin() {
-    updateAdvertisement();
+    updateAdvertisementData();
 }
 
 void ConnectableAdvertiser::setHasDataPending(bool hasData) {
@@ -25,17 +25,17 @@ void ConnectableAdvertiser::setHasDataPending(bool hasData) {
         }
         Serial.printf("[ConnAdv] Data pending flag changed to: %d. Updating advertisement.\n",
                       hasData);
-        updateAdvertisement();
+        updateAdvertisementData();
     }
 }
 
-void ConnectableAdvertiser::updateAdvertisement() {
+void ConnectableAdvertiser::updateAdvertisementData() {
     BLEAdvertisementData advData;
 
-    // 1. Set the Flags
+    // Set the Flags
     advData.setFlags(ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT);
 
-    // 2. Construct the Manufacturer Data payload
+    // Construct the Manufacturer Data payload
     // New size: 2 bytes (Manuf ID) + 4 bytes (Beacon ID) + 1 byte (Status) = 7 bytes
     uint8_t manufDataPayload[7];
     uint16_t manufId = MANUFACTURER_ID;
@@ -45,17 +45,17 @@ void ConnectableAdvertiser::updateAdvertisement() {
     memcpy(manufDataPayload, &manufId, sizeof(manufId));
     // Copy Beacon ID
     memcpy(manufDataPayload + sizeof(manufId), &beaconId, sizeof(beaconId));
-    // Copy our dynamic Status Byte
+    // Copy dynamic Status Byte
     memcpy(manufDataPayload + sizeof(manufId) + sizeof(beaconId), &_statusByte,
            sizeof(_statusByte));
 
     advData.setManufacturerData(
         std::string(reinterpret_cast<const char*>(manufDataPayload), sizeof(manufDataPayload)));
 
-    // 3. Set the Complete Service UUID
+    // Set the Complete Service UUID
     advData.setCompleteServices(BLEUUID(BleManager::POL_SERVICE));
 
-    // 4. Get the final payload and set it
+    // Get the final payload and set it
     std::string advPayload = advData.getPayload();
 
     if (advPayload.length() > ESP_BLE_ADV_DATA_LEN_MAX) {

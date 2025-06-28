@@ -20,7 +20,7 @@ bool KeyManager::begin(Preferences& prefs) {
     Serial.printf("%s Beacon Ed25519 Public Key: ", TAG);
     printKey(Ed25519_PK_SIZE, _ed25519Pk);
 
-    // Manage beacon's X25519 keys using KeyManager
+    // Manage beacon X25519 keys using KeyManager
     if (!manageX25519KeyPair(_x25519Pk, _x25519Sk)) {
         Serial.printf("%s CRITICAL: Failed to manage X25519 keys! Restarting...\n", TAG);
         return false;
@@ -28,9 +28,9 @@ bool KeyManager::begin(Preferences& prefs) {
     Serial.printf("%s X25519 Public Key: ", TAG);
     printKey(X25519_PK_SIZE, _x25519Pk);
 
-    // Manage Server's X25519 Public Key using KeyManager
+    // Manage Server X25519 Public Key using KeyManager
     if (!manageServerX25519PublicKey(_serverX25519Pk, HARDCODED_SERVER_X25519_PK)) {
-        Serial.printf("%s CRITICAL: Failed to manage Server's X25519 PK! Restarting...\n", TAG);
+        Serial.printf("%s CRITICAL: Failed to manage Server X25519 PK! Restarting...\n", TAG);
         return false;
     }
     Serial.printf("%s Server X25519 Public Key: ", TAG);
@@ -100,7 +100,7 @@ bool KeyManager::manageX25519KeyPair(uint8_t pk_out[X25519_PK_SIZE],
 
     Serial.printf("%s X25519 key pair not fully loaded or inconsistent. Generating new pair.\n",
                   TAG);
-    generateX25519KeyPair(pk_out, sk_out);  // This function is from your crypto.cpp
+    generateX25519KeyPair(pk_out, sk_out);
 
     bool pk_stored = storeKey(NVS_X25519_PK_NAME, pk_out, X25519_PK_SIZE);
     bool sk_stored = storeKey(NVS_X25519_SK_NAME, sk_out, X25519_SK_SIZE);
@@ -110,19 +110,19 @@ bool KeyManager::manageX25519KeyPair(uint8_t pk_out[X25519_PK_SIZE],
 
 bool KeyManager::manageServerX25519PublicKey(uint8_t pk_out[X25519_PK_SIZE],
                                              const uint8_t hardcoded_pk[X25519_PK_SIZE]) {
-    Serial.printf("%s Managing Server's X25519 Public Key...\n", TAG);
+    Serial.printf("%s Managing Server X25519 Public Key...\n", TAG);
     if (loadKey(NVS_SERVER_X25519_PK_NAME, pk_out, X25519_PK_SIZE)) {
-        Serial.printf("%s Server's X25519 PK loaded from NVS.\n", TAG);
+        Serial.printf("%s Server X25519 PK loaded from NVS.\n", TAG);
         return true;
     }
 
-    Serial.printf("%s Server's X25519 PK not found in NVS. Using hardcoded default.\n", TAG);
+    Serial.printf("%s Serve X25519 PK not found in NVS. Using hardcoded default.\n", TAG);
     memcpy(pk_out, hardcoded_pk, X25519_PK_SIZE);
 
     if (storeKey(NVS_SERVER_X25519_PK_NAME, pk_out, X25519_PK_SIZE)) {
-        Serial.printf("%s Hardcoded Server's X25519 PK stored to NVS.\n", TAG);
+        Serial.printf("%s Hardcoded Server X25519 PK stored to NVS.\n", TAG);
     } else {
-        Serial.printf("%s WARNING: Failed to store hardcoded Server's X25519 PK to NVS!\n", TAG);
+        Serial.printf("%s WARNING: Failed to store hardcoded Server X25519 PK to NVS!\n", TAG);
         // Still return true because we have the hardcoded key available for use.
     }
     return true;  // Success because pk_out is populated (either from NVS or hardcoded)

@@ -48,7 +48,7 @@ void DisplayController::showMessage(const std::string& message, uint8_t size, bo
     _display.setTextWrap(true);  // Enable word wrapping
 
     if (centered) {
-        // Simple centering logic (not perfect, but good for short messages)
+        // Simple centering logic (not perfect, but good enough for short messages)
         int16_t x1, y1;
         uint16_t w, h;
         _display.getTextBounds(message.c_str(), 0, 0, &x1, &y1, &w, &h);

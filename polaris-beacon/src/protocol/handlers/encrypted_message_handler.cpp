@@ -14,7 +14,7 @@ EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoServ
                                                  OutgoingMessageService& outgoingMessageService)
     : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
-      _prefs(prefs),  // Store NVS reference
+      _prefs(prefs),
       _transport(transport),
       _commandFactory(commandFactory),
       _outgoingMessageService(outgoingMessageService),
@@ -73,10 +73,8 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
         Serial.printf("%s REQ received. opType: %u, msgId: %u. Processing...\n", TAG,
                       innerPtReceived.opType, innerPtReceived.msgId);
 
+        // Handles the command and the ack / err as well
         handleIncomingCommand(innerPtReceived);
-
-        // The executor will handle the command. Now we send an ACK.
-        sendAck(innerPtReceived.msgId, innerPtReceived.opType);
     } else if (innerPtReceived.msgType == MSG_TYPE_ACK) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
@@ -98,7 +96,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
 
 void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOpType) {
     InnerPlaintext ackInnerPt;
-    ackInnerPt.msgId = _nextResponseMsgId;  // Use beacon's own unique msgId for this response
+    ackInnerPt.msgId = _nextResponseMsgId;  // Use beacon own unique msgId for this response
     ackInnerPt.msgType = MSG_TYPE_ACK;
     ackInnerPt.opType = originalOpType;  // Echo opType of the request it's ACKing
     ackInnerPt.beaconCnt = _beaconEventCounter.getValue();

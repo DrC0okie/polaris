@@ -17,7 +17,8 @@
 #include "utils/led_controller.h"
 #include "utils/system_monitor.h"
 
-// Globals that need to have infinite lifecycle
+// These objects are declared globally to ensure their lifecycle persists for
+// the entire duration of the program.
 const char* TAG = "[MAIN]";
 BleManager ble;
 Preferences prefs;
@@ -38,13 +39,12 @@ FragmentationTransport* encryptedTransportPtr = nullptr;
 
 void setup() {
     Serial.begin(115200);
-    delay(5000);
+    delay(5000);  // Gives the developper time to connect the serial monitor
     Serial.printf("\n%s Booting Polaris Beacon...\n", TAG);
 
     ledController.begin();
     if (!displayController.begin()) {
         Serial.println("DisplayController error!");
-        delay(50000);
     }
 
     // Init crypto lib
@@ -68,7 +68,7 @@ void setup() {
     }
 
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
-    ble.begin(BLE_DEVICE_NAME);  // This starts the advertisement
+    ble.begin(BLE_DEVICE_NAME);
 
     BLEMultiAdvertising* multiAdv = ble.getMultiAdvertiser();
     if (!multiAdv) {
@@ -76,43 +76,43 @@ void setup() {
         ESP.restart();
     }
 
+    // Create the advertiser for the connectable (legacy) advertisement.
     connectableAdvertiser =
         std::unique_ptr<ConnectableAdvertiser>(new ConnectableAdvertiser(*multiAdv));
-
     connectableAdvertiser->begin();
 
+    // Initialize the outgoing message service. It needs a callback to notify the
+    // connectable advertiser when its queue state changes.
     outgoingMessageService.begin(&cryptoService, &prefs, [&](bool hasData) {
-        if (connectableAdvertiser) {
-            connectableAdvertiser->setHasDataPending(hasData);
-        }
+        connectableAdvertiser->setHasDataPending(hasData);
     });
 
-    // create an advertizer to broadcast signed data
+    // Create the advertiser for the non-connectable (extended) broadcast.
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
         new BeaconAdvertiser(BEACON_ID, cryptoService, counter, *multiAdv));
-
     beaconExtAdvertiser->begin();
 
+    // Get the raw BLE characteristic that will be used for sending data.
     auto tokenIndicateChar = ble.getCharacteristicByUUID(BLEUUID(BleManager::TOKEN_INDICATE));
 
+    // Create the Transport Layer for this channel.
     auto tokenTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
-        tokenIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
+        tokenIndicateChar,  // The characteristic to use for sending data OUT.
+        // Provide a Factory Lambda to create the Message Handler.
+        [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
+            // Inside the lambda, create the TokenMessageHandler for this channel.
             return std::unique_ptr<TokenMessageHandler>(
                 new TokenMessageHandler(cryptoService, counter, transport));
         }));
 
-    // Register the transport with the ble for processing incoming data and for MTU updates.
     ble.setTokenRequestProcessor(tokenTransport.get());
     ble.registerTransportForMtuUpdates(tokenTransport.get());
     g_transports.push_back(std::move(tokenTransport));
 
-    // Setup Encrypted Message Handling
-    auto encryptedIndicateChar =
-        ble.getCharacteristicByUUID(BLEUUID(BleManager::ENCRYPTED_INDICATE));
-
+    // Setup for all encrypted communication.
+    auto encIndicateChar = ble.getCharacteristicByUUID(BLEUUID(BleManager::ENCRYPTED_INDICATE));
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
-        encryptedIndicateChar,
-        [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
+        encIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             return std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(
                 cryptoService, counter, prefs, transport, commandFactory, outgoingMessageService));
         }));
@@ -122,6 +122,7 @@ void setup() {
     ble.registerTransportForMtuUpdates(encryptedTransport.get());
     g_transports.push_back(std::move(encryptedTransport));
 
+    // Setup the handler for the explicit "data pull" trigger.
     auto dataPullHandler = std::unique_ptr<DataPullHandler>(
         new DataPullHandler(outgoingMessageService, *encryptedTransportPtr));
     ble.setPullRequestProcessor(dataPullHandler.get());

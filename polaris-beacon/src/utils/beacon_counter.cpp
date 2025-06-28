@@ -16,7 +16,6 @@ void BeaconCounter::begin(Preferences& prefs) {
     // Set static instance pointer so static callback can access 'this'
     instance = this;
 
-    // Ticker needs plain function pointer; use static trampoline
     _ticker.attach(60, BeaconCounter::onTickStatic);
 }
 
