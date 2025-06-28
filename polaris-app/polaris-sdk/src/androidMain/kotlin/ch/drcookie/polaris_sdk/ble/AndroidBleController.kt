@@ -28,7 +28,7 @@ import ch.drcookie.polaris_sdk.protocol.model.poLResponseFromBytes
 import ch.drcookie.polaris_sdk.protocol.model.toBytes
 
 private val Log = KotlinLogging.logger {}
-private val unknownErr = "Unknown error"
+private const val unknownErr = "Unknown error"
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalUnsignedTypes::class)
@@ -60,42 +60,57 @@ internal class AndroidBleController(
     override fun scanForBeacons(
         filters: List<CommonScanFilter>?,
         scanConfig: ScanConfig,
-    ): Flow<CommonBleScanResult> {
+    ): SdkResult<Flow<CommonBleScanResult>, SdkError> {
 
-        // Map our CommonScanFilter to Android's ScanFilter
-        val androidFilters = filters?.map { commonFilter ->
-            when (commonFilter) {
-                is CommonScanFilter.ByServiceUuid ->
-                    ScanFilter.Builder()
-                        .setServiceUuid(ParcelUuid(UUID.fromString(commonFilter.uuid)))
-                        .build()
+            // Map CommonScanFilter to Android's ScanFilter
+            val androidFilters = filters?.map { commonFilter ->
+                when (commonFilter) {
+                    is CommonScanFilter.ByServiceUuid ->
+                        ScanFilter.Builder()
+                            .setServiceUuid(ParcelUuid(UUID.fromString(commonFilter.uuid)))
+                            .build()
 
-                is CommonScanFilter.ByManufacturerData ->
-                    ScanFilter.Builder()
-                        .setManufacturerData(commonFilter.id, null)
-                        .build()
+                    is CommonScanFilter.ByManufacturerData ->
+                        ScanFilter.Builder()
+                            .setManufacturerData(commonFilter.id, null)
+                            .build()
+                }
             }
-        }
 
-        // Start the underlying scan, which emits Android's ScanResult
-        return gattManager.scanResults
-            .map { androidScanResult ->
-                CommonBleScanResult(
-                    deviceAddress = androidScanResult.device.address,
-                    deviceName = androidScanResult.scanRecord?.deviceName,
-                    manufacturerData = androidScanResult.scanRecord?.manufacturerSpecificData?.let { sparseArray ->
-                        (0 until sparseArray.size).associate { i ->
-                            sparseArray.keyAt(i) to sparseArray.valueAt(i)
-                        }
-                    } ?: emptyMap()
+        return runCatching {
+            if (!gattManager.isReady()) {
+                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+            }
+            // Start the underlying scan, which emits Android's ScanResult
+            gattManager.scanResults
+                .map {
+                    CommonBleScanResult(
+                        it.device.address,
+                        it.scanRecord?.deviceName,
+                        it.scanRecord?.manufacturerSpecificData?.let { sparseArray ->
+                            (0 until sparseArray.size).associate { i ->
+                                sparseArray.keyAt(i) to sparseArray.valueAt(i)
+                            }
+                        } ?: emptyMap()
+                    )
+                }
+                .onStart { gattManager.startScan(androidFilters, scanConfig) }
+                .onCompletion { gattManager.stopScan() }
+        }.fold(
+            onSuccess = {scanResults -> SdkResult.Success(scanResults)},
+            onFailure = { throwable ->
+                SdkResult.Failure(
+                    SdkError.BleError(throwable.message ?: "$unknownErr during scanning")
                 )
             }
-            .onStart { gattManager.startScan(androidFilters, scanConfig) }
-            .onCompletion { gattManager.stopScan() }
+        )
     }
 
     override suspend fun connect(deviceAddress: String): SdkResult<Unit, SdkError> {
         return runCatching {
+            if (!gattManager.isReady()) {
+                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+            }
             val device = gattManager.bluetoothAdapter.getRemoteDevice(deviceAddress)
             gattManager.connectToDevice(device)
         }.fold(
@@ -111,13 +126,11 @@ internal class AndroidBleController(
 
     override suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError> {
         return runCatching {
-            val responseBytes = performRequestResponse(
-                requestPayload = request.toBytes(),
-                writeUuid = config.tokenWriteUuid,
-                indicateUuid = config.tokenIndicateUuid
-            )
-            poLResponseFromBytes(responseBytes)
-                ?: throw IOException("Failed to parse PoLResponse from beacon data.")
+            if (!gattManager.isReady()) {
+                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+            }
+            val response = performRequestResponse(request.toBytes(), config.tokenWriteUuid, config.tokenIndicateUuid)
+            poLResponseFromBytes(response) ?: throw IOException("Failed to parse PoLResponse from beacon data.")
         }.fold(
             onSuccess = { polResponse -> SdkResult.Success(polResponse) },
             onFailure = { throwable ->
@@ -128,18 +141,32 @@ internal class AndroidBleController(
         )
     }
 
-    override suspend fun deliverSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError> {
+    override suspend fun exchangeSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError> {
         return runCatching {
-            performRequestResponse(
-                requestPayload = encryptedBlob,
-                writeUuid = config.encryptedWriteUuid,
-                indicateUuid = config.encryptedIndicateUuid
-            )
+            performRequestResponse(encryptedBlob, config.encryptedWriteUuid, config.encryptedIndicateUuid)
         }.fold(
             onSuccess = { encryptedBlob -> SdkResult.Success(encryptedBlob) },
             onFailure = { throwable ->
                 SdkResult.Failure(
                     SdkError.BleError(throwable.message ?: "$unknownErr during secure payload delivering")
+                )
+            }
+        )
+    }
+
+    override suspend fun postSecurePayload(payload: ByteArray): SdkResult<Unit, SdkError> {
+        return runCatching {
+            if (!gattManager.isReady()) {
+                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+            }
+            performWriteTransaction(payload, config.encryptedWriteUuid)
+        }.fold(
+            onSuccess = { SdkResult.Success(Unit) },
+            onFailure = {
+                SdkResult.Failure(
+                    SdkError.BleError(
+                        it.message ?: "$unknownErr during secure payload delivering"
+                    )
                 )
             }
         )
@@ -155,8 +182,11 @@ internal class AndroidBleController(
     override fun findConnectableBeacons(
         scanConfig: ScanConfig,
         beaconsToFind: List<Beacon>,
-    ): Flow<FoundBeacon> {
-        return getDiscriminatedScanFlow(scanConfig)
+    ): SdkResult<Flow<FoundBeacon>, SdkError> {
+        if (!gattManager.isReady()) {
+            return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+        }
+        val flow = getDiscriminatedScanFlow(scanConfig)
             .filterIsInstance<DiscriminatedScanResult.Legacy>() // We only care about Legacy ads
             .mapNotNull { legacyResult ->
                 val commonScanResult = legacyResult.result
@@ -168,18 +198,18 @@ internal class AndroidBleController(
                 if (beaconId != null) {
                     val matchedInfo = beaconsToFind.find { it.id == beaconId }
                     if (matchedInfo != null) {
-                        FoundBeacon(
-                            provisioningInfo = matchedInfo,
-                            address = commonScanResult.deviceAddress,
-                            statusByte = statusByte
-                        )
+                        FoundBeacon(matchedInfo, commonScanResult.deviceAddress, statusByte)
                     } else null
                 } else null
             }
+        return SdkResult.Success(flow)
     }
 
     override suspend fun pullEncryptedData(): SdkResult<ByteArray, SdkError> {
         return runCatching {
+            if (!gattManager.isReady()) {
+                return SdkResult.Failure(SdkError.PreconditionError("Bluetooth is not enabled."))
+            }
             performPullTransaction(config.pullDataWriteUuid, config.encryptedIndicateUuid)
         }.fold(
             onSuccess = { encryptedBlob -> SdkResult.Success(encryptedBlob) },
@@ -221,7 +251,7 @@ internal class AndroidBleController(
             throw IOException("Failed to enable indications for characteristic $indicateUuid")
         }
 
-        // Now we can proceed with the write/read logic
+        // Proceed with the write/read logic
         val responseJob = scope.async {
             withTimeout(10000) { transport.reassembledMessages.first() }
         }
@@ -246,6 +276,25 @@ internal class AndroidBleController(
         }
 
         return response
+    }
+
+    private suspend fun performWriteTransaction(payload: ByteArray, writeUuid: String) {
+        // Ensure we are in a ready state
+        if (connectionState.value !is ConnectionState.Ready) {
+            throw IOException("Cannot perform write transaction, not in a ready state.")
+        }
+
+        // Only set the uuid wot the write characteristic
+        gattManager.setTransactionUuids(writeUuid, null)
+
+        // Send chunks and wait for the characteristic write signal for each
+        transport.fragment(payload).forEach { chunk ->
+            gattManager.send(chunk)
+            val writeSuccess = gattManager.characteristicWriteSignal.receive()
+            if (!writeSuccess) {
+                throw IOException("Failed to write BLE characteristic chunk to UUID $writeUuid.")
+            }
+        }
     }
 
     private suspend fun performPullTransaction(

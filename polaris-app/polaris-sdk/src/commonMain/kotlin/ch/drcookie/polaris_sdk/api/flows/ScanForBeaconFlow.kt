@@ -32,14 +32,24 @@ public class ScanForBeaconFlow(
 
         val scanConfig = ScanConfig()
 
+        // Call the fallible function and get the result.
+        val flowResult = bleController.findConnectableBeacons(scanConfig, beaconsToFind)
+
+        // Check the result. If it's a failure, propagate it immediately.
+        val beaconFlow = when (flowResult) {
+            is SdkResult.Success -> flowResult.value
+            is SdkResult.Failure -> return flowResult
+        }
+
+        // Now that we have a valid flow, use runCatching to handle exceptions that might occur.
         return runCatching {
             withTimeoutOrNull(timeoutMillis) {
-                bleController.findConnectableBeacons(scanConfig, beaconsToFind).firstOrNull()
+                beaconFlow.firstOrNull()
             }
         }.fold(
-            onSuccess = { beacons -> SdkResult.Success(beacons) },
+            onSuccess = { foundBeacon -> SdkResult.Success(foundBeacon) },
             onFailure = { throwable ->
-                SdkResult.Failure(SdkError.BleError("Scan failed to execute: ${throwable.message}"))
+                SdkResult.Failure(SdkError.BleError("Scan failed during execution: ${throwable.message}"))
             }
         )
     }

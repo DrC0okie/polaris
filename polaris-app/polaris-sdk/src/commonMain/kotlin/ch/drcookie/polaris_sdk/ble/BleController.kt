@@ -24,10 +24,11 @@ public interface BleController {
      * @param scanConfig The configuration for the scan's power and callback settings.
      * @return A Flow of found devices that match the filter criteria.
      */
-    public fun scanForBeacons(filters: List<CommonScanFilter>?, scanConfig: ScanConfig): Flow<CommonBleScanResult>
+    public fun scanForBeacons(filters: List<CommonScanFilter>?, scanConfig: ScanConfig): SdkResult<Flow<CommonBleScanResult>, SdkError>
     public suspend fun connect(deviceAddress: String): SdkResult<Unit, SdkError>
     public suspend fun requestPoL(request: PoLRequest): SdkResult<PoLResponse, SdkError>
-    public suspend fun deliverSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError>
+    public suspend fun exchangeSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError>
+    public suspend fun postSecurePayload(payload: ByteArray): SdkResult<Unit, SdkError>
     public fun disconnect()
     public fun cancelAll()
 
@@ -38,7 +39,7 @@ public interface BleController {
     public fun findConnectableBeacons(
         scanConfig: ScanConfig,
         beaconsToFind: List<Beacon>
-    ): Flow<FoundBeacon>
+    ): SdkResult<Flow<FoundBeacon>, SdkError>
 
     /**
      * Scans for broadcast advertisements and returns a flow of parsed payloads.

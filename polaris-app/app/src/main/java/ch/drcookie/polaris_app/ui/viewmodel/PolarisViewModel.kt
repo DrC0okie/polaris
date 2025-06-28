@@ -57,7 +57,7 @@ class PolarisViewModel() : ViewModel() {
                 when (fetchResult) {
                     is SdkResult.Success -> {
                         val beaconCount = fetchResult.value.size
-                        appendLog("Registration successful. Found $beaconCount known beacons.")
+                        appendLog("Fetch successful. Found $beaconCount known beacons.")
                     }
 
                     is SdkResult.Failure -> {
@@ -254,6 +254,7 @@ class PolarisViewModel() : ViewModel() {
                 is SdkResult.Success -> {
                     appendLog("Successfully pulled and forwarded data from ${foundBeacon.name}.")
                 }
+
                 is SdkResult.Failure -> {
                     appendLog("--- ERROR: Failed to process data from ${foundBeacon.name}: ${pullResult.error.message()} ---")
                 }

@@ -240,10 +240,20 @@ internal class GattManager(
         writeDataInternal(gatt, writeCharacteristic!!, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
     }
 
-    internal fun setTransactionUuids(writeUuid: String, indicateUuid: String) {
-        this.currentWriteUuid = UUID.fromString(writeUuid)
-        this.currentIndicateUuid = UUID.fromString(indicateUuid)
+    internal fun setTransactionUuids(writeUuid: String?, indicateUuid: String?) {
+        val dummyUuid = "00000000-0000-0000-0000-000000000000"
+        this.currentWriteUuid = UUID.fromString(writeUuid?:dummyUuid)
+        this.currentIndicateUuid = UUID.fromString(indicateUuid?:dummyUuid)
     }
+
+    /**
+     * Checks if the Bluetooth adapter is available and enabled.
+     * @return True if ready for BLE operations, false otherwise.
+     */
+    internal fun isReady(): Boolean {
+        return bluetoothAdapter != null && bluetoothAdapter.isEnabled
+    }
+
 
     // Public close function using the helper
     internal fun close() {
@@ -420,6 +430,7 @@ internal class GattManager(
         ) {
             handleCharacteristicRead(characteristic.uuid, value, status)
         }
+
 
         // Helper to process characteristic changes
         private fun handleCharacteristicChange(uuid: UUID?, value: ByteArray) {

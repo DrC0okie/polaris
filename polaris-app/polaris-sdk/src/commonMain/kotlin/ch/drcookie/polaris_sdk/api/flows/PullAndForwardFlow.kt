@@ -49,7 +49,7 @@ public class PullAndForwardFlow(
             }
 
             // Relay the server's ACK back to the beacon
-            return when (val relayResult = bleController.deliverSecurePayload(serverAck)) {
+            return when (val relayResult = bleController.postSecurePayload(serverAck)) {
                 is SdkResult.Success -> SdkResult.Success(Unit)
                 is SdkResult.Failure -> relayResult
             }

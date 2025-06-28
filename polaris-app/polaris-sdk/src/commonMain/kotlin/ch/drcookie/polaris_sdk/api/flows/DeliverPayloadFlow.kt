@@ -62,7 +62,7 @@ public class DeliverPayloadFlow(
                 else -> return SdkResult.Failure(SdkError.BleError("Unexpected connection state: $status"))
             }
 
-            return bleController.deliverSecurePayload(payload.blob.asByteArray())
+            return bleController.exchangeSecurePayload(payload.blob.asByteArray())
 
         } finally {
             bleController.disconnect()
