@@ -13,6 +13,9 @@ bool IndicateCharacteristic::configure(BLEService& service) {
                       _uuid.toString().c_str());
         return false;
     }
+
+    Serial.printf("[IndicateChar] Creating characteristic with UUID: %s\n",
+                  _uuid.toString().c_str());
     _pCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ);
 
     BLE2902* cccd = new BLE2902();

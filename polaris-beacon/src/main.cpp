@@ -67,12 +67,6 @@ void setup() {
         ESP.restart();
     }
 
-    outgoingMessageService.begin(&cryptoService, &prefs, [&](bool hasData) {
-        if (connectableAdvertiser) {
-            connectableAdvertiser->setHasDataPending(hasData);
-        }
-    });
-
     Serial.printf("%s Starting GATT Server & Multi-Advertising...\n", TAG);
     ble.begin(BLE_DEVICE_NAME);  // This starts the advertisement
 
@@ -84,7 +78,14 @@ void setup() {
 
     connectableAdvertiser =
         std::unique_ptr<ConnectableAdvertiser>(new ConnectableAdvertiser(*multiAdv));
-    ble.setConnectableAdvertiser(connectableAdvertiser.get());
+
+    connectableAdvertiser->begin();
+
+    outgoingMessageService.begin(&cryptoService, &prefs, [&](bool hasData) {
+        if (connectableAdvertiser) {
+            connectableAdvertiser->setHasDataPending(hasData);
+        }
+    });
 
     // create an advertizer to broadcast signed data
     beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
@@ -93,6 +94,7 @@ void setup() {
     beaconExtAdvertiser->begin();
 
     auto tokenIndicateChar = ble.getCharacteristicByUUID(BLEUUID(BleManager::TOKEN_INDICATE));
+
     auto tokenTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         tokenIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             return std::unique_ptr<TokenMessageHandler>(
@@ -107,6 +109,7 @@ void setup() {
     // Setup Encrypted Message Handling
     auto encryptedIndicateChar =
         ble.getCharacteristicByUUID(BLEUUID(BleManager::ENCRYPTED_INDICATE));
+
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         encryptedIndicateChar,
         [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
@@ -115,10 +118,10 @@ void setup() {
         }));
 
     ble.setEncryptedDataProcessor(encryptedTransport.get());
+    encryptedTransportPtr = encryptedTransport.get();
     ble.registerTransportForMtuUpdates(encryptedTransport.get());
     g_transports.push_back(std::move(encryptedTransport));
 
-    encryptedTransportPtr = encryptedTransport.get();
     auto dataPullHandler = std::unique_ptr<DataPullHandler>(
         new DataPullHandler(outgoingMessageService, *encryptedTransportPtr));
     ble.setPullRequestProcessor(dataPullHandler.get());

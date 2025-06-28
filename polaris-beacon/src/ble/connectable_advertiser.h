@@ -10,6 +10,7 @@ class BLEMultiAdvertising;
 class ConnectableAdvertiser {
 public:
     explicit ConnectableAdvertiser(BLEMultiAdvertising& advertiser);
+    void begin();
     void setHasDataPending(bool hasData);
 
 private:

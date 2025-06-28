@@ -62,7 +62,7 @@ BleManager::BleManager() {
         Serial.println("[BLE] CRITICAL: Failed to create encrypted request queue!");
     }
 
-    _pullQueue = xQueueCreate(2, sizeof(uint8_t));
+    _pullQueue = xQueueCreate(4, sizeof(uint8_t));
     if (_pullQueue == nullptr) {
         Serial.println("[BLE] CRITICAL: Failed to create pull request queue!");
     }
@@ -126,7 +126,10 @@ void BleManager::begin(const std::string& deviceName) {
 
     // pol service configuration
     Serial.println("[BLE] Creating pol service and Characteristics...");
-    BLEService* polService = _pServer->createService(BLEUUID(POL_SERVICE));
+    // If you ever want to add more characteristics / descriptors, increase the number of handles,
+    // otherwise it won't work... wasted 6 hours to solve the issue!
+    int numHandles = 20;
+    BLEService* polService = _pServer->createService(BLEUUID(POL_SERVICE), numHandles, 0);
     if (!polService) {
         Serial.println("[BLE] Failed to create token service!");
         stop();
@@ -400,10 +403,6 @@ void BleManager::setEncryptedDataProcessor(FragmentationTransport* transport) {
 
 void BleManager::setPullRequestProcessor(IMessageHandler* processor) {
     _pullRequestProcessor = processor;
-}
-
-void BleManager::setConnectableAdvertiser(ConnectableAdvertiser* advertiser) {
-    _connectableAdvertiser = advertiser;
 }
 
 void BleManager::setOutgoingMessageService(OutgoingMessageService* service) {

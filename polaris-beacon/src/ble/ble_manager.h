@@ -43,7 +43,6 @@ public:
     void setEncryptedDataProcessor(FragmentationTransport* transport);
     void setPullRequestProcessor(IMessageHandler* processor);
 
-    void setConnectableAdvertiser(ConnectableAdvertiser* advertiser);
     void setOutgoingMessageService(OutgoingMessageService* service);
     void registerTransportForMtuUpdates(FragmentationTransport* transport);
 
@@ -98,7 +97,6 @@ private:
     TaskHandle_t _pullProcessorTask = nullptr;
     QueueHandle_t _pullQueue = nullptr;
 
-    ConnectableAdvertiser* _connectableAdvertiser = nullptr;
     OutgoingMessageService* _outgoingMessageService = nullptr;
 
     std::vector<FragmentationTransport*> _transportsForMtuUpdate;
