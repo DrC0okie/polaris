@@ -1,5 +1,5 @@
-#ifndef BEACON_ADVERTISER_H
-#define BEACON_ADVERTISER_H
+#ifndef BROADCAST_ADVERTISER_H
+#define BROADCAST_ADVERTISER_H
 
 #include <BLEAdvertising.h>
 #include <stdint.h>
@@ -11,24 +11,24 @@
 class BLEMultiAdvertising;
 
 /**
- * @class BeaconAdvertiser
+ * @class BroadcastAdvertiser
  * @brief Manages the dynamic payload of the extended (non-connectable) BLE advertisement.
  *
  * This class is responsible for periodically updating the extended advertisement
  * with a signed payload containing the beacon ID and current counter value.
  * It listens for updates from a BeaconCounter to trigger these changes.
  */
-class BeaconAdvertiser {
+class BroadcastAdvertiser {
 public:
     /**
-     * @brief Constructs the BeaconAdvertiser.
+     * @brief Constructs the BroadcastAdvertiser.
      * @param beaconId The unique ID of this beacon.
      * @param cryptoService Reference to the service for signing the payload.
      * @param counter Reference to the counter that provides the dynamic value.
      * @param advertiser Reference to the main BLEMultiAdvertising instance.
      */
-    BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService, BeaconCounter& counter,
-                     BLEMultiAdvertising& advertiser);
+    BroadcastAdvertiser(uint32_t beaconId, const CryptoService& cryptoService,
+                        BeaconCounter& counter, BLEMultiAdvertising& advertiser);
 
     /**
      * @brief Initializes the advertiser.
@@ -46,7 +46,7 @@ public:
 private:
     /**
      * @brief Static trampoline function for the BeaconCounter callback.
-     * @param context A void pointer to the BeaconAdvertiser instance.
+     * @param context A void pointer to the BroadcastAdvertiser instance.
      */
     static void onCounterIncremented(void* context);
 
@@ -90,4 +90,4 @@ private:
     };
 };
 
-#endif  // BEACON_ADVERTISER_H
+#endif  // BROADCAST_ADVERTISER_H

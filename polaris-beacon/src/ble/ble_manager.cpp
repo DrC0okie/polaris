@@ -502,7 +502,7 @@ bool BleManager::configureExtendedAdvertisement() {
         return false;
     }
 
-    // Set a minimal placeholder for the advertising data. BeaconAdvertiser will overwrite this
+    // Set a minimal placeholder for the advertising data. BroadcastAdvertiser will overwrite this
     uint8_t placeholder_data[] = {0x02, 0x01, 0x06};
 
     if (!_multiAdvertiserPtr->setAdvertisingData(EXTENDED_BROADCAST_ADV_INSTANCE,

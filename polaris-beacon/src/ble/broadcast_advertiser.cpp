@@ -1,38 +1,38 @@
-#include "beacon_advertiser.h"
+#include "broadcast_advertiser.h"
 
 #include <BLEAdvertising.h>
 #include <HardwareSerial.h>
 
 const uint8_t EXTENDED_BROADCAST_ADV_INSTANCE = 1;
 
-BeaconAdvertiser::BeaconAdvertiser(uint32_t beaconId, const CryptoService& cryptoService,
-                                   BeaconCounter& counter, BLEMultiAdvertising& advertiser)
+BroadcastAdvertiser::BroadcastAdvertiser(uint32_t beaconId, const CryptoService& cryptoService,
+                                         BeaconCounter& counter, BLEMultiAdvertising& advertiser)
     : _beaconId(beaconId),
       _cryptoService(cryptoService),
       _counterRef(counter),
       _advertiserRef(advertiser) {
 }
 
-void BeaconAdvertiser::begin() {
+void BroadcastAdvertiser::begin() {
     Serial.println("[BeaconAdv] Beginning initial advertisement setup.");
 
-    _counterRef.setIncrementCallback(BeaconAdvertiser::onCounterIncremented, this);
+    _counterRef.setIncrementCallback(BroadcastAdvertiser::onCounterIncremented, this);
 
     // initial update to set the first advertisement
     updateAdvertisement();
 }
 
-void BeaconAdvertiser::onCounterIncremented(void* context) {
+void BroadcastAdvertiser::onCounterIncremented(void* context) {
     if (context) {
-        static_cast<BeaconAdvertiser*>(context)->handleCounterIncrement();
+        static_cast<BroadcastAdvertiser*>(context)->handleCounterIncrement();
     }
 }
 
-void BeaconAdvertiser::handleCounterIncrement() {
+void BroadcastAdvertiser::handleCounterIncrement() {
     updateAdvertisement();
 }
 
-void BeaconAdvertiser::updateAdvertisement() {
+void BroadcastAdvertiser::updateAdvertisement() {
     uint64_t currentCounter = _counterRef.getValue();
     BroadcastPayload payloadContent;
     payloadContent.beaconId = _beaconId;

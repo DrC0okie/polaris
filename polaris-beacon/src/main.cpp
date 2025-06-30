@@ -2,7 +2,7 @@
 #include <preferences.h>
 #include <sodium.h>
 
-#include "ble/beacon_advertiser.h"
+#include "ble/broadcast_advertiser.h"
 #include "ble/ble_manager.h"
 #include "ble/connectable_advertiser.h"
 #include "protocol/handlers/commands/command_factory.h"
@@ -31,7 +31,7 @@ SystemMonitor systemMonitor;
 OutgoingMessageService outgoingMessageService;
 CommandFactory commandFactory(ledController, displayController, systemMonitor,
                               outgoingMessageService);
-std::unique_ptr<BeaconAdvertiser> beaconExtAdvertiser;
+std::unique_ptr<BroadcastAdvertiser> beaconExtAdvertiser;
 std::unique_ptr<ConnectableAdvertiser> connectableAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
 std::vector<std::unique_ptr<IMessageHandler>> g_handlers;
@@ -88,8 +88,8 @@ void setup() {
     });
 
     // Create the advertiser for the non-connectable (extended) broadcast.
-    beaconExtAdvertiser = std::unique_ptr<BeaconAdvertiser>(
-        new BeaconAdvertiser(BEACON_ID, cryptoService, counter, *multiAdv));
+    beaconExtAdvertiser = std::unique_ptr<BroadcastAdvertiser>(
+        new BroadcastAdvertiser(BEACON_ID, cryptoService, counter, *multiAdv));
     beaconExtAdvertiser->begin();
 
     // Get the raw BLE characteristic that will be used for sending data.
