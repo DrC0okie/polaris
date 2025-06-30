@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_sdk.model
+package ch.drcookie.polaris_sdk.ble.model
 
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 

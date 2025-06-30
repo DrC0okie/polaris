@@ -62,7 +62,7 @@ public interface BleController {
     /**
      * Sends an encrypted payload and waits for an encrypted ACK.
      *
-     * @param payload The encrypted data blob to send to the beacon.
+     * @param encryptedBlob The encrypted data blob to send to the beacon.
      * @return An [SdkResult] containing the beacon's encrypted ACK/ERR response as a [ByteArray].
      */
     public suspend fun exchangeSecurePayload(encryptedBlob: ByteArray): SdkResult<ByteArray, SdkError>

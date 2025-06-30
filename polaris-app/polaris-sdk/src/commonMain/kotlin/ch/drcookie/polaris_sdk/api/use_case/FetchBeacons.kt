@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
@@ -14,12 +14,12 @@ import ch.drcookie.polaris_sdk.storage.KeyStore
  * @property networkClient The client for all server communication.
  * @property keyStore The store for creating or retrieving the device's cryptographic keys.
  */
-public class FetchBeaconsFlow(
+public class FetchBeacons(
     private val networkClient: NetworkClient,
     private val keyStore: KeyStore,
 ) {
     /**
-     * Executes the flow
+     * Registers the phone to the server, then
      *
      * @param deviceModel A string identifying the device model
      * @param osVersion A string identifying the OS version

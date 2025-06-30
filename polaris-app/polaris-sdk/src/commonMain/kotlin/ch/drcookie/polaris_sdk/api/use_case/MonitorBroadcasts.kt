@@ -1,11 +1,11 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.ScanCallbackType
 import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import ch.drcookie.polaris_sdk.ble.model.ScanMode
-import ch.drcookie.polaris_sdk.model.VerifiedBroadcast
+import ch.drcookie.polaris_sdk.ble.model.VerifiedBroadcast
 import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.protocol.ProtocolHandler
@@ -19,13 +19,13 @@ import kotlinx.coroutines.flow.map
 /**
  * A high-level use case for monitoring non-connectable BLE broadcast advertisements.
  *
- * This flow initiates a continuous scan and, for each advertisement, verifies its signature.
+ * This use case operation initiates a continuous scan and, for each advertisement, verifies its signature.
  *
  * @property bleController For the underlying BLE scan.
  * @property networkClient To access the list of `knownBeacons` for public keys.
  * @property protocolHandler For the signature verification.
  */
-public class MonitorBroadcastsFlow(
+public class MonitorBroadcasts(
     private val bleController: BleController,
     private val networkClient: NetworkClient,
     private val protocolHandler: ProtocolHandler,

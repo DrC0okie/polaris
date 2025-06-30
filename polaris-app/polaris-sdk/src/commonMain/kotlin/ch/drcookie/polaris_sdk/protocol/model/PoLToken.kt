@@ -1,9 +1,6 @@
-package ch.drcookie.polaris_sdk.model
+package ch.drcookie.polaris_sdk.protocol.model
 
-import ch.drcookie.polaris_sdk.protocol.model.Constants
 import ch.drcookie.polaris_sdk.util.UByteArrayBase64Serializer
-import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
-import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
 import kotlinx.serialization.Serializable
 
 /**

@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
@@ -18,7 +18,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * @property bleController The controller for all BLE operations.
  * @property networkClient The client used to access the list of `knownBeacons`.
  */
-public class ScanForBeaconFlow(
+public class ScanForBeacon(
     private val bleController: BleController,
     private val networkClient: NetworkClient,
 ) {
@@ -50,7 +50,6 @@ public class ScanForBeaconFlow(
             is SdkResult.Failure -> return flowResult
         }
 
-        // Now that we have a valid flow, use runCatching to handle exceptions that might occur.
         return runCatching {
             withTimeoutOrNull(timeoutMillis) {
                 beaconFlow.firstOrNull()

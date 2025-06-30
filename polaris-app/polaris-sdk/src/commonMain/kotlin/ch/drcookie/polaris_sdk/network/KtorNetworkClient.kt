@@ -7,7 +7,7 @@ import ch.drcookie.polaris_sdk.api.config.AuthMode
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
-import ch.drcookie.polaris_sdk.model.PoLToken
+import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.PhoneRegistrationRequestDto
 import ch.drcookie.polaris_sdk.network.dto.BeaconPayloadDto
@@ -72,14 +72,8 @@ internal class KtorNetworkClient(
             updateKnownBeacons(newBeacons)
             newBeacons
         }.fold(
-            onSuccess = { SdkResult.Success(it) },
-            onFailure = {
-                SdkResult.Failure(
-                    SdkError.NetworkError(
-                        it.message ?: "$unknownErr during registration"
-                    )
-                )
-            }
+            onSuccess = { beacons -> SdkResult.Success(beacons) },
+            onFailure = { SdkResult.Failure(SdkError.NetworkError(it.message ?: "$unknownErr during registration")) }
         )
     }
 
@@ -101,7 +95,9 @@ internal class KtorNetworkClient(
             onSuccess = { beacons -> SdkResult.Success(beacons) },
             onFailure = { throwable ->
                 SdkResult.Failure(
-                    SdkError.NetworkError(throwable.message ?: "Unknown error while fetching beacons")
+                    SdkError.NetworkError(
+                        throwable.message ?: "$unknownErr while fetching beacons"
+                    )
                 )
             }
         )

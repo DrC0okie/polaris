@@ -10,12 +10,12 @@ import ch.drcookie.polaris_sdk.api.Polaris.bleController
 import ch.drcookie.polaris_sdk.api.Polaris.keyStore
 import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
 import ch.drcookie.polaris_sdk.api.SdkResult
-import ch.drcookie.polaris_sdk.api.flows.DeliverPayloadFlow
-import ch.drcookie.polaris_sdk.api.flows.MonitorBroadcastsFlow
-import ch.drcookie.polaris_sdk.api.flows.PolTransactionFlow
-import ch.drcookie.polaris_sdk.api.flows.PullAndForwardFlow
-import ch.drcookie.polaris_sdk.api.flows.FetchBeaconsFlow
-import ch.drcookie.polaris_sdk.api.flows.ScanForBeaconFlow
+import ch.drcookie.polaris_sdk.api.use_case.DeliverPayload
+import ch.drcookie.polaris_sdk.api.use_case.MonitorBroadcasts
+import ch.drcookie.polaris_sdk.api.use_case.PolTransaction
+import ch.drcookie.polaris_sdk.api.use_case.PullAndForward
+import ch.drcookie.polaris_sdk.api.use_case.FetchBeacons
+import ch.drcookie.polaris_sdk.api.use_case.ScanForBeacon
 import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import kotlinx.coroutines.Job
@@ -46,12 +46,12 @@ data class UiState(
 @OptIn(ExperimentalUnsignedTypes::class)
 @RequiresApi(Build.VERSION_CODES.O)
 class PolarisViewModel(
-    private val scanForBeacon: ScanForBeaconFlow,
-    private val performPolTransaction: PolTransactionFlow,
-    private val deliverSecurePayload: DeliverPayloadFlow,
-    private val monitorBroadcasts: MonitorBroadcastsFlow,
-    private val pullAndForwardData: PullAndForwardFlow,
-    private val registerDevice: FetchBeaconsFlow,
+    private val scanForBeacon: ScanForBeacon,
+    private val performPolTransaction: PolTransaction,
+    private val deliverSecurePayload: DeliverPayload,
+    private val monitorBroadcasts: MonitorBroadcasts,
+    private val pullAndForwardData: PullAndForward,
+    private val registerDevice: FetchBeacons,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
@@ -304,12 +304,12 @@ class PolarisViewModelFactory() : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
 
-            val scanForBeacon = ScanForBeaconFlow(bleController, networkClient)
-            val performPolTransaction = PolTransactionFlow(bleController, networkClient, keyStore, protocolHandler)
-            val deliverSecurePayload = DeliverPayloadFlow(bleController, networkClient, scanForBeacon)
-            val monitorBroadcasts = MonitorBroadcastsFlow(bleController, networkClient, protocolHandler)
-            val pullAndForwardData = PullAndForwardFlow(bleController, networkClient)
-            val registerDevice = FetchBeaconsFlow(networkClient, keyStore)
+            val scanForBeacon = ScanForBeacon(bleController, networkClient)
+            val performPolTransaction = PolTransaction(bleController, networkClient, keyStore, protocolHandler)
+            val deliverSecurePayload = DeliverPayload(bleController, networkClient, scanForBeacon)
+            val monitorBroadcasts = MonitorBroadcasts(bleController, networkClient, protocolHandler)
+            val pullAndForwardData = PullAndForward(bleController, networkClient)
+            val registerDevice = FetchBeacons(networkClient, keyStore)
 
 
             @Suppress("UNCHECKED_CAST")

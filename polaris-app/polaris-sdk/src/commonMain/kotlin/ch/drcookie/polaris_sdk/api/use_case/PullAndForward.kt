@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * A high-level use case that handles the full beacon-to-server data flow.
+ * A high-level use case that handles the full beacon-to-server data use case.
  *
  * Performs the following sequence:
  * 1. Connects to a beacon that has its "data pending" flag set.
@@ -24,12 +24,12 @@ import kotlinx.coroutines.withTimeoutOrNull
  * @property bleController The controller for all BLE operations.
  * @property networkClient The client for forwarding the data to the server.
  */
-public class PullAndForwardFlow(
+public class PullAndForward(
     private val bleController: BleController,
     private val networkClient: NetworkClient
 ) {
     /**
-     * Executes the full data pull and forward flow.
+     * Executes the full data pull and forward use case.
      * @param foundBeacon The specific beacon to interact with. It should have `hasDataPending` set to true.
      * @return A `Success(Unit)` on a complete successful transaction, or a `Failure` at any step.
      */

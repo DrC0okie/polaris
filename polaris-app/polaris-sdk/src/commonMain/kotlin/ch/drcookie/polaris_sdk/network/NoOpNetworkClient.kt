@@ -5,7 +5,7 @@ import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
-import ch.drcookie.polaris_sdk.model.PoLToken
+import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 
 /**
  * A "No-Operation" implementation of the [NetworkClient] interface.

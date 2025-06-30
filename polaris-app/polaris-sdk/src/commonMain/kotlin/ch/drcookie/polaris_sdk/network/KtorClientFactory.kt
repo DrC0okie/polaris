@@ -2,7 +2,7 @@ package ch.drcookie.polaris_sdk.network
 
 import ch.drcookie.polaris_sdk.api.config.NetworkConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
-import ch.drcookie.polaris_sdk.model.PoLToken
+import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import ch.drcookie.polaris_sdk.network.dto.AckDto
 import ch.drcookie.polaris_sdk.network.dto.BeaconProvisioningListDto
 import ch.drcookie.polaris_sdk.network.dto.EncryptedPayloadListDto

@@ -1,4 +1,4 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
@@ -19,13 +19,13 @@ import kotlinx.coroutines.withTimeoutOrNull
  * @property networkClient To access the list of `knownBeacons`.
  * @property scanForBeacon To scan the beacon.
  */
-public class DeliverPayloadFlow(
+public class DeliverPayload(
     private val bleController: BleController,
     private val networkClient: NetworkClient,
-    private val scanForBeacon: ScanForBeaconFlow
+    private val scanForBeacon: ScanForBeacon
 ) {
     /**
-     * Executes the full payload delivery flow.
+     * Executes the full payload delivery use case.
      *
      * @param payload The [EncryptedPayload] to be delivered.
      * @return Raw ACK/ERR response from the beacon as a [ByteArray] on success.

@@ -1,11 +1,11 @@
-package ch.drcookie.polaris_sdk.api.flows
+package ch.drcookie.polaris_sdk.api.use_case
 
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
-import ch.drcookie.polaris_sdk.model.PoLToken
+import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.storage.KeyStore
@@ -25,7 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * @property keyStore The store for retrieving the device signing keys.
  * @property protocolHandler The handler for signing the request and verifying the response.
  */
-public class PolTransactionFlow(
+public class PolTransaction(
     private val bleController: BleController,
     private val networkClient: NetworkClient,
     private val keyStore: KeyStore,
