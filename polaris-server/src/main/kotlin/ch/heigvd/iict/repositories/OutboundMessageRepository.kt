@@ -57,5 +57,4 @@ class OutboundMessageRepository(
             .createNativeQuery("SELECT nextval('server_msg_id_seq')")
             .singleResult as Long
     }
-
 }

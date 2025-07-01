@@ -7,7 +7,6 @@ import java.util.*
 @ApplicationScoped
 class KeyManager {
 
-    // TODO: Not in application.properties... How to get it from the env variables?
     @ConfigProperty(name = "polaris.server.aead.sk.b64")
     lateinit var serverSkBase64: String
 
@@ -21,7 +20,6 @@ class KeyManager {
         }
     }
 
-    // TODO: Could be nice to display this info somewhere to use it in the beacons
     @OptIn(ExperimentalUnsignedTypes::class)
     val serverPublicKey: ByteArray by lazy {
         LibsodiumBridge.scalarMultBase(serverPrivateKey.asUByteArray()).asByteArray()
