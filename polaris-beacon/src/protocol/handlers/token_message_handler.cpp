@@ -11,6 +11,8 @@ TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
 }
 
 void TokenMessageHandler::process(const uint8_t* data, size_t len) {
+    uint8_t buffer[PoLResponse::packedSize()];
+
     if (len != PoLRequest::packedSize()) {
         Serial.printf("[Processor] Invalid length. Got %zu, expected %zu\n", len,
                       PoLRequest::packedSize());
@@ -20,13 +22,17 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     PoLRequest req;
     if (!req.fromBytes(data, len)) {
         Serial.println("[Processor] Invalid format");
-        return;
+
+        // Send a blank response signifying an error
+        _transport.sendMessage(buffer, sizeof(buffer));
     }
 
     Serial.println("[processor] Verifiying signatures");
     if (!_cryptoService.verifyPoLRequestSignature(req)) {
         Serial.println("[Processor] Invalid signature");
-        return;
+
+        // Send a blank response signifying an error
+        _transport.sendMessage(buffer, sizeof(buffer));
     }
 
     Serial.println("[Processor] Valid request signature");
@@ -39,8 +45,6 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
 
     // Sign the response, including context from the original request
     _cryptoService.signPoLResponse(resp, req);
-
-    uint8_t buffer[PoLResponse::packedSize()];
     resp.toBytes(buffer);
 
     // Delegate sending the full message to the transport layer
