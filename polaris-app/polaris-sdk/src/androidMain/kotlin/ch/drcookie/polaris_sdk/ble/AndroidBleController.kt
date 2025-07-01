@@ -264,7 +264,7 @@ internal class AndroidBleController(
             throw IOException("Failed to enable indications for characteristic $indicateUuid")
         }
 
-        // Proceed with the write/read logic
+        // Wire the transport layer to listen to the beacon response
         val responseJob = scope.async {
             withTimeout(10000) { transport.reassembledMessages.first() }
         }
@@ -279,6 +279,7 @@ internal class AndroidBleController(
             }
         }
 
+        // Wait for the response
         val response = responseJob.await().asByteArray()
 
         // Disable Indications and wait for the descriptor write signal
