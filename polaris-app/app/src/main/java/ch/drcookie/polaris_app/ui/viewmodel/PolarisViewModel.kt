@@ -66,8 +66,7 @@ class PolarisViewModel(
                 val fetchResult = networkClient.fetchBeacons()
                 when (fetchResult) {
                     is SdkResult.Success -> {
-                        val beaconCount = fetchResult.value.size
-                        appendLog("Fetch successful. Found $beaconCount known beacons.")
+                        appendLog("Fetch successful. Found ${fetchResult.value.size} known beacons.")
                     }
 
                     is SdkResult.Failure -> {

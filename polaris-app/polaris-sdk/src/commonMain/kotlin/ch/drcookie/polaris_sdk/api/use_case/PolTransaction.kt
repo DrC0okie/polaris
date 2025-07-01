@@ -56,8 +56,7 @@ public class PolTransaction(
 
             // Handle the outcome of the connection attempt.
             when (status) {
-                is ConnectionState.Ready -> { /* Connection successful, continue */
-                }
+                is ConnectionState.Ready -> { /* Connection successful, continue */}
 
                 is ConnectionState.Failed -> return SdkResult.Failure(SdkError.BleError("Connection failed: ${status.error}"))
                 null -> return SdkResult.Failure(SdkError.BleError("Connection timed out."))

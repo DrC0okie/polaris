@@ -49,11 +49,7 @@ internal object CryptoUtils {
         val dataActuallySignedByBeacon = resp.getEffectivelySignedData(originalSignedReq)
         return try {
             // verifyDetached throws on failure, returns Unit on success
-            Signature.verifyDetached(
-                signature = resp.beaconSig,
-                message = dataActuallySignedByBeacon,
-                publicKey = beaconPk
-            )
+            Signature.verifyDetached(resp.beaconSig, dataActuallySignedByBeacon, beaconPk)
             true // Signature is valid
         } catch (e: InvalidSignatureException) {
             Log.error(e) { "Response signature verification failed: Invalid signature" }
@@ -71,11 +67,7 @@ internal object CryptoUtils {
 
         return try {
             // The verifyDetached function will throw an exception if the signature is invalid.
-            Signature.verifyDetached(
-                signature = payload.signature,
-                message = dataToVerify,
-                publicKey = beaconPk
-            )
+            Signature.verifyDetached(payload.signature, dataToVerify, beaconPk)
             true
         } catch (e: InvalidSignatureException) {
             Log.warn(e) { "Broadcast signature verification failed for beacon #${payload.beaconId}" }

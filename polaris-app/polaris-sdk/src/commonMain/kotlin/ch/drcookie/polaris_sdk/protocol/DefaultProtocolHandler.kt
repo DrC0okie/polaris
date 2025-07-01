@@ -21,7 +21,7 @@ internal class DefaultProtocolHandler(private val cryptoUtils: CryptoUtils) : Pr
     override fun verifyPoLResponse(
         response: PoLResponse,
         signedRequest: PoLRequest,
-        beaconPublicKey: UByteArray
+        beaconPublicKey: UByteArray,
     ): Boolean {
         return cryptoUtils.verifyPoLResponse(response, signedRequest, beaconPublicKey)
     }

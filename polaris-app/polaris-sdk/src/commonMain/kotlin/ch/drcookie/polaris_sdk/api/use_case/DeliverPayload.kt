@@ -33,13 +33,13 @@ public class DeliverPayload(
     @OptIn(ExperimentalUnsignedTypes::class)
     public suspend operator fun invoke(payload: EncryptedPayload): SdkResult<ByteArray, SdkError> {
         // Find the specific beacon required for this job
-        val targetBeaconInfo = networkClient.knownBeacons.find { it.id == payload.beaconId }
+        val targetBeacon = networkClient.knownBeacons.find { it.id == payload.beaconId }
             ?: return SdkResult.Failure(
                 SdkError.PreconditionError("Beacon #${payload.beaconId} is not in the known list.")
             )
 
         // Scan for the beacon
-        val scanResult = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))
+        val scanResult = scanForBeacon(beaconsToFind = listOf(targetBeacon))
         val foundBeacon = when (scanResult) {
             is SdkResult.Success -> scanResult.value
             is SdkResult.Failure -> return scanResult

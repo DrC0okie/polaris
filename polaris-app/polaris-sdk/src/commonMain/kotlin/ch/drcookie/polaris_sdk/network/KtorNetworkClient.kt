@@ -214,7 +214,7 @@ internal class KtorNetworkClient(
     private fun getApiKeyForRequest(): SdkResult<String?, SdkError> {
         val apiKey = when (val mode = config.authMode) {
             is AuthMode.None -> null
-            is AuthMode.ManagedApiKey -> store.string(forKey = KEY_API_KEY)
+            is AuthMode.ManagedApiKey -> store.string(KEY_API_KEY)
             is AuthMode.StaticApiKey -> mode.apiKey
         }
 

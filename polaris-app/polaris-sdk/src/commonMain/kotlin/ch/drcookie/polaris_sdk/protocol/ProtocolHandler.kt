@@ -5,10 +5,15 @@ import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
 
 /**
- * Provides an interface for low-level cryptographic operations related to the Polaris protocol.
+ * Provides an interface for low-level, **synchronous** cryptographic operations related to the Polaris protocol.
  *
  * This component is responsible for the "rules" of the protocol, such as signing data in the correct format and
- * verifying signatures. It is entirely self-contained and performs no I/O.
+ * verifying signatures. It is self-contained and performs no I/O.
+ *
+ * **Note:** While these cryptographic functions are optimized, they are synchronous, CPU-bound operations.
+ * For single operations, the execution time is negligible. However, if you plan to call these functions in a tight loop
+ * (e.g., verifying thousands of signatures), it is recommended to wrap the loop in a `withContext(Dispatchers.Default)`
+ * block to avoid blocking the main thread.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 public interface ProtocolHandler {
