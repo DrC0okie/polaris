@@ -23,16 +23,16 @@ public enum class ScanCallbackType {
 /**
  * Represents a [Beacon] that has been discovered during a BLE scan.
  *
- * @property provisioningInfo Information about the beacon.
+ * @property info Information about the beacon.
  * @property address The MAC address of the beacon discovered during the scan.
  * @property statusByte Flag that indicate if the beacon has an encrypted payload to deliver
  */
 public data class FoundBeacon(
-    public val provisioningInfo: Beacon,
+    public val info: Beacon,
     public val address: String,
     public val statusByte: Byte?
 ) {
-    public val name: String get() = provisioningInfo.name
+    public val name: String get() = info.name
 
     /**
      * Checks if the "data pending" flag is set in the beacon advertisement.

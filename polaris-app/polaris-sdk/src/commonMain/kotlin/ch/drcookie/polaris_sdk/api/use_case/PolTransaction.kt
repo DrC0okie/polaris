@@ -79,7 +79,7 @@ public class PolTransaction(
             val request = PoLRequest(
                 flags = 0u,
                 phoneId = phoneId,
-                beaconId = foundBeacon.provisioningInfo.id,
+                beaconId = foundBeacon.info.id,
                 nonce = protocolHandler.generateNonce(),
                 phonePk = phonePk
             )
@@ -95,13 +95,13 @@ public class PolTransaction(
             }
 
             // Step 8: Verify the beacon's response
-            val isValid = protocolHandler.verifyPoLResponse(response, signedRequest, foundBeacon.provisioningInfo.publicKey)
+            val isValid = protocolHandler.verifyPoLResponse(response, signedRequest, foundBeacon.info.publicKey)
             if (!isValid) {
                 return SdkResult.Failure(SdkError.ProtocolError("Invalid beacon signature during PoL transaction!"))
             }
 
             // Create and return the final token
-            val token = PoLToken.create(signedRequest, response, foundBeacon.provisioningInfo.publicKey)
+            val token = PoLToken.create(signedRequest, response, foundBeacon.info.publicKey)
             return SdkResult.Success(token)
 
         } finally {

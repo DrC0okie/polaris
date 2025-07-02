@@ -9,6 +9,7 @@ import ch.drcookie.polaris_sdk.api.Polaris.networkClient
 import ch.drcookie.polaris_sdk.api.Polaris.bleController
 import ch.drcookie.polaris_sdk.api.Polaris.keyStore
 import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
+import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.use_case.DeliverPayload
 import ch.drcookie.polaris_sdk.api.use_case.MonitorBroadcasts
@@ -17,14 +18,20 @@ import ch.drcookie.polaris_sdk.api.use_case.PullAndForward
 import ch.drcookie.polaris_sdk.api.use_case.FetchBeacons
 import ch.drcookie.polaris_sdk.api.use_case.ScanForBeacon
 import ch.drcookie.polaris_sdk.api.message
+import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
+import ch.drcookie.polaris_sdk.ble.model.EncryptedPayload
+import ch.drcookie.polaris_sdk.ble.model.FoundBeacon
+import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
+import kotlin.system.measureTimeMillis
 
 data class UiState(
     val log: String = "",
@@ -99,16 +106,18 @@ class PolarisViewModel(
 
             appendLog("Scanning for first known beacon...")
 
-            val scanResult = scanForBeacon()
-
             // Check the scan result
-            val foundBeacon = when (scanResult) {
-                is SdkResult.Success -> scanResult.value
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
-                    return@runFlow
+            var foundBeacon: FoundBeacon? = null
+            val scanTime = measureTimeMillis { // TODO: delete after tests
+                foundBeacon = when (val scanResult = scanForBeacon()) {
+                    is SdkResult.Success -> scanResult.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
+                        return@runFlow
+                    }
                 }
             }
+            appendLog("_____SCAN TIME: $scanTime ms_____") // TODO: delete after tests
 
             // Check if a beacon was actually found (vs. timeout)
             if (foundBeacon == null) {
@@ -118,7 +127,10 @@ class PolarisViewModel(
             appendLog("Found beacon: ${foundBeacon.name}. Performing transaction...")
 
             // PoL transaction
-            val transactionResult = performPolTransaction(foundBeacon)
+            lateinit var transactionResult: SdkResult<PoLToken, SdkError>
+            val transactionTime = measureTimeMillis { // TODO: delete after tests
+                transactionResult = performPolTransaction(foundBeacon)
+            }
             val token = when (transactionResult) {
                 is SdkResult.Success -> transactionResult.value
                 is SdkResult.Failure -> {
@@ -126,19 +138,23 @@ class PolarisViewModel(
                     return@runFlow
                 }
             }
+            appendLog("_____POL TRANSACTION TIME: $transactionTime ms_____") // TODO: delete after tests
 
             appendLog("PoL transaction successful. Submitting token...")
 
             // Submit the token to the server
-            when (val submitResult = networkClient.submitPoLToken(token)) {
-                is SdkResult.Success -> {
-                    appendLog("Token submitted successfully!")
-                }
+            val submitTime = measureTimeMillis {
+                when (val submitResult = networkClient.submitPoLToken(token)) {
+                    is SdkResult.Success -> {
+                        appendLog("Token submitted successfully!")
+                    }
 
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Failed to submit token: ${submitResult.error.message()} ---")
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Failed to submit token: ${submitResult.error.message()} ---")
+                    }
                 }
             }
+            appendLog("_____POL SUBMIT TIME: $submitTime ms_____") // TODO: delete after tests
         }
     }
 
@@ -184,14 +200,17 @@ class PolarisViewModel(
             appendLog("Checking for pending payloads...")
 
             // Get payloads
-            val payloadsResult = networkClient.getPayloadsForDelivery()
-            val payloads = when (payloadsResult) {
-                is SdkResult.Success -> payloadsResult.value
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Could not get payloads: ${payloadsResult.error.message()} ---")
-                    return@runFlow
+            lateinit var payloads: List<EncryptedPayload>
+            val fetchPayloadTime = measureTimeMillis {// TODO: delete after tests
+                payloads = when (val payloadsResult = networkClient.getPayloadsForDelivery()) {
+                    is SdkResult.Success -> payloadsResult.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Could not get payloads: ${payloadsResult.error.message()} ---")
+                        return@runFlow
+                    }
                 }
             }
+            appendLog("_____FETCH PAYLOAD TIME: $fetchPayloadTime ms_____") // TODO: delete after tests
 
             if (payloads.isEmpty()) {
                 appendLog("No pending payloads.")
@@ -204,28 +223,34 @@ class PolarisViewModel(
             appendLog("Attempting to deliver...")
 
             // Deliver the payload to the beacon
-            val deliveryResult = deliverSecurePayload(job)
-            val ackBlob = when (deliveryResult) {
-                is SdkResult.Success -> deliveryResult.value
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Payload delivery failed: ${deliveryResult.error.message()} ---")
-                    return@runFlow
+            lateinit var ackBlob: ByteArray
+            val deliverPayloadTime = measureTimeMillis { // TODO: delete after tests
+                ackBlob = when (val deliveryResult = deliverSecurePayload(job)) {
+                    is SdkResult.Success -> deliveryResult.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Payload delivery failed: ${deliveryResult.error.message()} ---")
+                        return@runFlow
+                    }
                 }
             }
+            appendLog("_____DELIVER PAYLOAD TIME: $deliverPayloadTime ms_____") // TODO: delete after tests
 
             appendLog("Payload delivered, received ACK/ERR blob (${ackBlob.size} bytes). Submitting to server...")
             val ackRequest = DeliveryAck(job.deliveryId, ackBlob.toUByteArray())
 
             // Submit the acknowledgement
-            when (val ackResult = networkClient.submitSecureAck(ackRequest)) {
-                is SdkResult.Success -> {
-                    appendLog("ACK/ERR submitted successfully.")
-                }
+            val submitAckTime = measureTimeMillis { // TODO: delete after tests
+                when (val ackResult = networkClient.submitSecureAck(ackRequest)) {
+                    is SdkResult.Success -> {
+                        appendLog("ACK/ERR submitted successfully.")
+                    }
 
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Failed to submit ACK: ${ackResult.error.message()} ---")
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Failed to submit ACK: ${ackResult.error.message()} ---")
+                    }
                 }
             }
+            appendLog("_____SUBMIT ACK TIME: $submitAckTime ms_____") // TODO: delete after tests
         }
     }
 
@@ -235,15 +260,17 @@ class PolarisViewModel(
             appendLog("Scanning for beacons with data pending...")
 
             // Scan for any beacon. We don't filter for a specific one.
-            val scanResult = scanForBeacon(timeoutMillis = 10000L)
-
-            val foundBeacon = when (scanResult) {
-                is SdkResult.Success -> scanResult.value
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
-                    return@runFlow
+            var foundBeacon: FoundBeacon? = null
+            val scanTime = measureTimeMillis { // TODO: delete after tests
+                foundBeacon = when (val scanResult = scanForBeacon()) {
+                    is SdkResult.Success -> scanResult.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Scan failed: ${scanResult.error.message()} ---")
+                        return@runFlow
+                    }
                 }
             }
+            appendLog("_____SCAN TIME: $scanTime ms_____") // TODO: delete after tests
 
             // Check if a beacon was found and if it has data.
             if (foundBeacon == null) {
@@ -259,31 +286,187 @@ class PolarisViewModel(
             // We found a suitable beacon, Execute the flow.
             appendLog("Found beacon '${foundBeacon.name}' with data. Attempting to pull and forward...")
 
-            when (val pullResult = pullAndForwardData(foundBeacon)) {
+            val pullTime = measureTimeMillis { // TODO: delete after tests
+                when (val pullResult = pullAndForwardData(foundBeacon)) {
+                    is SdkResult.Success -> {
+                        appendLog("Successfully pulled and forwarded data from ${foundBeacon.name}.")
+                    }
+
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Failed to process data from ${foundBeacon.name}: ${pullResult.error.message()} ---")
+                    }
+                }
+            }
+            appendLog("_____PULL AND FORWARD DATA TIME: $pullTime ms_____") // TODO: delete after tests
+        }
+    }
+
+    fun runEndToEndStatusCheckFlow() {
+        runFlow("End-to-End Check") {
+            appendLog("Fetching payload from server...")
+
+            // Get payloads
+            val serverJob = when (val result = networkClient.getPayloadsForDelivery()) {
                 is SdkResult.Success -> {
-                    appendLog("Successfully pulled and forwarded data from ${foundBeacon.name}.")
+                    if (result.value.isEmpty()) {
+                        appendLog("No pending payloads from server to start the check.")
+                        return@runFlow
+                    }
+                    result.value.first()
                 }
 
                 is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Failed to process data from ${foundBeacon.name}: ${pullResult.error.message()} ---")
+                    appendLog("--- ERROR: Could not get payloads: ${result.error.message()} ---")
+                    return@runFlow
                 }
+            }
+            appendLog("   -> Found payload #${serverJob.deliveryId} for beacon #${serverJob.beaconId}.")
+
+
+            // Find the specific beacon required for this job
+            appendLog("Finding target beacon...")
+            val targetBeaconInfo = networkClient.knownBeacons.find { it.id == serverJob.beaconId }
+            if (targetBeaconInfo == null) {
+                appendLog("--- ERROR: Beacon #${serverJob.beaconId} is known by server but not by the client. ---")
+                return@runFlow
+            }
+
+            // Scan for the beacon
+            val foundBeacon = when (val result = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))) {
+                is SdkResult.Success -> result.value
+                is SdkResult.Failure -> {
+                    appendLog("--- ERROR: Scan failed: ${result.error.message()} ---")
+                    return@runFlow
+                }
+            }
+
+            if (foundBeacon == null) {
+                appendLog("--- ERROR: Target beacon #${serverJob.beaconId} not found in range. ---")
+                return@runFlow
+            }
+            appendLog("   -> Found beacon '${foundBeacon.name}'.")
+
+            // Connect to the beacon
+            try {
+                appendLog("Connecting to beacon...")
+                when (val connectResult = bleController.connect(foundBeacon.address)) {
+                    is SdkResult.Failure -> {
+                        appendLog("Connection error: ${connectResult.error.message()}")
+                        return@runFlow
+                    }
+
+                    is SdkResult.Success -> {} /* Continue */
+
+                }
+
+                // Await a "Ready" or "Failed" state, with a timeout.
+                val status = withTimeoutOrNull(10000L) {
+                    bleController.connectionState
+                        .filter { it is ConnectionState.Ready || it is ConnectionState.Failed }
+                        .first()
+                }
+
+                // Handle the outcome of the connection attempt.
+                when (status) {
+                    is ConnectionState.Ready -> {
+                        appendLog("   -> Connected.")
+                    }
+
+                    is ConnectionState.Failed -> {
+                        appendLog("Connection failed: ${status.error}")
+                        return@runFlow
+                    }
+
+                    null -> {
+                        appendLog("Connection timed out.")
+                        return@runFlow
+                    }
+
+                    else -> {
+                        appendLog("Unexpected connection state: $status")
+                        return@runFlow
+                    }
+                }
+
+                // Deliver server payload to beacon
+                appendLog("Delivering server payload to beacon...")
+                val ackBlob = when (val result = bleController.exchangeSecurePayload(serverJob.blob.asByteArray())) {
+                    is SdkResult.Success -> result.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Server->Beacon delivery failed: ${result.error.message()} ---")
+                        return@runFlow
+                    }
+                }
+                appendLog("   -> Beacon acknowledged receipt.")
+
+                // Submit the acknowledgement
+                val ack = DeliveryAck(serverJob.deliveryId, ackBlob.toUByteArray())
+                when (val result = networkClient.submitSecureAck(ack)) {
+                    is SdkResult.Success -> appendLog("   -> Server received the ACK.")
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Failed to submit ACK: ${result.error.message()} ---")
+                        return@runFlow
+                    }
+                }
+
+                // Pull the data
+                appendLog("Pulling status data from beacon...")
+                val beaconData = when (val pullResult = bleController.pullEncryptedData()) {
+                    is SdkResult.Success -> pullResult.value
+                    is SdkResult.Failure -> {
+                        appendLog("Error pulling the data: ${pullResult.error.message()}")
+                        return@runFlow
+                    }
+                }
+                appendLog("   -> Received status data from beacon.")
+
+                // Forward data to the server
+                appendLog("Forwarding beacon status to server...")
+                val serverAck =
+                    when (val result = networkClient.forwardBeaconPayload(foundBeacon.info.id, beaconData)) {
+                        is SdkResult.Success -> result.value
+                        is SdkResult.Failure -> {
+                            appendLog("--- ERROR: Failed to forward beacon data: ${result.error.message()} ---")
+                            return@runFlow
+                        }
+                    }
+                appendLog("   -> Server acknowledged status.")
+
+                // Relay the server's ACK back to the beacon
+                appendLog("Relaying final ACK to beacon...")
+                when (val result = bleController.postSecurePayload(serverAck)) {
+                    is SdkResult.Success -> appendLog("   -> Final ACK posted to beacon.")
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Failed to post final ACK: ${result.error.message()} ---")
+                        return@runFlow
+                    }
+                }
+
+                appendLog("--- SUCCESS: End-to-end flow completed. ---")
+
+            } finally {
+                appendLog("9. Disconnecting from beacon...")
+                bleController.disconnect()
             }
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun runFlow(flowName: String, block: suspend () -> Unit) {
+        var totalTime = 0L
         viewModelScope.launch {
             _uiState.update { it.copy(isBusy = true, canStart = false) }
             appendLog("--- Starting Flow: $flowName ---")
             try {
-                block()
+                totalTime = measureTimeMillis {
+                    block()
+                }
             } catch (e: Exception) {
                 appendLog("--- ERROR in $flowName: ${e.message} ---")
                 e.printStackTrace()
             } finally {
                 _uiState.update { it.copy(isBusy = false, canStart = true) }
-                appendLog("--- Finished Flow: $flowName ---")
+                appendLog("--- Finished Flow: $flowName in $totalTime ms ---")
             }
         }
     }

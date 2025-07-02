@@ -52,7 +52,7 @@ public class PullAndForward(
             }
 
             // Forward data to the server
-            val id = foundBeacon.provisioningInfo.id
+            val id = foundBeacon.info.id
             val serverAck = when (val forwardResult = networkClient.forwardBeaconPayload(id, beaconData)) {
                 is SdkResult.Success -> forwardResult.value
                 is SdkResult.Failure -> return forwardResult

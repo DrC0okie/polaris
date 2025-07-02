@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.monitorBoradcastButton.setOnClickListener {
             requestPermissionsAndRun {
-                viewModel.toggleBroadcastMonitoring()
+                viewModel.runEndToEndStatusCheckFlow()
             }
         }
 
