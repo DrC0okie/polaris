@@ -1,9 +1,9 @@
 #include <Arduino.h>
-#include <preferences.h>
+#include <Preferences.h>
 #include <sodium.h>
 
-#include "ble/broadcast_advertiser.h"
 #include "ble/ble_manager.h"
+#include "ble/broadcast_advertiser.h"
 #include "ble/connectable_advertiser.h"
 #include "protocol/handlers/commands/command_factory.h"
 #include "protocol/handlers/data_pull_handler.h"

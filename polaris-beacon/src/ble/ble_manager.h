@@ -120,13 +120,13 @@ private:
 
     /// @brief A message structure for the token request queue.
     struct TokenRequestMessage {
-        uint8_t data[512];
+        uint8_t data[MAX_BLE_PAYLOAD_SIZE];
         size_t len;
     };
 
     /// @brief A message structure for the encrypted request queue.
     struct EncryptedRequestMessage {
-        uint8_t data[512];
+        uint8_t data[MAX_BLE_PAYLOAD_SIZE];
         size_t len;
     };
 

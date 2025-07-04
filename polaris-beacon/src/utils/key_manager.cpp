@@ -1,7 +1,7 @@
 #include "key_manager.h"
 
 #include <HardwareSerial.h>
-#include <Sodium.h>
+#include <sodium.h>
 #include <string.h>
 
 #include "protocol/pol_constants.h"

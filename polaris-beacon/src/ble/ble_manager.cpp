@@ -175,7 +175,7 @@ void BleManager::begin(const std::string& deviceName) {
     // all complex logic from the main BLE thread, ensuring responsiveness. Using `tskNO_AFFINITY`
     // allows the FreeRTOS scheduler to place the task on either core.
     Serial.println("[BLE] Starting PoL processor task...");
-    BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
+    BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 10240, this, 1,
                                                  &_tokenProcessorTask, tskNO_AFFINITY);
     if (taskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create PoL processor task!");
@@ -186,7 +186,7 @@ void BleManager::begin(const std::string& deviceName) {
                                                     1, &_encryptedProcessorTask, tskNO_AFFINITY);
 
     Serial.println("[BLE] Starting Data Pull processor task...");
-    BaseType_t pullTaskRes = xTaskCreatePinnedToCore(pullProcessorTask, "PullProc", 1024, this, 1,
+    BaseType_t pullTaskRes = xTaskCreatePinnedToCore(pullProcessorTask, "PullProc", 4096, this, 1,
                                                      &_pullProcessorTask, tskNO_AFFINITY);
 
     if (encTaskRes != pdPASS) {
@@ -273,9 +273,9 @@ void BleManager::queueEncryptedRequest(const uint8_t* data, size_t len) {
         Serial.println("[BLE Enc] Empty encrypted request received, dropping.");
         return;
     }
-    if (len > 512) {
+    if (len > MAX_BLE_PAYLOAD_SIZE) {
         Serial.printf("[BLE Enc] Encrypted request too large (%zu bytes, max %zu). Dropping.\n",
-                      len, 512);
+                      len, MAX_BLE_PAYLOAD_SIZE);
         return;
     }
 

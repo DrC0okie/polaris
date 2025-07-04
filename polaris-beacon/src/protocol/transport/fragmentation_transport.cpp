@@ -158,7 +158,6 @@ bool FragmentationTransport::sendMessage(const uint8_t* fullMessageData, size_t 
 
         _indicateChar->setValue(packet.data(), packet.size());
         _indicateChar->indicate();
-        Serial.printf("%s Sent chunk type %02X, size %zu.\n", TAG, packetType, chunkSize);
 
         bytesSent += chunkSize;
 

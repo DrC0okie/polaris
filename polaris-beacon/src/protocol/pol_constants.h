@@ -39,10 +39,10 @@ constexpr size_t POL_AEAD_NONCE_SIZE = 12;
 constexpr size_t POL_AEAD_TAG_SIZE = 16;
 
 /// @brief The maximum size of the inner plaintext structure for encrypted messages.
-constexpr size_t MAX_INNER_PLAINTEXT_SIZE = 200;
+constexpr size_t MAX_INNER_PLAINTEXT_SIZE = 544;  // Arbitrary value
 
 /// @brief The maximum theoretical size of a BLE payload on the characteristic.
-constexpr size_t MAX_BLE_PAYLOAD_SIZE = 244;
+constexpr size_t MAX_BLE_PAYLOAD_SIZE = MAX_INNER_PLAINTEXT_SIZE + 40;
 
 // NVS constants
 // WARNING: do not exceed 15 characters for NVS key names!
