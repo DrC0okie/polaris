@@ -112,10 +112,10 @@ class PayloadService(
             throw IllegalStateException("Beacon ${request.beaconId} is not provisioned for encrypted communication.")
         }
 
-        // 1. Delegate processing and storage to the dedicated processor
+        // Delegate processing and storage to the dedicated processor
         val receivedPlaintext = inboundPayloadProcessor.process(request, beacon) // Inject inboundPayloadProcessor
 
-        // 2. Craft the ACK response to send back
+        // Craft the ACK response to send back
         val ackPlaintext = PlaintextMessage(
             msgId = receivedPlaintext.msgId, // Echo the message ID in the ack
             msgType = MessageType.ACK,
@@ -124,10 +124,10 @@ class PayloadService(
             payload = ByteArray(0) // ACK has no payload
         )
 
-        // 3. Seal the ACK
+        // Seal the ACK
         val sealedAck = sealer.seal(ackPlaintext, beacon)
 
-        // 4. Wrap it in the DTO for the phone
+        // Wrap it in the DTO for the phone
         return RawDataDto(data = sealedAck.toBlob().asUByteArray())
     }
 

@@ -25,7 +25,7 @@ class PolarisApplication : Application() {
                     encryptedIndicateUuid = "079b34dd-2310-4b61-89bb-494cc67e097f"
                     pullDataWriteUuid = "e914a8e4-843a-4b72-8f2a-f9175d71cf88"
                     manufacturerId = 0xFFFF
-                    mtu = 23
+                    mtu = 517
                 }
                 api {
                     baseUrl = "https://polaris.iict-heig-vd.ch" // mandatory
