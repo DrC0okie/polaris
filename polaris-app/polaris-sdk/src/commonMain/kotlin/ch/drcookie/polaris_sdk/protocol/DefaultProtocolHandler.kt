@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.protocol
 
+import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.crypto.CryptoUtils
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
@@ -26,8 +27,8 @@ internal class DefaultProtocolHandler(private val cryptoUtils: CryptoUtils) : Pr
         return cryptoUtils.verifyPoLResponse(response, signedRequest, beaconPublicKey)
     }
 
-    override fun verifyBroadcast(payload: BroadcastPayload, beaconPublicKey: UByteArray): Boolean {
-        return cryptoUtils.verifyBeaconBroadcast(payload, beaconPublicKey)
+    override fun verifyBroadcast(payload: BroadcastPayload, knownBeacon: Beacon): Boolean {
+        return cryptoUtils.verifyBeaconBroadcast(payload, knownBeacon)
     }
 
     override fun generateNonce(): UByteArray {

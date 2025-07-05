@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.crypto
 
+import ch.drcookie.polaris_sdk.ble.model.Beacon
 import io.github.oshai.kotlinlogging.KotlinLogging
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.protocol.model.Constants
@@ -61,13 +62,16 @@ internal object CryptoUtils {
     }
 
     /** Verifies the signature of a [BroadcastPayload]. */
-    internal fun verifyBeaconBroadcast(payload: BroadcastPayload, beaconPk: UByteArray): Boolean {
-        // Reconstruct the exact data that was signed on the beacon
-        val dataToVerify = payload.getSignedData()
+    internal fun verifyBeaconBroadcast(payload: BroadcastPayload, knownBeacon: Beacon): Boolean {
+
+        // Verify freshness
+        if (payload.counter < knownBeacon.lastKnownCounter){
+            return false
+        }
 
         return try {
             // The verifyDetached function will throw an exception if the signature is invalid.
-            Signature.verifyDetached(payload.signature, dataToVerify, beaconPk)
+            Signature.verifyDetached(payload.signature, payload.getSignedData(), knownBeacon.publicKey)
             true
         } catch (e: InvalidSignatureException) {
             Log.warn(e) { "Broadcast signature verification failed for beacon #${payload.beaconId}" }

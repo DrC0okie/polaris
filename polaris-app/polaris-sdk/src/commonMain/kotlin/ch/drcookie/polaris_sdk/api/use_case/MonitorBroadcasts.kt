@@ -62,10 +62,9 @@ public class MonitorBroadcasts(
         }
         return beaconFlow.distinctUntilChanged()
             .map<BroadcastPayload, SdkResult<VerifiedBroadcast, SdkError>> { payload ->
-                val beaconPublicKey = networkClient.knownBeacons.find { it.id == payload.beaconId }?.publicKey
-
-                val isVerified = if (beaconPublicKey != null) {
-                    protocolHandler.verifyBroadcast(payload, beaconPublicKey)
+                val beacon = networkClient.knownBeacons.find { it.id == payload.beaconId }
+                val isVerified = if (beacon != null) {
+                    protocolHandler.verifyBroadcast(payload, beacon)
                 } else {
                     false // We don't have a key for this beacon
                 }

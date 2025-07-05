@@ -1,7 +1,9 @@
 package ch.drcookie.polaris_sdk.api.use_case
 
+import ch.drcookie.polaris_sdk.api.Polaris
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
+import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.storage.KeyStore
 
@@ -32,12 +34,34 @@ public class FetchBeacons(
         osVersion: String,
         appVersion: String,
     ): SdkResult<Int, SdkError> {
-        // Get the key pair.
+
+        if (networkClient.getPhoneId() > 0) {
+            // We are already registered, just fetch beacons.
+            val fetchResult = networkClient.fetchBeacons()
+            if (fetchResult is SdkResult.Success) {
+                return SdkResult.Success(fetchResult.value.size)
+            }
+            // Somehow, the server DB don't remember this phone, perform a registration
+        }
+
+        // This is a new phone, perform a registration
+        return performFullRegistration(deviceModel, osVersion, appVersion)
+    }
+
+    @OptIn(ExperimentalUnsignedTypes::class)
+    private suspend fun performFullRegistration(
+        deviceModel: String,
+        osVersion: String,
+        appVersion: String
+    ): SdkResult<Int, SdkError> {
+
+        // Get or create a fresh key pair.
         val keyPairResult = keyStore.getOrCreateSignatureKeyPair()
         val (pk, _) = when (keyPairResult) {
             is SdkResult.Success -> keyPairResult.value
             is SdkResult.Failure -> return keyPairResult
         }
+
         // Register the phone.
         val registerResult = networkClient.registerPhone(pk, deviceModel, osVersion, appVersion)
         return when (registerResult) {

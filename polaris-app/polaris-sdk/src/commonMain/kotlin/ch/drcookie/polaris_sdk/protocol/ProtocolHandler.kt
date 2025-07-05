@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.protocol
 
+import ch.drcookie.polaris_sdk.ble.model.Beacon
 import ch.drcookie.polaris_sdk.protocol.model.BroadcastPayload
 import ch.drcookie.polaris_sdk.protocol.model.PoLRequest
 import ch.drcookie.polaris_sdk.protocol.model.PoLResponse
@@ -41,10 +42,10 @@ public interface ProtocolHandler {
      * Verifies the signature of a broadcast advertisement payload.
      *
      * @param payload The [BroadcastPayload] received from a BLE advertisement.
-     * @param beaconPublicKey The known public key of the beacon that should have signed the payload.
+     * @param beacon The known public key of the beacon that should have signed the payload.
      * @return `true` if the signature is valid, `false` otherwise.
      */
-    public fun verifyBroadcast(payload: BroadcastPayload, beaconPublicKey: UByteArray): Boolean
+    public fun verifyBroadcast(payload: BroadcastPayload, knownBeacon: Beacon): Boolean
 
     /**
      * Generates a random nonce to use in protocol messages.
