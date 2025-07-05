@@ -22,9 +22,17 @@
         android:text="Monitor broadcasts"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@+id/registerButton"
+        app:layout_constraintEnd_toStartOf="@id/endToEndButton"/>
+
+    <Button
+        android:id="@+id/endToEndButton"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="End-to-end flow"
+        app:layout_constraintTop_toTopOf="@id/monitorBoradcastButton"
+        app:layout_constraintStart_toEndOf="@+id/monitorBoradcastButton"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Transmit signed PoL Token to the server -->
     <Button
         android:id="@+id/TokenFlowButton"
         android:layout_width="0dp"
@@ -34,7 +42,6 @@
         app:layout_constraintTop_toBottomOf="@+id/registerButton"
         app:layout_constraintEnd_toStartOf="@+id/payloadFlowButton"/>
 
-    <!-- Transmit encrypted payload from the server-->
     <Button
         android:id="@+id/payloadFlowButton"
         android:layout_width="0dp"

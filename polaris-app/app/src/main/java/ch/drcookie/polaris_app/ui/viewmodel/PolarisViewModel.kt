@@ -1,7 +1,6 @@
 package ch.drcookie.polaris_app.ui.viewmodel
 
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -28,6 +27,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.collections.toUByteArray
 
+/**
+ * Represents the state of the main UI, including logs and the status of ongoing operations.
+ *
+ * @property log The cumulative string of log messages to display on the screen.
+ * @property isBusy True if a one-shot, blocking flow (like a PoL transaction) is currently running. Used to disable other buttons.
+ * @property isMonitoring True if the continuous broadcast monitoring flow is active.
+ */
 data class UiState(
     val log: String = "",
     val isBusy: Boolean = false,
@@ -38,12 +44,12 @@ data class UiState(
 /**
  * The ViewModel for the main activity, acting as a bridge between the UI and the Polaris SDK.
  *
+ * @param fetchBeacons Use case for registering a new device or fetching beacons for a known one.
  * @param scanForBeacon Use case for performing a one-shot scan for a connectable beacon.
  * @param performPolTransaction Use case for executing a full Proof-of-Location transaction.
  * @param deliverSecurePayload Use case for delivering a server-originated payload to a beacon.
  * @param monitorBroadcasts Use case for listening to non-connectable beacon advertisements.
  * @param pullAndForwardData Use case for pulling data from a beacon and forwarding it to the server.
- * @param registerDevice Use case for registering a phone to the server
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class PolarisViewModel(
@@ -52,7 +58,7 @@ class PolarisViewModel(
     private val deliverSecurePayload: DeliverPayload,
     private val monitorBroadcasts: MonitorBroadcasts,
     private val pullAndForwardData: PullAndForward,
-    private val registerDevice: FetchBeacons,
+    private val fetchBeacons: FetchBeacons,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UiState())
@@ -60,40 +66,31 @@ class PolarisViewModel(
     private var monitoringJob: Job? = null
     private val formatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
 
+    /**
+     * Initiates the device onboarding flow. If the device is new, it will register.
+     * If it's already registered, it will simply fetch the latest beacon list from the server.
+     */
     fun fetchBeacons() {
         runFlow("Fetch beacons") {
-            if (networkClient.getPhoneId() > 0) {
-                // We are already registered, just fetch beacons.
-                val fetchResult = networkClient.fetchBeacons()
-                when (fetchResult) {
-                    is SdkResult.Success -> {
-                        appendLog("Fetch successful. Found ${fetchResult.value.size} known beacons.")
-                        return@runFlow
-                    }
-
-                    is SdkResult.Failure -> {
-                        appendLog("--- ERROR: Registration failed: ${fetchResult.error.message()} ---")
-                    }
-                }
-                // The server has been reset somehow, try to register
-            }
-
             appendLog("Registering phone with server...")
-            val result = registerDevice(Build.MODEL, Build.VERSION.RELEASE, "1.0")
-            when (result) {
+
+            when (val result = fetchBeacons(Build.MODEL, Build.VERSION.RELEASE, "1.0")) {
                 is SdkResult.Success -> {
                     val beaconCount = result.value
-                    appendLog("Registration successful. Found $beaconCount known beacons.")
+                    appendLog("Fetch success, found $beaconCount known beacons.")
                 }
 
                 is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Registration failed: ${result.error.message()} ---")
+                    appendLog("--- ERROR: Fetch failed: ${result.error.message()} ---")
                 }
             }
-
         }
     }
 
+    /**
+     * Executes the complete Proof-of-Location flow: scans for a beacon, performs the PoL
+     * transaction, and submits the resulting token to the server.
+     */
     fun findAndExecuteTokenFlow() {
         runFlow("PoL Token Flow") {
             if (networkClient.knownBeacons.isEmpty()) {
@@ -142,6 +139,11 @@ class PolarisViewModel(
         }
     }
 
+    /**
+     * Toggles the continuous monitoring of beacon broadcasts.
+     * If not running, it starts a flow that listens for broadcasts and verifies their signatures.
+     * If already running, it cancels the flow.
+     */
     fun toggleBroadcastMonitoring() {
         if (monitoringJob?.isActive == true) {
             monitoringJob?.cancel() // This will cancel the collection of the flow
@@ -179,6 +181,9 @@ class PolarisViewModel(
             .launchIn(viewModelScope)
     }
 
+    /**
+     * Executes the full server-to-beacon payload delivery flow.
+     */
     fun processPayloadFlow() {
         runFlow("Secure Payload Delivery") {
             appendLog("Checking for pending payloads...")
@@ -227,6 +232,9 @@ class PolarisViewModel(
         }
     }
 
+    /**
+     * Executes a one-shot attempt to find a beacon with pending data and process it.
+     */
     fun pullDataFromBeacon() {
         runFlow("Pull Data from Beacon") {
 
@@ -268,6 +276,9 @@ class PolarisViewModel(
         }
     }
 
+    /**
+     * Executes a complete end-to-end test flow withing a single BLE connection to the beacon.
+     */
     fun runEndToEndStatusCheckFlow() {
         runFlow("End-to-End Check") {
             appendLog("Fetching payload from server...")
@@ -418,7 +429,17 @@ class PolarisViewModel(
         }
     }
 
+    /**
+     * A helper to wrap one-shot SDK flows, managing the `isBusy` UI state
+     * and providing a top-level try-catch for any unexpected errors.
+     */
     private fun runFlow(flowName: String, block: suspend () -> Unit) {
+
+        if (_uiState.value.isBusy) {
+            appendLog("--- Another flow is already in progress. Please wait. ---")
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isBusy = true, canStart = false) }
             appendLog("--- Starting Flow: $flowName ---")
@@ -434,6 +455,7 @@ class PolarisViewModel(
         }
     }
 
+    /** Appends a timestamped message to the UI log. */
     private fun appendLog(message: String) {
         val timestamp = formatter.format(Instant.now())
         _uiState.update {
@@ -443,6 +465,9 @@ class PolarisViewModel(
     }
 }
 
+/**
+ * A simple factory for creating [PolarisViewModel] instances.
+ */
 class PolarisViewModelFactory() : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {

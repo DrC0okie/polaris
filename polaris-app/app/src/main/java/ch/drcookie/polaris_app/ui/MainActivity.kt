@@ -78,6 +78,12 @@ class MainActivity : AppCompatActivity() {
 
         binding.monitorBoradcastButton.setOnClickListener {
             requestPermissionsAndRun {
+                viewModel.toggleBroadcastMonitoring()
+            }
+        }
+
+        binding.endToEndButton.setOnClickListener {
+            requestPermissionsAndRun {
                 viewModel.runEndToEndStatusCheckFlow()
             }
         }
@@ -113,7 +119,7 @@ class MainActivity : AppCompatActivity() {
         binding.registerButton.isEnabled = !isActionInProgress
         binding.fetchBeaconButton.isEnabled = !isActionInProgress
 
-        // The monitor button should be disabled only when a *different* flow is busy
+        // The monitor button should be disabled only when a different flow is busy
         binding.monitorBoradcastButton.isEnabled = !state.isBusy
 
         if (state.isMonitoring) {
