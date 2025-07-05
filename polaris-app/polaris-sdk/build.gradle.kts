@@ -5,14 +5,18 @@ plugins {
 }
 
 kotlin {
+    // Suppress annoying compiler warning about the beta status of expect/actual
+    compilerOptions {
+        freeCompilerArgs = listOf("-Xexpect-actual-classes")
+    }
 
     // This allows to specify which classes are accessible in the sdk API
     explicitApi()
 
     androidLibrary {
         namespace = "ch.drcookie.polaris_sdk"
-        compileSdk = 35
-        minSdk = 24
+        compileSdk = 36
+        minSdk = 26 // Android 8 api 26
 
         withHostTestBuilder {
         }

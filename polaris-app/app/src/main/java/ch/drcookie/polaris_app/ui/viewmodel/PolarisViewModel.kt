@@ -46,7 +46,6 @@ data class UiState(
  * @param registerDevice Use case for registering a phone to the server
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-@RequiresApi(Build.VERSION_CODES.O)
 class PolarisViewModel(
     private val scanForBeacon: ScanForBeacon,
     private val performPolTransaction: PolTransaction,
@@ -419,7 +418,6 @@ class PolarisViewModel(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun runFlow(flowName: String, block: suspend () -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isBusy = true, canStart = false) }
@@ -436,7 +434,6 @@ class PolarisViewModel(
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun appendLog(message: String) {
         val timestamp = formatter.format(Instant.now())
         _uiState.update {
@@ -447,7 +444,6 @@ class PolarisViewModel(
 }
 
 class PolarisViewModelFactory() : ViewModelProvider.Factory {
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
 

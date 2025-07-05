@@ -1,5 +1,6 @@
 package ch.drcookie.polaris_sdk.ble
 
+import android.Manifest.permission.*
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
@@ -15,6 +16,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Build
+import androidx.annotation.RequiresPermission
 import ch.drcookie.polaris_sdk.api.config.BleConfig
 import ch.drcookie.polaris_sdk.ble.model.CommonBleScanResult
 import ch.drcookie.polaris_sdk.ble.util.BleUtils.gattStatusToString
@@ -50,7 +52,7 @@ private val Log = KotlinLogging.logger {}
  * @param externalScope The CoroutineScope from the controller, used to launch callbacks and emit flows.
  * @param config The global BLE configuration.
  */
-@SuppressLint("MissingPermission")
+//@SuppressLint("MissingPermission")
 internal class GattManager(
     private val context: Context,
     private val externalScope: CoroutineScope,
@@ -80,6 +82,7 @@ internal class GattManager(
     private var isScanning = false
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+
     /** A flow that emits the current [ConnectionState]. */
     internal val connectionState = _connectionState.asStateFlow()
 
@@ -87,17 +90,21 @@ internal class GattManager(
     internal val scanResults = _scanResults.asSharedFlow()
 
     private val _receivedData = MutableSharedFlow<ByteArray>()
+
     /** A flow that emits raw data received from BLE indications. */
     internal val receivedData = _receivedData.asSharedFlow()
 
     private val _discriminatedScanResults = MutableSharedFlow<DiscriminatedScanResult>()
+
     /** A flow that emits scan results that have been sorted into Legacy, Extended, or Other. */
     internal val discriminatedScanResults = _discriminatedScanResults.asSharedFlow()
 
     private val _mtu = MutableStateFlow(517)
+
     /** A flow that emits the negotiated MTU size. */
     internal val mtu = _mtu.asStateFlow()
 
+    @RequiresPermission(BLUETOOTH_SCAN)
     internal fun startScan(filters: List<ScanFilter>?, scanConfig: ScanConfig) {
         // Prevent starting scan if already scanning
         if (isScanning) return
@@ -120,11 +127,9 @@ internal class GattManager(
                 }
             )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            settingsBuilder.setLegacy(scanConfig.scanLegacyOnly)
-            if (scanConfig.useAllSupportedPhys) {
-                settingsBuilder.setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
-            }
+        settingsBuilder.setLegacy(scanConfig.scanLegacyOnly)
+        if (scanConfig.useAllSupportedPhys) {
+            settingsBuilder.setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
         }
 
         val settings = settingsBuilder.build()
@@ -141,6 +146,7 @@ internal class GattManager(
         }
     }
 
+    @RequiresPermission(BLUETOOTH_SCAN)
     internal fun stopScan() {
         if (!isScanning) return
         isScanning = false
@@ -184,6 +190,7 @@ internal class GattManager(
         }
     }
 
+    @RequiresPermission(BLUETOOTH_CONNECT)
     internal fun enableIndication() {
         val gatt = bluetoothGatt ?: return
         indicateCharacteristic = gatt.getService(UUID.fromString(config.polServiceUuid))
@@ -225,6 +232,7 @@ internal class GattManager(
         writeCccdDescriptor(gatt, cccd, value)
     }
 
+    @RequiresPermission(BLUETOOTH_CONNECT)
     internal fun disableIndication() {
         val gatt = bluetoothGatt
         val characteristic = indicateCharacteristic ?: return
@@ -256,8 +264,8 @@ internal class GattManager(
 
     internal fun setTransactionUuids(writeUuid: String?, indicateUuid: String?) {
         val dummyUuid = "00000000-0000-0000-0000-000000000000"
-        this.currentWriteUuid = UUID.fromString(writeUuid?:dummyUuid)
-        this.currentIndicateUuid = UUID.fromString(indicateUuid?:dummyUuid)
+        this.currentWriteUuid = UUID.fromString(writeUuid ?: dummyUuid)
+        this.currentIndicateUuid = UUID.fromString(indicateUuid ?: dummyUuid)
     }
 
     /**
@@ -269,7 +277,8 @@ internal class GattManager(
     }
 
 
-    // Public close function using the helper
+    // Public close function usinng the helper
+    @RequiresPermission(allOf = [BLUETOOTH_CONNECT, BLUETOOTH_SCAN])
     internal fun close() {
         if (isScanning) stopScan()
         bluetoothGatt?.close()
@@ -298,17 +307,11 @@ internal class GattManager(
             )
 
             // Discriminate by specific metadata
-            val discriminatedResult = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                when {
-                    result.isLegacy && result.isConnectable -> DiscriminatedScanResult.Legacy(commonResult)
-                    !result.isLegacy && !result.isConnectable -> DiscriminatedScanResult.Extended(commonResult)
-                    else -> DiscriminatedScanResult.Other(commonResult)
-                }
-            } else {
-                // On older Android versions, everything is legacy and connectable is less reliable.
-                DiscriminatedScanResult.Legacy(commonResult)
+            val discriminatedResult = when {
+                result.isLegacy && result.isConnectable -> DiscriminatedScanResult.Legacy(commonResult)
+                !result.isLegacy && !result.isConnectable -> DiscriminatedScanResult.Extended(commonResult)
+                else -> DiscriminatedScanResult.Other(commonResult)
             }
-
             externalScope.launch { _discriminatedScanResults.emit(discriminatedResult) }
         }
 
@@ -319,6 +322,7 @@ internal class GattManager(
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
+        @RequiresPermission(allOf = [BLUETOOTH_CONNECT, BLUETOOTH_SCAN])
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             val deviceAddress = gatt.device.address
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -338,6 +342,7 @@ internal class GattManager(
             }
         }
 
+        @RequiresPermission(allOf = [BLUETOOTH_SCAN, BLUETOOTH_CONNECT])
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val serviceUuid = config.polServiceUuid
@@ -359,6 +364,7 @@ internal class GattManager(
             }
         }
 
+        @RequiresPermission(BLUETOOTH_CONNECT)
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             val stat = gattStatusToString(status)
             Log.info { "MTU changed to $mtu" }
@@ -386,6 +392,7 @@ internal class GattManager(
             handleCharacteristicChange(characteristic.uuid, value)
         }
 
+        @RequiresPermission(allOf = [BLUETOOTH_CONNECT, BLUETOOTH_SCAN])
         override fun onCharacteristicWrite(
             gatt: BluetoothGatt,
             characteristic: BluetoothGattCharacteristic,
