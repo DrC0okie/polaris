@@ -8,7 +8,7 @@ RequestStatusCommand::RequestStatusCommand(SystemMonitor& systemMonitor,
     : _systemMonitor(systemMonitor), _outgoingMessageService(outgoingMessageService) {
 }
 
-void RequestStatusCommand::execute() {
+CommandResult RequestStatusCommand::execute() {
     Serial.println("[Command] Executing REQUEST_BEACON_STATUS.");
 
     // Create a JSON document to hold the status payload.
@@ -20,4 +20,8 @@ void RequestStatusCommand::execute() {
 
     // Queue the new message for sending back to the server.
     _outgoingMessageService.queueMessage(OperationType::BeaconStatus, statusPayload);
+
+    CommandResult result;
+    result.success = true;
+    return result;
 }

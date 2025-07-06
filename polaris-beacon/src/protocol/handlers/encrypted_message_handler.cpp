@@ -4,6 +4,8 @@
 #include <HardwareSerial.h>
 #include <Ticker.h>
 
+#include <vector>
+
 #include "../crypto.h"
 #include "commands/command_factory.h"
 
@@ -11,13 +13,15 @@ EncryptedMessageHandler::EncryptedMessageHandler(const CryptoService& cryptoServ
                                                  const BeaconCounter& beaconEventCounter,
                                                  Preferences& prefs, IMessageTransport& transport,
                                                  CommandFactory& commandFactory,
-                                                 OutgoingMessageService& outgoingMessageService)
+                                                 OutgoingMessageService& outgoingMessageService,
+                                                 KeyManager& keyManager)
     : _cryptoService(cryptoService),
       _beaconEventCounter(beaconEventCounter),
       _prefs(prefs),
       _transport(transport),
       _commandFactory(commandFactory),
       _outgoingMessageService(outgoingMessageService),
+      _keyManager(keyManager),
       _beaconIdForAd(BEACON_ID),
       _nextResponseMsgId(0) {
     loadNextResponseMsgId();  // Load from NVS or initialize
@@ -60,9 +64,38 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     }
 
     InnerPlaintext innerPtReceived;
+    bool decryptionSuccess = false;
     if (!receivedMsg.unseal(innerPtReceived)) {
-        Serial.printf("%s Failed to unseal/decrypt message.\n", TAG);
-        return;
+        Serial.printf("%s Unseal failed. Trying with pending key...\n", TAG);
+
+        // Derive a temp shared key with the pending key
+        uint8_t tempAeadKey[SHARED_KEY_SIZE];
+        if (_keyManager.deriveAEADSharedKeyWithPendingKey(tempAeadKey)) {
+            // Try to unseal with the temp shared key
+            if (receivedMsg.unseal(innerPtReceived, tempAeadKey)) {
+                // Success, it's the end of the key rotation
+                Serial.printf("%s Alternate decryption successful!\n", TAG);
+
+                // The type MUST be RotateKeyFinish
+                if (static_cast<OperationType>(innerPtReceived.opType) !=
+                    OperationType::RotateKeyFinish) {
+                    Serial.printf("%s SECURITY ALERT: Decrypted with pending key, but opType is "
+                                  "not RotateKeyFinish!\n",
+                                  TAG);
+                    // Do nothing, drop the message
+                    return;
+                }
+
+                // The message is valid, we can activate the pending key
+                if (!_keyManager.activateNewX25519KeyPair()) {
+                    Serial.printf("%s CRITICAL: Failed to activate new key pair after successful "
+                                  "alternate decryption.\n",
+                                  TAG);
+                    return;
+                }
+                decryptionSuccess = true;
+            }
+        }
     }
 
     Serial.printf("%s Decrypted: msgId=%u, msgType=%u, opType=%u, beaconCnt=%u, payloadLen=%u\n",
@@ -79,6 +112,7 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
         Serial.printf("%s ACK for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
         _outgoingMessageService.handleAck(innerPtReceived.msgId);
+
     } else if (innerPtReceived.msgType == MSG_TYPE_ERR) {
         Serial.printf("%s ERR for our msgId %u. (PayloadLen: %u)\n", TAG, innerPtReceived.msgId,
                       innerPtReceived.actualPayloadLength);
@@ -94,25 +128,39 @@ void EncryptedMessageHandler::process(const uint8_t* data, size_t len) {
     }
 }
 
-void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOpType) {
+void EncryptedMessageHandler::sendAck(uint32_t originalMsgId, uint8_t originalOpType,
+                                      const uint8_t* payload, size_t payloadLen) {
     InnerPlaintext ackInnerPt;
     ackInnerPt.msgId = _nextResponseMsgId;  // Use beacon own unique msgId for this response
     ackInnerPt.msgType = MSG_TYPE_ACK;
     ackInnerPt.opType = originalOpType;  // Echo opType of the request it's ACKing
     ackInnerPt.beaconCnt = _beaconEventCounter.getValue();
-    ackInnerPt.actualPayloadLength = 0;  // No payload for a simple ACK
+
+    if (payload != nullptr && payloadLen > 0) {
+        if (payloadLen <= sizeof(ackInnerPt.payload)) {
+            memcpy(ackInnerPt.payload, payload, payloadLen);
+            ackInnerPt.actualPayloadLength = payloadLen;
+        } else {
+            Serial.printf("%s ERROR: ACK payload is too large (%zu bytes)!\n", TAG, payloadLen);
+            // Send ERR instead ? for the moment let's drop
+            return;
+        }
+    } else {
+        ackInnerPt.actualPayloadLength = 0;
+    }
 
     EncryptedMessage ackMsgToSend(_cryptoService);
     if (ackMsgToSend.seal(ackInnerPt, _beaconIdForAd)) {
         size_t ackLen = ackMsgToSend.packedSize();
         if (ackLen > 0 && ackLen < MAX_BLE_PAYLOAD_SIZE) {
-            uint8_t ackBuffer[MAX_BLE_PAYLOAD_SIZE];                // Use max size buffer
-            ackMsgToSend.toBytes(ackBuffer, MAX_BLE_PAYLOAD_SIZE);  // Pass buffer size
+            std::vector<uint8_t> ackBuffer(ackLen);
+            ackMsgToSend.toBytes(ackBuffer.data(), ackBuffer.size());
 
             // Delegate sending the full message to the transport layer
-            if (!_transport.sendMessage(ackBuffer, ackLen)) {
+            if (!_transport.sendMessage(ackBuffer.data(), ackBuffer.size())) {
                 Serial.println("[Processor] Failed to send response via transport layer.");
             }
+
             Serial.printf("%s ACK sent (msgId %u for original req_msgId %u).\n", TAG,
                           ackInnerPt.msgId, originalMsgId);
 
@@ -160,11 +208,11 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
 }
 
 void EncryptedMessageHandler::handleIncomingCommand(const InnerPlaintext& pt) {
-    JsonDocument doc;
     JsonObject params;
 
     // Only try to parse JSON if there is a payload
-    if (pt.actualPayloadLength > 0) {
+    if (pt.actualPayloadLength > 2) {
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, pt.payload, pt.actualPayloadLength);
         if (error) {
             Serial.printf("%s Failed to parse JSON payload: %s. Ignoring command.\n", TAG,
@@ -179,11 +227,18 @@ void EncryptedMessageHandler::handleIncomingCommand(const InnerPlaintext& pt) {
     OperationType opType = static_cast<OperationType>(pt.opType);
 
     // Use the factory to create a command object
-    auto command = _commandFactory.createCommand(opType, params);
+    auto command = _commandFactory.createCommand(opType, params, _keyManager);
 
     if (command) {
-        command->execute();
-        sendAck(pt.msgId, pt.opType);
+        CommandResult result = command->execute();
+        if (result.success) {
+            // Envoyer un ACK, avec le payload s'il y en a un
+            sendAck(pt.msgId, pt.opType, result.responsePayload.data(),
+                    result.responsePayload.size());
+        } else {
+            // Envoyer un ERR si la commande a échoué
+            sendErr(pt.msgId, pt.opType, 0x04);  // 0x04: Command execution failed
+        }
     } else {
         // Handle unknown command
         Serial.printf("%s Unknown opType %u received.\n", TAG, pt.opType);

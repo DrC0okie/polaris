@@ -86,9 +86,10 @@ public:
     /**
      * @brief Decrypts the messag ciphertext and populates a given InnerPlaintext struct.
      * @param innerPtOut The InnerPlaintext struct to populate with decrypted data.
+     * @param Optionnal. Overrides the key stored in the KeyManager to unseal
      * @return True on successful decryption and authentication.
      */
-    bool unseal(InnerPlaintext& innerPtOut);
+    bool unseal(InnerPlaintext& innerPtOut, const uint8_t* overrideKey = nullptr);
 
     /**
      * @brief Serializes the entire message (header + ciphertext) to a buffer for transmission.

@@ -160,6 +160,50 @@ bool KeyManager::deriveAEADSharedKey(uint8_t sharedKeyOut[SHARED_KEY_SIZE],
     return true;
 }
 
+bool KeyManager::deriveAEADSharedKeyWithPendingKey(uint8_t sharedKeyOut[SHARED_KEY_SIZE]) const {
+    if (crypto_scalarmult_curve25519(sharedKeyOut, _new_x25519Sk, _serverX25519Pk) != 0) {
+        Serial.printf("%s Error: Failed to derive temporary AEAD key with pending secret key.\n",
+                      TAG);
+        memset(sharedKeyOut, 0, SHARED_KEY_SIZE);
+        return false;
+    }
+    return true;
+}
+
+void KeyManager::prepareNewX25519KeyPair() {
+    Serial.printf("%s Preparing new X25519 key pair...\n", TAG);
+    generateX25519KeyPair(_new_x25519Pk, _new_x25519Sk);
+    Serial.printf("%s New X25519 Public Key (pending): ", TAG);
+    printKey(X25519_PK_SIZE, _new_x25519Pk);
+}
+
+bool KeyManager::activateNewX25519KeyPair() {
+    Serial.printf("%s Activating new X25519 key pair...\n", TAG);
+    // Copy the new keys on the active ones
+    memcpy(_x25519Pk, _new_x25519Pk, X25519_PK_SIZE);
+    memcpy(_x25519Sk, _new_x25519Sk, X25519_SK_SIZE);
+
+    // Store the now active new keys in the NVS
+    bool pk_stored = storeKey(NVS_X25519_PK_NAME, _x25519Pk, X25519_PK_SIZE);
+    bool sk_stored = storeKey(NVS_X25519_SK_NAME, _x25519Sk, X25519_SK_SIZE);
+
+    if (pk_stored && sk_stored) {
+        // Derive AEAD shared key with the new private key
+        if (deriveAEADSharedKey(_aeadKey, _x25519Sk, _serverX25519Pk)) {
+            Serial.printf("%s New key pair activated and AEAD key re-derived.\n", TAG);
+            return true;
+        } else {
+            Serial.printf("%s CRITICAL: Failed to re-derive AEAD key after key rotation!\n", TAG);
+            return false;
+        }
+    }
+    return false;
+}
+
+const uint8_t* KeyManager::getNewX25519Pk() const {
+    return _new_x25519Pk;
+}
+
 void KeyManager::printKey(const size_t keyLength, const uint8_t* key) const {
     for (int i = 0; i < keyLength; ++i)
         Serial.printf("%02X", key[i]);

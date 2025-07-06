@@ -2,6 +2,10 @@
 
 #include <HardwareSerial.h>
 
-void NoOpCommand::execute() {
+CommandResult NoOpCommand::execute() {
     Serial.println("[Command] Executing NO_OP.");
+
+    CommandResult result;
+    result.success = true;
+    return result;
 }

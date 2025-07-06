@@ -22,7 +22,11 @@ DisplayTextCommand::DisplayTextCommand(DisplayController& displayController,
                   _text.c_str(), _size, _centered);
 }
 
-void DisplayTextCommand::execute() {
+CommandResult DisplayTextCommand::execute() {
     Serial.println("[Command] Executing DISPLAY_TEXT.");
     _displayController.showMessage(_text, _size, _centered);
+
+    CommandResult result;
+    result.success = true;
+    return result;
 }

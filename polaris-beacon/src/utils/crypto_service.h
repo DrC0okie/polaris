@@ -88,7 +88,8 @@ public:
     bool decryptAEAD(uint8_t plaintextOut[], size_t& actualPlaintextLenOut,
                      const uint8_t ciphertextAndTag[], size_t ciphertextAndTagLen,
                      const uint8_t associatedData[], size_t associatedDataLen,
-                     const uint8_t publicNonce[POL_AEAD_NONCE_SIZE]) const;
+                     const uint8_t publicNonce[POL_AEAD_NONCE_SIZE],
+                     const uint8_t* overrideKey = nullptr) const;
 
 private:
     /// @brief A reference to the key manager that provides all cryptographic keys.

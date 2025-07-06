@@ -7,7 +7,7 @@
 class ClearDisplayCommand : public ICommand {
 public:
     explicit ClearDisplayCommand(DisplayController& displayController);
-    void execute() override;
+    CommandResult execute() override;
 
 private:
     DisplayController& _displayController;

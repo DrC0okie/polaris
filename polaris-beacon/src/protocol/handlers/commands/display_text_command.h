@@ -24,7 +24,7 @@ public:
     /**
      * @brief Executes the command, telling the DisplayController to show the message.
      */
-    void execute() override;
+    CommandResult execute() override;
 
 private:
     /// @brief Reference to the display hardware controller.

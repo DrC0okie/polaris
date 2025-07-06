@@ -5,11 +5,16 @@
 
 #include <memory>
 
+#include "../encrypted_message_handler.h"
 #include "icommand.h"
 #include "protocol/handlers/outgoing_message_service.h"
 #include "utils/display_controller.h"
 #include "utils/led_controller.h"
 #include "utils/system_monitor.h"
+
+// Forward declarations
+class KeyManager;
+class EncryptedMessageHandler;
 
 /**
  * @class CommandFactory
@@ -33,7 +38,8 @@ public:
      * @param params A JsonObject containing parameters for the command. Can be null.
      * @return A `unique_ptr` to the created command object, or `nullptr` if the opType is unknown.
      */
-    std::unique_ptr<ICommand> createCommand(OperationType opType, const JsonObject& params);
+    std::unique_ptr<ICommand> createCommand(OperationType opType, const JsonObject& params,
+                                            KeyManager& keyManager);
 
 private:
     /// @brief Reference to the LED hardware controller.

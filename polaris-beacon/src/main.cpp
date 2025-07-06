@@ -114,7 +114,7 @@ void setup() {
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         encIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             return std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(
-                cryptoService, counter, prefs, transport, commandFactory, outgoingMessageService));
+                cryptoService, counter, prefs, transport, commandFactory, outgoingMessageService, keyManager));
         }));
 
     ble.setEncryptedDataProcessor(encryptedTransport.get());

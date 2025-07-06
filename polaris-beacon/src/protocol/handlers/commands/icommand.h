@@ -1,6 +1,14 @@
 #ifndef ICOMMAND_H
 #define ICOMMAND_H
 
+#include <vector>
+#include <cstdint>
+
+struct CommandResult {
+    bool success = true;
+    std::vector<uint8_t> responsePayload;
+};
+
 /**
  * @interface ICommand
  * @brief Defines the interface for all executable command objects.
@@ -12,7 +20,7 @@ public:
     virtual ~ICommand() = default;
 
     /** @brief Pure virtual method to be implemented by concrete commands. */
-    virtual void execute() = 0;
+    virtual CommandResult execute() = 0;
 };
 
 #endif  // ICOMMAND_H

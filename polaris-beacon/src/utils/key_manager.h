@@ -55,6 +55,24 @@ public:
     /** @brief Gets the derived shared secret for AEAD operations. */
     const uint8_t* getAeadKey() const;
 
+    /**
+     * @brief Derives a shared AEAD key using the pending (new) X25519 private key.
+     *
+     * This is used to test-decrypt a RotateKeyFinish command without activating the new key yet.
+     * @param sharedKeyOut Buffer where the derived temporary shared key will be written.
+     * @return True on success, false on failure.
+     */
+    bool deriveAEADSharedKeyWithPendingKey(uint8_t sharedKeyOut[SHARED_KEY_SIZE]) const;
+
+    /** @brief Prepares a new X25519 keypair and temporarily store it. */
+    void prepareNewX25519KeyPair();
+
+    /** @brief Activates the new prepared X25519 keypair and saves it in the NVS. */
+    bool activateNewX25519KeyPair();
+
+    /** @brief Gets the temporary prepared X25519 keypair. */
+    const uint8_t* getNewX25519Pk() const;
+
 private:
     /** @brief Loads or generates and stores the Ed25519 key pair. */
     bool manageEd25519KeyPair(uint8_t pk_out[Ed25519_PK_SIZE], uint8_t sk_out[Ed25519_SK_SIZE]);
@@ -111,6 +129,12 @@ private:
 
     /// @brief The derived shared secret key for symmetric encryption (AEAD).
     uint8_t _aeadKey[SHARED_KEY_SIZE];
+
+    /// @brief The temporary X25519 secret key to be used for key rotation.
+    uint8_t _new_x25519Sk[X25519_SK_SIZE];
+
+    /// @brief The temporary X25519 public key to be used for key rotation.
+    uint8_t _new_x25519Pk[X25519_PK_SIZE];
 };
 
 #endif  // KEY_STORAGE_H

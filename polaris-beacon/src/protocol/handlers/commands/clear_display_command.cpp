@@ -6,7 +6,11 @@ ClearDisplayCommand::ClearDisplayCommand(DisplayController& displayController)
     : _displayController(displayController) {
 }
 
-void ClearDisplayCommand::execute() {
+CommandResult ClearDisplayCommand::execute() {
     Serial.println("[Command] Executing CLEAR_DISPLAY.");
     _displayController.clear();
+
+    CommandResult result;
+    result.success = true;
+    return result;
 }

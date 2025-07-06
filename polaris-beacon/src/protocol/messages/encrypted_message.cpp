@@ -4,6 +4,8 @@
 #include <sodium.h>
 #include <string.h>
 
+#include <vector>
+
 // --- InnerPlaintext Implementation ---
 size_t InnerPlaintext::getTotalSerializedSize() const {
     return sizeof(msgId) + sizeof(msgType) + sizeof(opType) + sizeof(beaconCnt) +
@@ -70,8 +72,8 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     randombytes_buf(this->nonce, POL_AEAD_NONCE_SIZE);
 
     // Serialize InnerPlaintext
-    uint8_t innerPlaintextBuffer[MAX_INNER_PLAINTEXT_SIZE];
-    size_t innerPlaintextLen = innerPt.serialize(innerPlaintextBuffer);
+    std::vector<uint8_t> innerPlaintextBuffer(MAX_INNER_PLAINTEXT_SIZE);
+    size_t innerPlaintextLen = innerPt.serialize(innerPlaintextBuffer.data());
     if (innerPlaintextLen == 0 || innerPlaintextLen > MAX_INNER_PLAINTEXT_SIZE) {
         Serial.println("[EncMsg] Seal: Inner plaintext serialization error or too large.");
         return false;
@@ -83,7 +85,7 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
 
     // Encrypt
     if (!_cryptoService.encryptAEAD(this->ciphertextWithTag, this->ciphertextWithTagLen,
-                                    innerPlaintextBuffer, innerPlaintextLen, adBuffer,
+                                    innerPlaintextBuffer.data(), innerPlaintextLen, adBuffer,
                                     sizeof(adBuffer), this->nonce)) {
         Serial.println("[EncMsg] Seal: AEAD encryption failed.");
         return false;
@@ -92,7 +94,7 @@ bool EncryptedMessage::seal(const InnerPlaintext& innerPt, uint32_t senderBeacon
     return true;
 }
 
-bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut) {
+bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut, const uint8_t* overrideKey) {
     // Assumes beaconIdAd, nonce, ciphertextWithTag, and ciphertextWithTagLen
     // have been populated by fromBytes()
 
@@ -101,18 +103,19 @@ bool EncryptedMessage::unseal(InnerPlaintext& innerPtOut) {
     memcpy(adBuffer, &this->beaconIdAd, sizeof(this->beaconIdAd));
 
     // Decrypt
-    uint8_t decryptedInnerPlaintextBuffer[MAX_INNER_PLAINTEXT_SIZE];
+    std::vector<uint8_t> decryptedInnerPlaintextBuffer(MAX_INNER_PLAINTEXT_SIZE);
     size_t decryptedInnerPlaintextLen = 0;
 
-    if (!_cryptoService.decryptAEAD(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen,
-                                    this->ciphertextWithTag, this->ciphertextWithTagLen, adBuffer,
-                                    sizeof(adBuffer), this->nonce)) {
+    if (!_cryptoService.decryptAEAD(decryptedInnerPlaintextBuffer.data(),
+                                    decryptedInnerPlaintextLen, this->ciphertextWithTag,
+                                    this->ciphertextWithTagLen, adBuffer, sizeof(adBuffer),
+                                    this->nonce, overrideKey)) {
         Serial.println("[EncMsg] Unseal: AEAD decryption failed (bad tag or data).");
         return false;
     }
 
     // Deserialize InnerPlaintext
-    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer, decryptedInnerPlaintextLen)) {
+    if (!innerPtOut.deserialize(decryptedInnerPlaintextBuffer.data(), decryptedInnerPlaintextLen)) {
         Serial.println("[EncMsg] Unseal: Failed to deserialize inner plaintext.");
         return false;
     }

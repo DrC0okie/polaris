@@ -11,7 +11,11 @@
 #include "imessage_handler.h"
 #include "outgoing_message_service.h"
 #include "protocol/transport/imessage_transport.h"
+#include "utils/key_manager.h"
 
+// Forward declarations
+class CommandFactory;
+class KeyManager;
 /**
  * @class EncryptedMessageHandler
  * @brief The primary handler for all encrypted, bidirectional communication.
@@ -36,7 +40,7 @@ public:
                             const BeaconCounter& beaconEventCounter,
                             Preferences& prefs,  // Pass NVS preferences
                             IMessageTransport& transport, CommandFactory& commandFactory,
-                            OutgoingMessageService& outgoingMessageService);
+                            OutgoingMessageService& outgoingMessageService, KeyManager& keyManager);
 
     /**
      * @brief Processes the encrypted message from the transport layer.
@@ -70,6 +74,8 @@ private:
     /// @brief A reference to the service managing outgoing messages and their ACKs.
     OutgoingMessageService& _outgoingMessageService;
 
+    KeyManager& _keyManager;
+
     /// @brief A persistent counter for the `msgId` of outgoing ACKs/ERRs.
     uint32_t _nextResponseMsgId;
 
@@ -80,7 +86,8 @@ private:
     void saveNextResponseMsgId();
 
     /** @brief Constructs and sends an ACK message in response to a request. */
-    void sendAck(uint32_t originalMsgId, uint8_t originalOpType);
+    void sendAck(uint32_t originalMsgId, uint8_t originalOpType, const uint8_t* payload = nullptr,
+                 size_t payloadLen = 0);
 
     /** @brief Constructs and sends an ERR message in response to a request. */
     void sendErr(uint32_t originalMsgId, uint8_t originalOpType, uint8_t errorCode);

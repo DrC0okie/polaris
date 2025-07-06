@@ -22,7 +22,7 @@ public:
     /**
      * @brief Executes the command, telling the LedController to start blinking.
      */
-    void execute() override;
+    CommandResult execute() override;
 
 private:
     /// @brief Reference to the LED hardware controller.

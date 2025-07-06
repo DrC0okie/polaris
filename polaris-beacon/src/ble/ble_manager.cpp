@@ -175,14 +175,14 @@ void BleManager::begin(const std::string& deviceName) {
     // all complex logic from the main BLE thread, ensuring responsiveness. Using `tskNO_AFFINITY`
     // allows the FreeRTOS scheduler to place the task on either core.
     Serial.println("[BLE] Starting PoL processor task...");
-    BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 10240, this, 1,
+    BaseType_t taskRes = xTaskCreatePinnedToCore(tokenProcessorTask, "PoLProc", 6144, this, 1,
                                                  &_tokenProcessorTask, tskNO_AFFINITY);
     if (taskRes != pdPASS) {
         Serial.println("[BLE] CRITICAL: Failed to create PoL processor task!");
     }
 
     Serial.println("[BLE] Starting Encrypted Data processor task...");
-    BaseType_t encTaskRes = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 6144, this,
+    BaseType_t encTaskRes = xTaskCreatePinnedToCore(encryptedProcessorTask, "EncProc", 8192, this,
                                                     1, &_encryptedProcessorTask, tskNO_AFFINITY);
 
     Serial.println("[BLE] Starting Data Pull processor task...");

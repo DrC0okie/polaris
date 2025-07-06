@@ -6,6 +6,8 @@
 #include "noop_command.h"
 #include "reboot_command.h"
 #include "request_status_command.h"
+#include "rotate_key_finish_command.h"
+#include "rotate_key_init_command.h"
 #include "stop_blink_command.h"
 
 CommandFactory::CommandFactory(LedController& ledController, DisplayController& displayController,
@@ -18,7 +20,8 @@ CommandFactory::CommandFactory(LedController& ledController, DisplayController& 
 }
 
 std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
-                                                        const JsonObject& params) {
+                                                        const JsonObject& params,
+                                                        KeyManager& keyManager) {
     switch (opType) {
         case OperationType::NoOp:
             return std::unique_ptr<NoOpCommand>(new NoOpCommand());
@@ -43,6 +46,12 @@ std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
         case OperationType::RequestBeaconStatus:
             return std::unique_ptr<RequestStatusCommand>(
                 new RequestStatusCommand(_systemMonitor, _outgoingMessageService));
+
+        case OperationType::RotateKeyInit:
+            return std::unique_ptr<RotateKeyInitCommand>(new RotateKeyInitCommand(keyManager));
+
+        case OperationType::RotateKeyFinish:
+            return std::unique_ptr<RotateKeyFinishCommand>(new RotateKeyFinishCommand(keyManager));
 
         default:
             // For unknown commands, return a null pointer.

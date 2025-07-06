@@ -5,7 +5,7 @@
 
 class RebootCommand : public ICommand {
 public:
-    void execute() override;
+    CommandResult execute() override;
 };
 
 #endif // REBOOT_COMMAND_H

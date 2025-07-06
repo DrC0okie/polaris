@@ -86,6 +86,8 @@ enum class OperationType : uint8_t {
     DisplayText = 0x04,          ///< Command to display text on the OLED screen.
     ClearDisplay = 0x05,         ///< Command to clear the OLED screen.
     RequestBeaconStatus = 0x06,  ///< Command from server requesting beacon status.
+    RotateKeyInit = 0x10,        ///< Command from server requesting key rotation.
+    RotateKeyFinish = 0x11,      ///< Command from server acknowledging end of rotation.
 
     BeaconStatus = 0x80,  ///< A message from beacon containing its status.
     Unknown = 0xFF        ///< Represents an unknown or invalid operation type.

@@ -94,9 +94,14 @@ bool CryptoService::encryptAEAD(uint8_t ciphertextAndTagOut[], size_t& actualCip
 bool CryptoService::decryptAEAD(uint8_t plaintextOut[], size_t& actualPlaintextLenOut,
                                 const uint8_t ciphertextAndTag[], size_t ciphertextAndTagLen,
                                 const uint8_t associatedData[], size_t associatedDataLen,
-                                const uint8_t publicNonce[POL_AEAD_NONCE_SIZE]) const {
-    const uint8_t* sharedKeyWithServer = _keyManager.getAeadKey();
-    if (!sharedKeyWithServer) {
+                                const uint8_t publicNonce[POL_AEAD_NONCE_SIZE],
+                                const uint8_t* overrideKey) const {
+    const uint8_t* keyToUse = overrideKey;
+    if (keyToUse == nullptr) {
+        keyToUse = _keyManager.getAeadKey();
+    }
+
+    if (!keyToUse) {
         Serial.printf("%s Error: Shared AEAD key not available for decryption.\n", TAG);
         actualPlaintextLenOut = 0;
         return false;
@@ -106,7 +111,7 @@ bool CryptoService::decryptAEAD(uint8_t plaintextOut[], size_t& actualPlaintextL
     if (crypto_aead_chacha20poly1305_ietf_decrypt(
             plaintextOut, &plaintextLength, NULL, ciphertextAndTag,
             (unsigned long long)ciphertextAndTagLen, associatedData,
-            (unsigned long long)associatedDataLen, publicNonce, sharedKeyWithServer) != 0) {
+            (unsigned long long)associatedDataLen, publicNonce, keyToUse) != 0) {
         Serial.printf("%s Error: AEAD decryption failed (tag mismatch or bad data).\n", TAG);
         actualPlaintextLenOut = 0;
         return false;

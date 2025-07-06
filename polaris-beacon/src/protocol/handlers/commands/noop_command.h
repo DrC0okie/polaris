@@ -5,7 +5,7 @@
 
 class NoOpCommand : public ICommand {
 public:
-    void execute() override;
+    CommandResult execute() override;
 };
 
 #endif // NOOP_COMMAND_H

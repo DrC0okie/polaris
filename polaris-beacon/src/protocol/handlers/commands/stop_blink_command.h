@@ -7,7 +7,7 @@
 class StopBlinkCommand : public ICommand {
 public:
     explicit StopBlinkCommand(LedController& ledController);
-    void execute() override;
+    CommandResult execute() override;
 
 private:
     LedController& _ledController;

@@ -26,7 +26,7 @@ public:
     /**
      * @brief Executes the command, gathering status and queuing the response.
      */
-    void execute() override;
+    CommandResult execute() override;
 
 private:
     /// @brief Reference to the system monitoring utility.
