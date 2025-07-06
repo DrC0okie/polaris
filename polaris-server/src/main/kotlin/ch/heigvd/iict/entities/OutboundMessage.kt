@@ -1,6 +1,7 @@
 package ch.heigvd.iict.entities
 
 import ch.heigvd.iict.services.protocol.MessageStatus
+import ch.heigvd.iict.services.protocol.OperationType
 import jakarta.persistence.*
 import java.time.Instant
 import io.hypersistence.utils.hibernate.type.json.JsonType
@@ -43,6 +44,10 @@ class OutboundMessage : PanacheEntityBase {
 
     @Column(nullable = false)
     var deliveryCount: Int = 0
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    lateinit var opType: OperationType
 
     @Column(nullable = false, updatable = false)
     lateinit var createdAt: Instant

@@ -1,6 +1,7 @@
 package ch.heigvd.iict.services.crypto
 
 import ch.heigvd.iict.entities.Beacon
+import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 import java.util.concurrent.ConcurrentHashMap
 
@@ -19,5 +20,10 @@ class X25519SharedKeyManager(private val keyManager: KeyManager) : ISharedKeyMan
                 beaconPk.asUByteArray()
             ).asByteArray()
         }
+    }
+
+    fun invalidateCacheForBeacon(beacon: Beacon) {
+        sharedKeyCache.remove(beacon.id)
+        Log.info("Cache invalidated for beacon ${beacon.id}")
     }
 }

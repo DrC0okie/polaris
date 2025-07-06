@@ -64,6 +64,7 @@ class PayloadService(
             this.encryptedBlob = sealedMessage.toBlob()
             this.serverMsgId = serverMsgId
             this.redundancyFactor = redundancyFactor
+            this.opType = opType
         }
         message.persist()
         return message

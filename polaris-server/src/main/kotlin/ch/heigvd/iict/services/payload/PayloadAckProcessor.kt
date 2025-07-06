@@ -4,24 +4,33 @@ import ch.heigvd.iict.dto.api.AckRequestDto
 import ch.heigvd.iict.dto.api.AckResponseDto
 import ch.heigvd.iict.entities.MessageDelivery
 import ch.heigvd.iict.repositories.MessageDeliveryRepository
+import ch.heigvd.iict.services.admin.BeaconAdminService
+import ch.heigvd.iict.services.crypto.X25519SharedKeyManager
 import ch.heigvd.iict.services.protocol.AckStatus
 import ch.heigvd.iict.services.protocol.MessageStatus
 import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.services.crypto.model.SealedMessage
 import ch.heigvd.iict.services.protocol.MessageType
+import ch.heigvd.iict.services.protocol.OperationType
 import com.ionspin.kotlin.crypto.aead.AeadCorrupedOrTamperedDataException
 import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
+import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
+import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 
 @ApplicationScoped
+@Transactional
 class PayloadAckProcessor(
     private val deliveryRepository: MessageDeliveryRepository,
     private val unsealer: IMessageUnsealer,
-    private val entityManager: EntityManager
+    private val entityManager: EntityManager,
+    private val beaconAdminService: BeaconAdminService,
+    private val payloadService: PayloadService,
+    private val keyManager: X25519SharedKeyManager
 ) {
 
     @OptIn(ExperimentalUnsignedTypes::class)
@@ -77,7 +86,7 @@ class PayloadAckProcessor(
         )
     }
 
-    private fun processDecryptedAck(plaintext: PlaintextMessage, delivery: MessageDelivery){
+    private fun processDecryptedAck(plaintext: PlaintextMessage, delivery: MessageDelivery) {
         val message = delivery.outboundMessage
         val beacon = message.beacon
 
@@ -86,18 +95,73 @@ class PayloadAckProcessor(
             beacon.persist()
         }
 
+        if (message.opType == OperationType.ROTATE_KEY_INIT && plaintext.msgType == MessageType.ACK) {
+            handleRotateInitAck(plaintext, delivery)
+        } else if (message.opType == OperationType.ROTATE_KEY_FINISH && plaintext.msgType == MessageType.ACK) {
+            handleRotateFinishAck(delivery)
+        } else {
+            handleGenericAck(plaintext, delivery)
+        }
+    }
+
+    private fun handleRotateInitAck(plaintext: PlaintextMessage, delivery: MessageDelivery) {
+        Log.info("Processing ACK for RotateKeyInit from beacon ${delivery.outboundMessage.beacon.id}")
+        val originalMessage = delivery.outboundMessage
+        val beacon = originalMessage.beacon
+
+        // Extract new key from payload
+        val newPublicKey = plaintext.payload
+        if (newPublicKey.size != 32) {
+            Log.error("Invalid key size in RotateKeyInit ACK payload.")
+            delivery.ackStatus = AckStatus.PROCESSING_ERROR
+            originalMessage.status = MessageStatus.FAILED
+            return
+        }
+
+        // Update key in db
+        beaconAdminService.updateBeaconX25519Key(beacon.id!!, newPublicKey)
+
+        // 3. Invalidate cache to force new derivation
+        keyManager.invalidateCacheForBeacon(beacon)
+
+        // Mark this job as AKC, but not global process
+        delivery.ackStatus = AckStatus.ACK_RECEIVED
+        originalMessage.status = MessageStatus.ACKNOWLEDGED // init job is finished
+        originalMessage.firstAcknowledgedAt = delivery.ackReceivedAt
+
+        // Create the next job
+        Log.info("Creating RotateKeyFinish job for beacon ${beacon.id}")
+        payloadService.createOutboundMessage(
+            beaconId = beacon.beaconId,
+            command = JsonObject(emptyMap()),
+            opType = OperationType.ROTATE_KEY_FINISH
+        )
+    }
+
+    private fun handleRotateFinishAck(delivery: MessageDelivery) {
+        Log.info("Processing final ACK for key rotation for beacon ${delivery.outboundMessage.beacon.id}")
+        delivery.ackStatus = AckStatus.ACK_RECEIVED
+        delivery.outboundMessage.status = MessageStatus.ACKNOWLEDGED
+        delivery.outboundMessage.firstAcknowledgedAt = delivery.ackReceivedAt
+    }
+
+    private fun handleGenericAck(plaintext: PlaintextMessage, delivery: MessageDelivery) {
         when (plaintext.msgType) {
             MessageType.ACK -> {
                 delivery.ackStatus = AckStatus.ACK_RECEIVED
-                message.status = MessageStatus.ACKNOWLEDGED
-                message.firstAcknowledgedAt = delivery.ackReceivedAt
+                delivery.outboundMessage.status = MessageStatus.ACKNOWLEDGED
+                delivery.outboundMessage.firstAcknowledgedAt = delivery.ackReceivedAt
             }
+
             MessageType.ERR -> {
                 delivery.ackStatus = AckStatus.ERR_RECEIVED
-                message.status = MessageStatus.FAILED
+                delivery.outboundMessage.status = MessageStatus.FAILED
             }
+
             else -> {
-                throw IllegalStateException("Invalid message type received from beacon: ${plaintext.msgType}")
+                Log.warn("Unhandled message type in generic ACK handler: ${plaintext.msgType}")
+                delivery.ackStatus = AckStatus.PROCESSING_ERROR
+                delivery.outboundMessage.status = MessageStatus.FAILED
             }
         }
     }

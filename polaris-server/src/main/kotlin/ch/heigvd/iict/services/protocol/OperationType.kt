@@ -8,6 +8,8 @@ enum class OperationType(val code: UByte) {
     DISPLAY_TEXT(0x04u),
     CLEAR_DISPLAY(0x05u),
     REQUEST_BEACON_STATUS(0x06u),
+    ROTATE_KEY_INIT(0x10u),
+    ROTATE_KEY_FINISH(0x11u),
     RESPONSE_BEACON_STATUS(0x80u),
     UNKNOWN(0xFFu);
 
