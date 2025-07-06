@@ -27,7 +27,7 @@ class PolarisApplication : Application() {
                     manufacturerId = 0xFFFF
                     mtu = 517
                 }
-                api {
+                network {
                     baseUrl = "https://polaris.iict-heig-vd.ch" // mandatory
                     authMode = AuthMode.ManagedApiKey
                     registrationPath = "/api/v1/register"

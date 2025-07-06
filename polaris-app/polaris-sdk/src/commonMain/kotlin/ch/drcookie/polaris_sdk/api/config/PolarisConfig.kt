@@ -48,7 +48,7 @@ public class PolarisConfig {
      *
      * @param block A lambda with an [NetworkConfigBuilder] receiver where you must set at least the `baseUrl`.
      */
-    public fun api(block: NetworkConfigBuilder.() -> Unit) {
+    public fun network(block: NetworkConfigBuilder.() -> Unit) {
         // Create a builder, apply the user's block, and then build the final config.
         val builder = NetworkConfigBuilder().apply(block)
         networkConfig = builder.build()
