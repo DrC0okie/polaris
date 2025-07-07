@@ -7,6 +7,7 @@ import ch.drcookie.polaris_sdk.ble.model.ScanConfig
 import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.ble.BleController
 import ch.drcookie.polaris_sdk.ble.model.Beacon
+import ch.drcookie.polaris_sdk.ble.model.ScanMode
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -39,7 +40,7 @@ public class ScanForBeacon(
             return SdkResult.Success(null)
         }
 
-        val scanConfig = ScanConfig()
+        val scanConfig = ScanConfig(scanMode = ScanMode.LOW_LATENCY)
 
         // Call the fallible function and get the result.
         val flowResult = bleController.findConnectableBeacons(scanConfig, beaconsToFind)

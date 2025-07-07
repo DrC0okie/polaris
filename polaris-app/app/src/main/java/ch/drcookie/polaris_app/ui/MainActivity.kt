@@ -8,7 +8,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
@@ -18,13 +17,16 @@ import ch.drcookie.polaris_app.databinding.ActivityMainBinding
 import ch.drcookie.polaris_app.ui.viewmodel.PolarisViewModel
 import ch.drcookie.polaris_app.ui.viewmodel.PolarisViewModelFactory
 import ch.drcookie.polaris_app.ui.viewmodel.UiState
+import ch.drcookie.polaris_sdk.api.Polaris
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val viewModel: PolarisViewModel by viewModels { PolarisViewModelFactory() }
+    private val viewModel: PolarisViewModel by viewModels {
+        PolarisViewModelFactory(applicationContext)
+    }
 
     // Lambda to hold an action that should be run after permissions are granted.
     private var onPermissionsGranted: (() -> Unit)? = null
@@ -42,14 +44,18 @@ class MainActivity : AppCompatActivity() {
         }
     }.toTypedArray()
 
-     // For requesting multiple permissions. It executes the `onPermissionsGranted` action on success.
+    // For requesting multiple permissions. It executes the `onPermissionsGranted` action on success.
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
             if (granted.values.all { it }) {
                 onPermissionsGranted?.invoke()
                 onPermissionsGranted = null
             } else {
-                Toast.makeText(this, "Permissions are required to use this feature.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "Permissions are required to use this feature.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
 
@@ -58,42 +64,52 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        requestPermissionsAndRun {
+            setupApplicationLogic()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (isFinishing) {
+            Polaris.shutdown()
+        }
+    }
+
+    private fun setupApplicationLogic() {
+        viewModel.also {
+            setupClickListeners()
+            observeUiState()
+        }
+    }
+
+    private fun setupClickListeners() {
         binding.registerButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.fetchBeacons()
-            }
+            viewModel.fetchBeacons()
         }
 
         binding.TokenFlowButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.findAndExecuteTokenFlow()
-            }
+            viewModel.findAndExecuteTokenFlow()
         }
 
         binding.payloadFlowButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.processPayloadFlow()
-            }
+            viewModel.processPayloadFlow()
         }
 
         binding.monitorBoradcastButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.toggleBroadcastMonitoring()
-            }
+            viewModel.toggleBroadcastMonitoring()
         }
 
         binding.endToEndButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.runEndToEndStatusCheckFlow()
-            }
+            viewModel.runEndToEndStatusCheckFlow()
         }
 
         binding.fetchBeaconButton.setOnClickListener {
-            requestPermissionsAndRun {
-                viewModel.pullDataFromBeacon()
-            }
+            viewModel.pullDataFromBeacon()
         }
+    }
 
+    private fun observeUiState() {
         // Observe UI state from the ViewModel
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -139,8 +155,22 @@ class MainActivity : AppCompatActivity() {
         } else {
             // Permissions are not granted. Store the action
             onPermissionsGranted = action
-            // and then request permissions. The result will be handled by the launcher.
-            permissionLauncher.launch(permissions)
+
+            val shouldShowRationale = permissions.any {
+                ActivityCompat.shouldShowRequestPermissionRationale(this, it)
+            }
+
+            if (shouldShowRationale) {
+                Toast.makeText(
+                    this,
+                    "Bluetooth and Location permissions are essential for this app to discover beacons.",
+                    Toast.LENGTH_LONG
+                ).show()
+
+                permissionLauncher.launch(permissions)
+            } else {
+                permissionLauncher.launch(permissions)
+            }
         }
     }
 

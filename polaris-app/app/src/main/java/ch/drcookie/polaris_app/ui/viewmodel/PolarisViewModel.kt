@@ -1,14 +1,17 @@
 package ch.drcookie.polaris_app.ui.viewmodel
 
+import android.content.Context
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import ch.drcookie.polaris_sdk.api.Polaris.networkClient
 import ch.drcookie.polaris_sdk.api.Polaris.bleController
+import ch.drcookie.polaris_sdk.api.Polaris.initialize
 import ch.drcookie.polaris_sdk.api.Polaris.keyStore
 import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
 import ch.drcookie.polaris_sdk.api.SdkResult
+import ch.drcookie.polaris_sdk.api.config.AuthMode
 import ch.drcookie.polaris_sdk.api.use_case.DeliverPayload
 import ch.drcookie.polaris_sdk.api.use_case.MonitorBroadcasts
 import ch.drcookie.polaris_sdk.api.use_case.PolTransaction
@@ -21,10 +24,12 @@ import ch.drcookie.polaris_sdk.ble.model.DeliveryAck
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.collections.toUByteArray
 
 /**
@@ -162,7 +167,8 @@ class PolarisViewModel(
                     is SdkResult.Success -> {
                         val verifiedBroadcast = result.value
                         val payload = verifiedBroadcast.payload
-                        val verificationStatus = if (verifiedBroadcast.isSignatureValid) "VALID" else "INVALID SIG"
+                        val verificationStatus =
+                            if (verifiedBroadcast.isSignatureValid) "VALID" else "INVALID SIG"
                         appendLog("Broadcast from #${payload.beaconId}: Counter=${payload.counter} [${verificationStatus}]")
                     }
 
@@ -310,13 +316,14 @@ class PolarisViewModel(
             }
 
             // Scan for the beacon
-            val foundBeacon = when (val result = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))) {
-                is SdkResult.Success -> result.value
-                is SdkResult.Failure -> {
-                    appendLog("--- ERROR: Scan failed: ${result.error.message()} ---")
-                    return@runFlow
+            val foundBeacon =
+                when (val result = scanForBeacon(beaconsToFind = listOf(targetBeaconInfo))) {
+                    is SdkResult.Success -> result.value
+                    is SdkResult.Failure -> {
+                        appendLog("--- ERROR: Scan failed: ${result.error.message()} ---")
+                        return@runFlow
+                    }
                 }
-            }
 
             if (foundBeacon == null) {
                 appendLog("--- ERROR: Target beacon #${serverJob.beaconId} not found in range. ---")
@@ -368,7 +375,8 @@ class PolarisViewModel(
 
                 // Deliver server payload to beacon
                 appendLog("Delivering server payload to beacon...")
-                val ackBlob = when (val result = bleController.exchangeSecurePayload(serverJob.blob.asByteArray())) {
+                val ackBlob = when (val result =
+                    bleController.exchangeSecurePayload(serverJob.blob.asByteArray())) {
                     is SdkResult.Success -> result.value
                     is SdkResult.Failure -> {
                         appendLog("--- ERROR: Server->Beacon delivery failed: ${result.error.message()} ---")
@@ -401,7 +409,8 @@ class PolarisViewModel(
                 // Forward data to the server
                 appendLog("Forwarding beacon status to server...")
                 val serverAck =
-                    when (val result = networkClient.forwardBeaconPayload(foundBeacon.info.id, beaconData)) {
+                    when (val result =
+                        networkClient.forwardBeaconPayload(foundBeacon.info.id, beaconData)) {
                         is SdkResult.Success -> result.value
                         is SdkResult.Failure -> {
                             appendLog("--- ERROR: Failed to forward beacon data: ${result.error.message()} ---")
@@ -459,7 +468,8 @@ class PolarisViewModel(
     private fun appendLog(message: String) {
         val timestamp = formatter.format(Instant.now())
         _uiState.update {
-            val newLog = if (it.log.isEmpty()) "$timestamp: $message" else "${it.log}\n$timestamp: $message"
+            val newLog =
+                if (it.log.isEmpty()) "$timestamp: $message" else "${it.log}\n$timestamp: $message"
             it.copy(log = newLog)
         }
     }
@@ -468,12 +478,49 @@ class PolarisViewModel(
 /**
  * A simple factory for creating [PolarisViewModel] instances.
  */
-class PolarisViewModelFactory() : ViewModelProvider.Factory {
+class PolarisViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+
+    // Flag that ensures single initialization
+    private companion object {
+        private val isSdkInitialized = AtomicBoolean(false)
+    }
+
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PolarisViewModel::class.java)) {
 
+            synchronized(this) {
+                if (!isSdkInitialized.get()) {
+                    runBlocking {
+                        initialize(context) {
+                            ble {
+                                polServiceUuid = "f44dce36-ffb2-565b-8494-25fa5a7a7cd6"
+                                tokenWriteUuid = "8e8c14b7-d9f0-5e5c-9da8-6961e1f33d6b"
+                                tokenIndicateUuid = "d234a7d8-ea1f-5299-8221-9cf2f942d3df"
+                                encryptedWriteUuid = "8ed72380-5adb-4d2d-81fb-ae6610122ee8"
+                                encryptedIndicateUuid = "079b34dd-2310-4b61-89bb-494cc67e097f"
+                                pullDataWriteUuid = "e914a8e4-843a-4b72-8f2a-f9175d71cf88"
+                                manufacturerId = 0xFFFF
+                                mtu = 517
+                            }
+                            network {
+                                baseUrl = "https://polaris.iict-heig-vd.ch" // mandatory
+                                authMode = AuthMode.ManagedApiKey
+                                registrationPath = "/api/v1/register"
+                                beaconsPath = "/api/v1/beacons"
+                                tokensPath = "/api/v1/tokens"
+                                fetchPayloadsPath = "/api/v1/payloads"
+                                forwardPayloadPath = "/api/v1/payloads"
+                                ackPath = "/api/v1/payloads/ack"
+                            }
+                        }
+                    }
+                    isSdkInitialized.set(true)
+                }
+            }
+
             val scanForBeacon = ScanForBeacon(bleController, networkClient)
-            val performPolTransaction = PolTransaction(bleController, networkClient, keyStore, protocolHandler)
+            val performPolTransaction =
+                PolTransaction(bleController, networkClient, keyStore, protocolHandler)
             val deliverSecurePayload = DeliverPayload(bleController, networkClient, scanForBeacon)
             val monitorBroadcasts = MonitorBroadcasts(bleController, networkClient, protocolHandler)
             val pullAndForwardData = PullAndForward(bleController, networkClient)
