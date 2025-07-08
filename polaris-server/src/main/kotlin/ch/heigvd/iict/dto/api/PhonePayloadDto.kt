@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @OptIn(ExperimentalUnsignedTypes::class)
 data class PhonePayloadDto(
-    // This is the ID of the specific delivery record, NOT the outbound message ID.
+    // This is the ID of the specific delivery record, not the outbound message ID.
     // The phone must echo this back when submitting the ACK.
     val deliveryId: Long,
 

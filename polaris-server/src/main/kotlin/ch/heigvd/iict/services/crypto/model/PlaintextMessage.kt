@@ -6,6 +6,18 @@ import ch.heigvd.iict.services.protocol.OperationType
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+/**
+ * A data class representing the unencrypted content of a secure message.
+ *
+ * This structure is what gets serialized and then encrypted for the end-to-end secure channel.
+ * Its serialization format must exactly match the `InnerPlaintext` struct on the beacon firmware.
+ *
+ * @property msgId A unique identifier for this message.
+ * @property msgType The type of the message (e.g., REQ, ACK, ERR).
+ * @property opType The specific operation this message pertains to.
+ * @property beaconCounter The beacon's monotonic counter value at the time the message was created.
+ * @property payload The variable-length payload of the message, typically a JSON string.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 data class PlaintextMessage(
     val msgId: Long,
@@ -14,7 +26,11 @@ data class PlaintextMessage(
     val beaconCounter: Long,
     val payload: ByteArray
 ) {
-    // This serialization must match the beacon's `InnerPlaintext::serialize`
+    /**
+     * Serializes this message into a byte array with a little-endian format,
+     * matching the beacon's C++ struct layout.
+     * @return The serialized message as a [UByteArray].
+     */
     fun toBytes(): UByteArray {
         // msgId (4) + msgType (1) + opType (1) + beaconCnt (4) + payloadLength (2) + payload
         val msgIdBytes = msgId.toUInt().toUByteArrayLE()
@@ -30,6 +46,13 @@ data class PlaintextMessage(
     }
 
     companion object {
+
+        /**
+         * Deserializes a byte array into a [PlaintextMessage] object.
+         * @param bytes The raw byte array received after decryption.
+         * @return A new [PlaintextMessage] instance.
+         * @throws IllegalArgumentException if the byte array is malformed or contains invalid data.
+         */
         fun fromBytes(bytes: ByteArray): PlaintextMessage {
             val buffer = ByteBuffer.wrap(bytes)
             buffer.order(ByteOrder.LITTLE_ENDIAN)

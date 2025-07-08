@@ -20,6 +20,12 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
+/**
+ * High-level service for managing the lifecycle of secure payloads.
+ *
+ * This service acts as a facade for the entire data mule functionality, managing
+ * the creation, delivery, and acknowledgment of messages between the server and beacons.
+ */
 @ApplicationScoped
 class PayloadService(
     private val sealer: IMessageSealer,
@@ -28,6 +34,18 @@ class PayloadService(
     private val outboundMessageRepository: OutboundMessageRepository,
     private val inboundPayloadProcessor: InboundPayloadProcessor
 ) {
+
+    /**
+     * Creates, encrypts, and persists a new outbound message job.
+     *
+     * @param beaconId The technical ID of the target beacon.
+     * @param command The JSON payload for the command.
+     * @param opType The [OperationType] of the command.
+     * @param redundancyFactor The number of phones that should attempt delivery.
+     * @return The created [OutboundMessage] entity.
+     * @throws jakarta.ws.rs.NotFoundException if the beacon ID is invalid.
+     * @throws IllegalStateException if the target beacon is not provisioned for encrypted communication.
+     */
     @Transactional
     fun createOutboundMessage(
         beaconId: Int,
@@ -70,6 +88,16 @@ class PayloadService(
         return message
     }
 
+    /**
+     * Retrieves and claims a list of pending outbound message jobs for a given phone.
+     *
+     * This method is concurrency-safe and ensures that a single job is not delivered
+     * more times than specified by its `redundancyFactor`.
+     *
+     * @param phone The [RegisteredPhone] requesting work.
+     * @param maxJobs The maximum number of jobs to return.
+     * @return A list of [PhonePayloadDto]s, each representing a job for the phone to deliver.
+     */
     @Transactional
     @OptIn(ExperimentalUnsignedTypes::class)
     fun getPendingPayloadsForPhone(phone: RegisteredPhone, maxJobs: Int = 1): List<PhonePayloadDto> {
@@ -102,6 +130,15 @@ class PayloadService(
         }
     }
 
+    /**
+     * Processes an inbound payload that was initiated by a beacon.
+     *
+     * This method handles a message sent from a beacon to the server (e.g., a status update).
+     * It decrypts the message, stores it, and crafts a sealed ACK to be sent back to the beacon.
+     *
+     * @param request The DTO containing the raw encrypted blob from the beacon.
+     * @return A [RawDataDto] containing the sealed ACK for the phone to relay back to the beacon.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     @Transactional
     fun processInboundPayload(request: BeaconPayloadDto): RawDataDto {
@@ -132,6 +169,13 @@ class PayloadService(
         return RawDataDto(data = sealedAck.toBlob().asUByteArray())
     }
 
+    /**
+     * Processes an acknowledgment for a server-to-beacon message delivery.
+     * This method simply delegates the call to the [PayloadAckProcessor].
+     *
+     * @param request The DTO containing the delivery ID and the ACK blob.
+     * @return An [AckResponseDto] with the processing result.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     @Transactional
     fun processAck(request: AckRequestDto): AckResponseDto {

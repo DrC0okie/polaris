@@ -8,6 +8,10 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.transaction.Transactional
 
+/**
+ * Service providing business logic for beacon management via the admin interface.
+ * Encapsulates all CRUD operations for [Beacon] entities.
+ */
 @ApplicationScoped
 class BeaconAdminService {
 
@@ -17,14 +21,34 @@ class BeaconAdminService {
     @Inject
     private lateinit var tokenRecordRepository: PoLTokenRecordRepository
 
+    /**
+     * Retrieves all registered beacons, sorted by name.
+     * @return A list of all [Beacon] entities.
+     */
     fun listAllBeacons(): List<Beacon> {
         return beaconRepository.listAll(Sort.ascending("name"))
     }
 
+    /**
+     * Finds a single beacon by its database primary key.
+     * @param id The database ID of the beacon.
+     * @return The found [Beacon] or `null` if it does not exist.
+     */
     fun findBeaconById(id: Long): Beacon? {
         return beaconRepository.findById(id)
     }
 
+    /**
+     * Creates and persists a new beacon.
+     *
+     * @param technicalId The unique technical ID of the beacon.
+     * @param name Name of the beacon.
+     * @param locationDescription A description of the beacon's location.
+     * @param publicKeyEd25519 The beacon's 32-byte Ed25519 public key.
+     * @param publicKeyX25519 The beacon's optional 32-byte X25519 public key.
+     * @return The newly created [Beacon] entity.
+     * @throws IllegalArgumentException if the technical ID already exists or keys have an invalid size.
+     */
     @Transactional
     fun addBeacon(
         technicalId: Int,
@@ -55,6 +79,13 @@ class BeaconAdminService {
         return beacon
     }
 
+    /**
+     * Updates the name and location description of an existing beacon.
+     * @param id The database ID of the beacon to update.
+     * @param name The new name for the beacon.
+     * @param locationDescription The new location description.
+     * @return The updated [Beacon] entity, or `null` if not found.
+     */
     @Transactional
     fun updateBeacon(id: Long, name: String, locationDescription: String): Beacon? {
         val beacon = beaconRepository.findById(id)
@@ -65,16 +96,35 @@ class BeaconAdminService {
         return beacon
     }
 
+    /**
+     * Deletes a beacon from the database.
+     * @param id The database ID of the beacon to delete.
+     * @return `true` if the beacon was successfully deleted, `false` otherwise.
+     */
     @Transactional
     fun deleteBeacon(id: Long): Boolean {
         return beaconRepository.deleteById(id)
     }
 
+    /**
+     * Counts the number of PoL tokens submitted for a specific beacon.
+     * @param beaconId The database ID of the beacon.
+     * @return The total count of associated [PoLTokenRecord]s.
+     */
     fun getBeaconTokenCount(beaconId: Long): Long {
         val beacon = beaconRepository.findById(beaconId) ?: return 0
         return tokenRecordRepository.count("beacon", beacon)
     }
 
+    /**
+     * Updates the X25519 public key of an existing beacon.
+     * This is typically done during a key rotation process.
+     *
+     * @param id The database ID of the beacon to update.
+     * @param publicKeyX25519 The new 32-byte X25519 public key.
+     * @return The updated [Beacon] entity, or `null` if not found.
+     * @throws IllegalArgumentException if the key has an invalid size.
+     */
     @Transactional
     fun updateBeaconX25519Key(id: Long, publicKeyX25519: ByteArray): Beacon? {
         if (publicKeyX25519.size != 32) {

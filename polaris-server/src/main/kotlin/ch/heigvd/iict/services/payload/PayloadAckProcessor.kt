@@ -22,6 +22,13 @@ import jakarta.ws.rs.NotFoundException
 import kotlinx.serialization.json.JsonObject
 import java.time.Instant
 
+/**
+ * Service dedicated to processing acknowledgment (ACK/ERR) blobs from beacons.
+ *
+ * This class handles the complex logic of updating the status of an [OutboundMessage]
+ * and its associated [MessageDelivery] record when a phone relays an ACK. It also
+ * orchestrates multistep workflows like key rotation.
+ */
 @ApplicationScoped
 @Transactional
 class PayloadAckProcessor(
@@ -33,6 +40,17 @@ class PayloadAckProcessor(
     private val keyManager: X25519SharedKeyManager
 ) {
 
+    /**
+     * Processes an incoming ACK request from a mobile client.
+     *
+     * This is the main entry point. It finds the delivery record, locks the parent message,
+     * attempts to decrypt the ACK blob, and delegates to specialized handlers based on the
+     * original operation type (e.g., generic ACK, key rotation ACK).
+     *
+     * @param request The DTO containing the delivery ID and the raw ACK blob.
+     * @return An [AckResponseDto] summarizing the outcome of the processing.
+     * @throws jakarta.ws.rs.NotFoundException if the delivery ID is invalid.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     fun process(request: AckRequestDto): AckResponseDto {
         val delivery = deliveryRepository.findById(request.deliveryId)
@@ -121,7 +139,7 @@ class PayloadAckProcessor(
         // Update key in db
         beaconAdminService.updateBeaconX25519Key(beacon.id!!, newPublicKey)
 
-        // 3. Invalidate cache to force new derivation
+        // Invalidate cache to force new derivation
         keyManager.invalidateCacheForBeacon(beacon)
 
         // Mark this job as AKC, but not global process

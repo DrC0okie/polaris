@@ -5,6 +5,12 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 
+/**
+ * A JAX-RS `ExceptionMapper` that catches `IllegalArgumentException`.
+ *
+ * This mapper provides a standardized 400 Bad Request response for common
+ * input validation errors thrown within the application logic.
+ */
 @Provider
 class IllegalArgumentExceptionMapper : ExceptionMapper<IllegalArgumentException> {
     override fun toResponse(e: IllegalArgumentException) =

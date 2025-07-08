@@ -6,6 +6,12 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.ext.ExceptionMapper
 import jakarta.ws.rs.ext.Provider
 
+/**
+ * A JAX-RS `ExceptionMapper` that catches the custom [NotAuthorizedException].
+ *
+ * This mapper transforms authentication or authorization failures into a
+ * standardized 401 Unauthorized HTTP response.
+ */
 @Provider
 class NotAuthorizedExceptionMapper
     : ExceptionMapper<NotAuthorizedException> {

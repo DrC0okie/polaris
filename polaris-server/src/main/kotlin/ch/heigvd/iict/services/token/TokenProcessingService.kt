@@ -10,6 +10,17 @@ import jakarta.inject.Inject
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
 
+/**
+ * Service that manages the entire PoL token processing workflow.
+ *
+ * This service acts as a facade, coordinating the validation, assembly, and persistence
+ * of a submitted PoL token.
+ *
+ * @property beaconRepo Repository for fetching beacon data.
+ * @property recordRepo Repository for persisting the final token record.
+ * @property validator The service that performs all validation checks.
+ * @property assembler The service that maps the DTO to a persistent entity.
+ */
 @ApplicationScoped
 class TokenProcessingService @Inject constructor(
     private val beaconRepo: BeaconRepository,
@@ -17,6 +28,14 @@ class TokenProcessingService @Inject constructor(
     private val validator: PoLTokenValidator,
     private val assembler: PoLTokenAssembler
 ) {
+    /**
+     * Processes a submitted PoL token from a mobile client.
+     *
+     * @param dto The token DTO submitted by the client.
+     * @param phone The authenticated [RegisteredPhone] that submitted the token.
+     * @return A [PoLTokenValidationResultDto] indicating if the token was valid and a list of any errors.
+     * @throws jakarta.ws.rs.NotFoundException if the beacon specified in the token does not exist.
+     */
     @Transactional
     fun process(dto: PoLTokenDto, phone: RegisteredPhone): PoLTokenValidationResultDto {
         val beacon = beaconRepo.findByBeaconTechnicalId(dto.beaconId.toInt())

@@ -8,11 +8,24 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.persistence.EntityManager
 import jakarta.persistence.LockModeType
 
+/**
+ * Panache repository for managing [OutboundMessage] entities.
+ * Implements logic for finding and claiming message jobs in a concurrent environment.
+ *
+ * @property entityManager The JPA EntityManager, injected for pessimistic locking.
+ */
 @ApplicationScoped
 class OutboundMessageRepository(
     private val entityManager: EntityManager
 ) : PanacheRepository<OutboundMessage> {
 
+    /**
+     * Finds and claims available outbound message jobs for a specific phone
+     *
+     * @param phone The [RegisteredPhone] requesting a job.
+     * @param maxJobs The maximum number of jobs to claim in this transaction.
+     * @return A list of [OutboundMessage]s that have been successfully claimed by this transaction.
+     */
     fun findAndClaimAvailableJob(phone: RegisteredPhone, maxJobs: Int = 1): List<OutboundMessage> {
         // The query remains the same.
         val query = """
@@ -52,6 +65,10 @@ class OutboundMessageRepository(
         return claimedMessages
     }
 
+    /**
+     * Retrieves the next unique, sequential ID for a server-originated message.
+     * @return The next available server message ID.
+     */
     fun getNextServerMsgId(): Long {
         return entityManager
             .createNativeQuery("SELECT nextval('server_msg_id_seq')")

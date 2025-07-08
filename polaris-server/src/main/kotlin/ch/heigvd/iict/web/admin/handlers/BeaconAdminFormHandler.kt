@@ -7,18 +7,32 @@ import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.UriBuilder
 
-// A simple result class to communicate the outcome back to the resource
+/**
+ * Represents the outcome of a form submission.
+ * This allows for a clean way to return either a success (redirect) or failure (error page) response.
+ */
 sealed class FormProcessingResult {
     data class Success(val redirectResponse: Response) : FormProcessingResult()
     data class Failure(val errorResponse: Response) : FormProcessingResult()
 }
 
+/**
+ * Processes form submissions from the beacon admin interface.
+ *
+ * @property beaconAdminService The service for beacon business logic.
+ * @property viewRenderer The service for rendering error pages.
+ */
 @ApplicationScoped
 class BeaconAdminFormHandler(
     private val beaconAdminService: BeaconAdminService,
     private val viewRenderer: BeaconAdminViewRenderer
 ) {
 
+    /**
+     * Processes the creation of a new beacon from form data.
+     * @param formData The raw data submitted from the "Add Beacon" form.
+     * @return A [FormProcessingResult] indicating success (redirect) or failure (error view).
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     fun processCreateBeacon(formData: BeaconFormData): FormProcessingResult {
         try {
@@ -44,6 +58,12 @@ class BeaconAdminFormHandler(
         }
     }
 
+    /**
+     * Processes an update for an existing beacon from form data.
+     * @param id The database ID of the beacon to update.
+     * @param formData The raw data submitted from the "Edit Beacon" form.
+     * @return A [FormProcessingResult] indicating success (redirect) or failure (error view).
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     fun processUpdateBeacon(id: Long, formData: BeaconFormData): FormProcessingResult {
         val existingBeacon = beaconAdminService.findBeaconById(id)
@@ -62,7 +82,7 @@ class BeaconAdminFormHandler(
             beaconAdminService.updateBeacon(id, name, locationDescription)
 
             formData.publicKeyX25519Hex?.let {
-                    beaconAdminService.updateBeaconX25519Key(id, validateHexKey(it, "X25519 Public Key"))
+                beaconAdminService.updateBeaconX25519Key(id, validateHexKey(it, "X25519 Public Key"))
             }
 
             val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
@@ -75,6 +95,11 @@ class BeaconAdminFormHandler(
         }
     }
 
+    /**
+     * Processes the deletion of a beacon.
+     * @param id The database ID of the beacon to delete.
+     * @return A [FormProcessingResult.Success] containing a redirect response.
+     */
     fun processDeleteBeacon(id: Long): FormProcessingResult {
         beaconAdminService.deleteBeacon(id)
         val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()

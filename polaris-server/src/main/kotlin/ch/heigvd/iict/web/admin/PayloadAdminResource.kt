@@ -15,6 +15,13 @@ import jakarta.ws.rs.core.UriBuilder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 
+
+/**
+ * JAX-RS resource for the payload administration web interface.
+ *
+ * This class exposes endpoints for creating new outbound message jobs
+ * to be sent to beacons.
+ */
 @Path("/admin/payloads")
 @ApplicationScoped
 class PayloadAdminResource(
@@ -22,12 +29,20 @@ class PayloadAdminResource(
     private val beaconRepository: BeaconRepository
 ) {
 
+    /**
+     * Defines the Qute templates used by this resource.
+     */
     @CheckedTemplate
     object Templates {
         @JvmStatic
         external fun payload_form(dto: PayloadCreationDto, successMessage: String? = null, errorMessage: String? = null): TemplateInstance
     }
 
+    /**
+     * [GET] /admin/payloads/new
+     * Displays the form for creating a new outbound message job.
+     * @return A Qute [TemplateInstance] to render the form.
+     */
     @GET
     @Path("/new")
     @Produces(MediaType.TEXT_HTML)
@@ -37,6 +52,20 @@ class PayloadAdminResource(
         return Templates.payload_form(dto)
     }
 
+    /**
+     * [POST] /admin/payloads/create
+     * Processes the submission of the "new payload" form.
+     *
+     * It validates the input, creates a new [OutboundMessage] via the [PayloadService],
+     * and redirects to the main admin dashboard on success. On failure, it re-renders
+     * the form with an error message.
+     *
+     * @param beaconId The technical ID of the target beacon.
+     * @param opType The operation type code for the command.
+     * @param commandPayload The JSON payload for the command.
+     * @param redundancyFactor The number of phones that should try to deliver this message.
+     * @return A redirect response on success, or a response containing the form with an error message.
+     */
     @POST
     @Path("/create")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

@@ -11,5 +11,5 @@ data class PhoneRegistrationRequestDto(
 
     val deviceModel: String?, // Ex: "Pixel 7 Pro"
     val osVersion: String?,   // Ex: "Android 14"
-    val appVersion: String?   // Ex: "PolarisApp 1.0.2"
+    val appVersion: String?   // Ex: "1.0.2"
 )

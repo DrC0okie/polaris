@@ -7,8 +7,24 @@ import ch.heigvd.iict.services.crypto.model.*
 import ch.heigvd.iict.util.PoLUtils.toUByteArrayLE
 import jakarta.enterprise.context.ApplicationScoped
 
+/**
+ * Concrete implementation of [IMessageSealer] using ChaCha20-Poly1305 AEAD.
+ *
+ * This service handles the process of encrypting a plaintext message for a specific beacon,
+ * including key derivation, nonce generation, and serialization into a transportable format.
+ *
+ * @property keyManager The manager used to retrieve the correct shared secret for the target beacon.
+ */
 @ApplicationScoped
 class AeadMessageSealer(private val keyManager: ISharedKeyManager) : IMessageSealer {
+
+    /**
+     * Seals a [PlaintextMessage] using AEAD encryption.
+     *
+     * @param plaintext The message to encrypt.
+     * @param targetBeacon The destination beacon, used to fetch the shared encryption key.
+     * @return A [SealedMessage] containing the resulting ciphertext and metadata.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     override fun seal(plaintext: PlaintextMessage, targetBeacon: Beacon): SealedMessage {
         val sharedKey = keyManager.getSharedKeyForBeacon(targetBeacon)

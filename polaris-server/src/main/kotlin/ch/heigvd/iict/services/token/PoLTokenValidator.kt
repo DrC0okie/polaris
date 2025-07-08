@@ -9,12 +9,29 @@ import com.ionspin.kotlin.crypto.util.toHexString
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 
+
+/**
+ * Service responsible for performing validation checks on a submitted [PoLTokenDto].
+ *
+ * This class centralizes the rules for determining the authenticity and validity of a PoL claim.
+ *
+ * @property crypto The service used for cryptographic signature verification.
+ * @property recordRepo The repository used to check for replay attacks.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 @ApplicationScoped
 class PoLTokenValidator @Inject constructor(
     private val crypto: CryptoService,
     private val recordRepo: PoLTokenRecordRepository
 ) {
+    /**
+     * Validates a PoL token against a set of security and consistency rules.
+     *
+     * @param dto The PoL token DTO to validate.
+     * @param phone The phone entity that submitted the token.
+     * @param beacon The beacon entity that supposedly issued the token.
+     * @return A list of string descriptions of any validation errors found. An empty list signifies a valid token.
+     */
     fun validate(dto: PoLTokenDto, phone: RegisteredPhone, beacon: Beacon): List<String> {
         val errs = mutableListOf<String>()
 

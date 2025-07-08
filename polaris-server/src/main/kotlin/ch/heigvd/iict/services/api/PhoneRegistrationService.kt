@@ -11,6 +11,12 @@ import jakarta.transaction.Transactional
 import java.time.Instant
 import java.util.UUID
 
+/**
+ * Service responsible for handling mobile device registration.
+ *
+ * This service manages the creation and updating of [RegisteredPhone] entities,
+ * issues API keys, and provides initial provisioning data.
+ */
 @ApplicationScoped
 @OptIn(ExperimentalUnsignedTypes::class)
 class PhoneRegistrationService {
@@ -21,6 +27,19 @@ class PhoneRegistrationService {
     @Inject
     private lateinit var provisioningApiService: ProvisioningApiService
 
+    /**
+     * Registers a new phone or updates an existing one based on its public key.
+     *
+     * If a phone with the given public key already exists, its `lastSeenAt` and `userAgent`
+     * fields are updated. If not, a new [RegisteredPhone] record is created with a newly
+     * generated API key.
+     *
+     * In both cases, the response includes the phone's API key and the current list of
+     * provisioned beacons.
+     *
+     * @param request The DTO containing the phone's public key and metadata.
+     * @return A DTO containing the registration result, including the API key and beacon list.
+     */
     @Transactional
     fun register(request: PhoneRegistrationRequestDto): PhoneRegistrationResponseDto {
         val now = Instant.now()

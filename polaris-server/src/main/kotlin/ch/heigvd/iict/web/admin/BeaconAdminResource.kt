@@ -18,6 +18,12 @@ import ch.heigvd.iict.web.admin.handlers.BeaconAdminFormHandler
 import ch.heigvd.iict.web.admin.handlers.BeaconAdminViewRenderer
 import ch.heigvd.iict.web.admin.handlers.FormProcessingResult
 
+/**
+ * JAX-RS resource for the beacon administration web interface.
+ *
+ * This class exposes endpoints for listing, creating, editing, and deleting beacons
+ * via a server-rendered HTML interface using Qute templates.
+ */
 @Path("/admin/beacons")
 @ApplicationScoped
 class BeaconAdminResource(
@@ -27,10 +33,13 @@ class BeaconAdminResource(
     private val viewRenderer: BeaconAdminViewRenderer
 ) {
 
+    /**
+     * Defines the Qute templates used by this resource.
+     */
     @CheckedTemplate
     object Templates {
         @JvmStatic
-        external fun beacons( beacons: List<BeaconAdminDto>, payloads: List<OutboundMessage>): TemplateInstance
+        external fun beacons(beacons: List<BeaconAdminDto>, payloads: List<OutboundMessage>): TemplateInstance
 
         @JvmStatic
         external fun beacon_add_form(beacon: BeaconAdminDto?, errorMessage: String? = null): TemplateInstance
@@ -39,6 +48,11 @@ class BeaconAdminResource(
         external fun beacon_edit_form(beacon: BeaconAdminDto?, errorMessage: String? = null): TemplateInstance
     }
 
+    /**
+     * [GET] /admin/beacons
+     * Displays the main dashboard, listing all registered beacons and outbound message jobs.
+     * @return A Qute [TemplateInstance] to render the dashboard view.
+     */
     @GET
     @OptIn(ExperimentalUnsignedTypes::class)
     @Produces(MediaType.TEXT_HTML)
@@ -62,6 +76,11 @@ class BeaconAdminResource(
         return Templates.beacons(beaconDtos, payloads)
     }
 
+    /**
+     * [GET] /admin/beacons/new
+     * Displays the form for creating a new beacon.
+     * @return A Qute [TemplateInstance] to render the "add beacon" form.
+     */
     @GET
     @Path("/new")
     @Produces(MediaType.TEXT_HTML)
@@ -71,6 +90,12 @@ class BeaconAdminResource(
         return Templates.beacon_add_form(emptyBeaconDto, null)
     }
 
+    /**
+     * [GET] /admin/beacons/edit/{id}
+     * Displays the form for editing an existing beacon, pre-populated with its data.
+     * @param id The database ID of the beacon to edit.
+     * @return A JAX-RS [Response] containing the rendered form or an error page if not found.
+     */
     @OptIn(ExperimentalUnsignedTypes::class)
     @GET
     @Path("/edit/{id}")
@@ -89,13 +114,17 @@ class BeaconAdminResource(
         return Response.ok(Templates.beacon_edit_form(beaconDto, null)).build()
     }
 
+    /**
+     * [POST] /admin/beacons/create
+     * Processes the submission of the "add beacon" form.
+     * Delegates logic to the [BeaconAdminFormHandler].
+     * @param formData A JAX-RS bean that automatically maps the submitted form fields.
+     * @return A redirect response on success, or a response containing the form with errors on failure.
+     */
     @POST
     @Path("/create")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    fun createBeacon(
-        // Use @FormParam for all fields to create the formData object
-        @BeanParam formData: BeaconFormDataBean
-    ): Response {
+    fun createBeacon(@BeanParam formData: BeaconFormDataBean): Response {
         val formDataObj = formData.toBeaconFormData()
         return when (val result = formHandler.processCreateBeacon(formDataObj)) {
             is FormProcessingResult.Success -> result.redirectResponse
@@ -103,6 +132,14 @@ class BeaconAdminResource(
         }
     }
 
+    /**
+     * [POST] /admin/beacons/update/{id}
+     * Processes the submission of the "edit beacon" form.
+     * Delegates logic to the [BeaconAdminFormHandler].
+     * @param id The database ID of the beacon being updated.
+     * @param formData A JAX-RS bean that automatically maps the submitted form fields.
+     * @return A redirect response on success, or a response containing the form with errors on failure.
+     */
     @POST
     @Path("/update/{id}")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -117,6 +154,13 @@ class BeaconAdminResource(
         }
     }
 
+    /**
+     * [POST] /admin/beacons/delete/{id}
+     * Processes a request to delete a beacon.
+     * Delegates logic to the [BeaconAdminFormHandler].
+     * @param id The database ID of the beacon to delete.
+     * @return A redirect response on success.
+     */
     @POST
     @Path("/delete/{id}")
     fun deleteBeacon(@PathParam("id") id: Long): Response {
@@ -127,7 +171,9 @@ class BeaconAdminResource(
     }
 }
 
-// Helper JAX-RS bean to automatically map form params to an object
+/**
+ * A JAX-RS helper bean to simplify binding of `x-www-form-urlencoded` data to a structured object.
+ */
 class BeaconFormDataBean {
     @FormParam("beaconId")
     var technicalId: String? = null

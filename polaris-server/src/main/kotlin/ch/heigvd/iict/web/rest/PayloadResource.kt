@@ -19,15 +19,28 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.container.ContainerRequestContext
 
+/**
+ * JAX-RS resource for managing the secure payload data mule channel.
+ *
+ * All endpoints in this resource are secured and require a valid API key.
+ *
+ * @property payloadService The service that orchestrates all payload-related business logic.
+ */
 @Path("/api/v1/payloads")
 @RequestScoped
 @Secured
 class PayloadResource(
     private val payloadService: PayloadService
 ) {
+    /** Injects the JAX-RS request context to access properties set by filters (e.g., the authenticated phone). */
     @Context
     private lateinit var requestContext: ContainerRequestContext
 
+    /**
+     * [GET] /api/v1/payloads
+     * Allows a phone to fetch pending outbound message jobs destined for beacons.
+     * @return A [Response] containing a list of payload jobs for the phone to deliver.
+     */
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     fun getPendingPayloads(): Response {
@@ -37,6 +50,12 @@ class PayloadResource(
         return Response.ok(responseWrapper).build()
     }
 
+    /**
+     * [POST] /api/v1/payloads
+     * Allows a phone to submit an inbound payload that was initiated by a beacon.
+     * @param request A DTO containing the beacon's ID and its encrypted data blob.
+     * @return A [Response] containing the server's encrypted ACK to be relayed back to the beacon.
+     */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -46,6 +65,12 @@ class PayloadResource(
         return Response.ok(responseBlob).build()
     }
 
+    /**
+     * [POST] /api/v1/payloads/ack
+     * Allows a phone to submit an acknowledgment blob from a beacon for a previously delivered job.
+     * @param request A DTO containing the original delivery ID and the beacon's ACK/ERR blob.
+     * @return A [Response] confirming the processing of the acknowledgment.
+     */
     @POST
     @Path("/ack")
     @Consumes(MediaType.APPLICATION_JSON)
