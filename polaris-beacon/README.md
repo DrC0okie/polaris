@@ -153,7 +153,7 @@ To upload the program to the board, you must:
 
 
 
-![](resources\beacon.jpg)
+![](resources/beacon.jpg)
 
 
 
