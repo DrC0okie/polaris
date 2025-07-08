@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Polaris Server API</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+        h1, h2 { color: #005fcc; }
+        h1 { border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        p { color: #555; }
+        code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 4px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; }
+        .endpoint { background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 5px; padding: 15px; margin-bottom: 15px; }
+        .endpoint-method { font-weight: bold; color: #333; padding: 4px 8px; border-radius: 3px; display: inline-block; margin-right: 10px; }
+        .get { background-color: #e7f3ff; border: 1px solid #c3dafe; }
+        .post { background-color: #e8f5e9; border: 1px solid #c8e6c9; }
+        .admin-link { display: inline-block; margin-top: 20px; padding: 12px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; transition: background-color 0.2s; }
+        .admin-link:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<h1>Welcome to the POLARIS server API</h1>
+<p>
+    This server is the central authority for the <strong>Polaris Proof-of-Location system</strong>. It manages device registration,
+    validates cryptographic PoL tokens, and orchestrates a secure, asynchronous communication channel with remote beacons.
+</p>
+
+<h2>API Endpoints</h2>
+<p>All API endpoints are located under the <code>/api/v1/</code> path.</p>
+
+<div class="endpoint">
+    <span class="endpoint-method post">POST</span><code>/api/v1/register</code>
+    <p>Registers a new mobile device and returns an API key and initial beacon provisioning data.</p>
+</div>
+
+<div class="endpoint">
+    <span class="endpoint-method get">GET</span><code>/api/v1/beacons</code>
+    <p>Returns the list of all known beacons. Requires a valid <code>x-api-key</code> header.</p>
+</div>
+
+<div class="endpoint">
+    <span class="endpoint-method post">POST</span><code>/api/v1/tokens</code>
+    <p>Submits a Proof-of-Location token for validation. Requires a valid <code>x-api-key</code> header.</p>
+</div>
+
+<div class="endpoint">
+    <span class="endpoint-method get">GET</span><code>/api/v1/payloads</code>
+    <p>Fetches pending secure commands from the server for beacon delivery. Requires a valid <code>x-api-key</code> header.</p>
+</div>
+
+<div class="endpoint">
+    <span class="endpoint-method post">POST</span><code>/api/v1/payloads/ack</code>
+    <p>Submits an acknowledgment from a beacon for a delivered command. Requires a valid <code>x-api-key</code> header.</p>
+</div>
+
+<h2>Admin interface</h2>
+<p>
+    A simple web interface is available for managing beacons and creating new commands.
+</p>
+<a href="/admin/beacons" class="admin-link">Go to Beacon Management</a>
+
+</body>
+</html>
