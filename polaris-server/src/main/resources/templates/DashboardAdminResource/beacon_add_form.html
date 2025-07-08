@@ -42,7 +42,7 @@
     {#if errorMessage}
         <p class="error">{errorMessage}</p>
     {/if}
-    <form method="POST" action="/admin/beacons/create">
+    <form method="POST" action="/admin/dashboard/beacons/create">
         <div>
             <label for="beaconId">Technical ID (Integer):</label>
             <input type="number" id="beaconId" name="beaconId" value="{beacon.technicalId}" required>
@@ -68,7 +68,7 @@
         </div>
         <input type="submit" value="Add Beacon">
     </form>
-    <p><a href="/admin/beacons">Back to Beacon List</a></p>
+    <p><a href="/admin/dashboard">Back to Beacon List</a></p>
 </div>
 </body>
 </html>

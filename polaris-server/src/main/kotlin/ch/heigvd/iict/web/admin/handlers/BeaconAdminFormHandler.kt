@@ -49,7 +49,7 @@ class BeaconAdminFormHandler(
 
             beaconAdminService.addBeacon(technicalId, name, locationDescription, ed25519Bytes, x25519Bytes)
 
-            val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
+            val redirect = Response.seeOther(UriBuilder.fromPath("/admin/dashboard").build()).build()
             return FormProcessingResult.Success(redirect)
 
         } catch (e: Exception) {
@@ -85,7 +85,7 @@ class BeaconAdminFormHandler(
                 beaconAdminService.updateBeaconX25519Key(id, validateHexKey(it, "X25519 Public Key"))
             }
 
-            val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
+            val redirect = Response.seeOther(UriBuilder.fromPath("/admin/dashboard").build()).build()
             return FormProcessingResult.Success(redirect)
 
         } catch (e: Exception) {
@@ -102,7 +102,7 @@ class BeaconAdminFormHandler(
      */
     fun processDeleteBeacon(id: Long): FormProcessingResult {
         beaconAdminService.deleteBeacon(id)
-        val redirect = Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
+        val redirect = Response.seeOther(UriBuilder.fromPath("/admin/dashboard").build()).build()
         return FormProcessingResult.Success(redirect)
     }
 

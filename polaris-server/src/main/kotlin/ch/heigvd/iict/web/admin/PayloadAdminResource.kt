@@ -22,7 +22,7 @@ import kotlinx.serialization.json.JsonObject
  * This class exposes endpoints for creating new outbound message jobs
  * to be sent to beacons.
  */
-@Path("/admin/payloads")
+@Path("/admin/dashboard/payloads")
 @ApplicationScoped
 class PayloadAdminResource(
     private val payloadService: PayloadService,
@@ -39,7 +39,7 @@ class PayloadAdminResource(
     }
 
     /**
-     * [GET] /admin/payloads/new
+     * [GET] /admin/dashboard/payloads/new
      * Displays the form for creating a new outbound message job.
      * @return A Qute [TemplateInstance] to render the form.
      */
@@ -53,7 +53,7 @@ class PayloadAdminResource(
     }
 
     /**
-     * [POST] /admin/payloads/create
+     * [POST] /dashboard/payloads/create
      * Processes the submission of the "new payload" form.
      *
      * It validates the input, creates a new [OutboundMessage] via the [PayloadService],
@@ -91,7 +91,7 @@ class PayloadAdminResource(
             Log.info("Successfully created job with ID ${message.id} for beacon $beaconId.")
 
             // Redirect to the main list where the user can see their new job.
-            return Response.seeOther(UriBuilder.fromPath("/admin/beacons").build()).build()
+            return Response.seeOther(UriBuilder.fromPath("/admin/dashboard").build()).build()
 
         } catch (e: Exception) {
             errorMessage = "Failed to create payload: ${e.message}"

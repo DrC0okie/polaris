@@ -1,8 +1,14 @@
 package ch.heigvd.iict.web.admin
 
 import ch.heigvd.iict.dto.admin.BeaconAdminDto
+import ch.heigvd.iict.dto.admin.PhoneAdminDto
+import ch.heigvd.iict.dto.admin.TokenAdminDto
+import ch.heigvd.iict.entities.InboundMessage
 import ch.heigvd.iict.entities.OutboundMessage
+import ch.heigvd.iict.repositories.InboundMessageRepository
 import ch.heigvd.iict.repositories.OutboundMessageRepository
+import ch.heigvd.iict.repositories.PoLTokenRecordRepository
+import ch.heigvd.iict.repositories.RegisteredPhoneRepository
 import ch.heigvd.iict.services.admin.BeaconAdminService
 import io.quarkus.qute.CheckedTemplate
 import io.quarkus.qute.TemplateInstance
@@ -24,11 +30,14 @@ import ch.heigvd.iict.web.admin.handlers.FormProcessingResult
  * This class exposes endpoints for listing, creating, editing, and deleting beacons
  * via a server-rendered HTML interface using Qute templates.
  */
-@Path("/admin/beacons")
+@Path("/admin/dashboard")
 @ApplicationScoped
-class BeaconAdminResource(
+class DashboardAdminResource(
     private val beaconAdminService: BeaconAdminService,
     private val outboundMessageRepository: OutboundMessageRepository,
+    private val registeredPhoneRepository: RegisteredPhoneRepository,
+    private val tokenRecordRepository: PoLTokenRecordRepository,
+    private val inboundMessageRepository: InboundMessageRepository,
     private val formHandler: BeaconAdminFormHandler,
     private val viewRenderer: BeaconAdminViewRenderer
 ) {
@@ -38,8 +47,15 @@ class BeaconAdminResource(
      */
     @CheckedTemplate
     object Templates {
+
         @JvmStatic
-        external fun beacons(beacons: List<BeaconAdminDto>, payloads: List<OutboundMessage>): TemplateInstance
+        external fun dashboard(
+            beacons: List<BeaconAdminDto>,
+            payloads: List<OutboundMessage>,
+            inboundMessages: List<InboundMessage>,
+            phones: List<PhoneAdminDto>,
+            tokens: List<TokenAdminDto>
+        ): TemplateInstance
 
         @JvmStatic
         external fun beacon_add_form(beacon: BeaconAdminDto?, errorMessage: String? = null): TemplateInstance
@@ -49,15 +65,16 @@ class BeaconAdminResource(
     }
 
     /**
-     * [GET] /admin/beacons
+     * [GET] /admin/dashboard
      * Displays the main dashboard, listing all registered beacons and outbound message jobs.
      * @return A Qute [TemplateInstance] to render the dashboard view.
      */
     @GET
     @OptIn(ExperimentalUnsignedTypes::class)
     @Produces(MediaType.TEXT_HTML)
-    fun listBeacons(): TemplateInstance {
-        // This is a simple read operation, no handler needed.
+    fun getDashboard(): TemplateInstance {
+
+        // Fetch Beacons
         val beaconDtos = beaconAdminService.listAllBeacons().map {
             BeaconAdminDto(
                 it.id,
@@ -71,18 +88,48 @@ class BeaconAdminResource(
                 it.updatedAt
             )
         }
-        // Fetch all outbound messages, sorted by creation date
+        // Fetch Outbound Payloads
         val payloads = outboundMessageRepository.listAll(Sort.by("createdAt").descending())
-        return Templates.beacons(beaconDtos, payloads)
+
+        // Fetch Inbound Messages
+        val inboundMessages = inboundMessageRepository.listAll(Sort.by("receivedAt").descending())
+
+        // Fetch Registered Phones and map to DTO
+        val phoneDtos = registeredPhoneRepository.listAll(Sort.by("createdAt").descending()).map {
+            PhoneAdminDto(
+                it.id,
+                it.publicKey.toHexString(),
+                it.apiKey.substring(0, 8) + "...",
+                it.userAgent,
+                it.lastSeenAt,
+                it.createdAt
+            )
+        }
+
+        // Fetch PoL Tokens and map to DTO
+        val tokenDtos = tokenRecordRepository.listAll(Sort.by("receivedAt").descending()).map {
+            TokenAdminDto(
+                it.id,
+                it.phone.id,
+                it.beacon.beaconId,
+                it.beaconCounter,
+                it.nonceHex,
+                it.isValid,
+                it.validationError,
+                it.receivedAt
+            )
+        }
+
+        return Templates.dashboard(beaconDtos, payloads, inboundMessages, phoneDtos, tokenDtos)
     }
 
     /**
-     * [GET] /admin/beacons/new
+     * [GET] /admin/dashboard/beacons/new
      * Displays the form for creating a new beacon.
      * @return A Qute [TemplateInstance] to render the "add beacon" form.
      */
     @GET
-    @Path("/new")
+    @Path("/beacons/new")
     @Produces(MediaType.TEXT_HTML)
     fun newBeaconForm(): TemplateInstance {
         // Simple view rendering.
@@ -91,14 +138,14 @@ class BeaconAdminResource(
     }
 
     /**
-     * [GET] /admin/beacons/edit/{id}
+     * [GET] /admin/dashboard/beacons/edit/{id}
      * Displays the form for editing an existing beacon, pre-populated with its data.
      * @param id The database ID of the beacon to edit.
      * @return A JAX-RS [Response] containing the rendered form or an error page if not found.
      */
     @OptIn(ExperimentalUnsignedTypes::class)
     @GET
-    @Path("/edit/{id}")
+    @Path("/beacons/edit/{id}")
     @Produces(MediaType.TEXT_HTML)
     fun editBeaconForm(@PathParam("id") id: Long): Response {
         val beacon = beaconAdminService.findBeaconById(id)
@@ -115,14 +162,14 @@ class BeaconAdminResource(
     }
 
     /**
-     * [POST] /admin/beacons/create
+     * [POST] /admin/dashboard/beacons/create
      * Processes the submission of the "add beacon" form.
      * Delegates logic to the [BeaconAdminFormHandler].
      * @param formData A JAX-RS bean that automatically maps the submitted form fields.
      * @return A redirect response on success, or a response containing the form with errors on failure.
      */
     @POST
-    @Path("/create")
+    @Path("/beacons/create")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     fun createBeacon(@BeanParam formData: BeaconFormDataBean): Response {
         val formDataObj = formData.toBeaconFormData()
@@ -133,7 +180,7 @@ class BeaconAdminResource(
     }
 
     /**
-     * [POST] /admin/beacons/update/{id}
+     * [POST] /admin/dashboard/beacons/update/{id}
      * Processes the submission of the "edit beacon" form.
      * Delegates logic to the [BeaconAdminFormHandler].
      * @param id The database ID of the beacon being updated.
@@ -141,7 +188,7 @@ class BeaconAdminResource(
      * @return A redirect response on success, or a response containing the form with errors on failure.
      */
     @POST
-    @Path("/update/{id}")
+    @Path("/beacons/update/{id}")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     fun updateBeacon(
         @PathParam("id") id: Long,
@@ -155,14 +202,14 @@ class BeaconAdminResource(
     }
 
     /**
-     * [POST] /admin/beacons/delete/{id}
+     * [POST] /admin/dashboard/beacons/delete/{id}
      * Processes a request to delete a beacon.
      * Delegates logic to the [BeaconAdminFormHandler].
      * @param id The database ID of the beacon to delete.
      * @return A redirect response on success.
      */
     @POST
-    @Path("/delete/{id}")
+    @Path("/beacons/delete/{id}")
     fun deleteBeacon(@PathParam("id") id: Long): Response {
         return when (val result = formHandler.processDeleteBeacon(id)) {
             is FormProcessingResult.Success -> result.redirectResponse

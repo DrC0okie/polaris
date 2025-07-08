@@ -2,7 +2,7 @@ package ch.heigvd.iict.web.admin.handlers
 
 import ch.heigvd.iict.dto.admin.BeaconAdminDto
 import ch.heigvd.iict.entities.Beacon
-import ch.heigvd.iict.web.admin.BeaconAdminResource
+import ch.heigvd.iict.web.admin.DashboardAdminResource
 import ch.heigvd.iict.web.admin.forms.BeaconFormData
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.ws.rs.core.Response
@@ -35,7 +35,7 @@ class BeaconAdminViewRenderer {
             createdAt = Instant.now(),
             updatedAt = Instant.now()
         )
-        val templateInstance = BeaconAdminResource.Templates.beacon_add_form(dto, errorMessage)
+        val templateInstance = DashboardAdminResource.Templates.beacon_add_form(dto, errorMessage)
         return Response.status(Response.Status.BAD_REQUEST).entity(templateInstance).build()
     }
 
@@ -63,7 +63,7 @@ class BeaconAdminViewRenderer {
         }
 
         val status = if (beacon == null) Response.Status.NOT_FOUND else Response.Status.BAD_REQUEST
-        val templateInstance = BeaconAdminResource.Templates.beacon_edit_form(dto, errorMessage)
+        val templateInstance = DashboardAdminResource.Templates.beacon_edit_form(dto, errorMessage)
         return Response.status(status).entity(templateInstance).build()
     }
 }
