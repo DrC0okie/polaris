@@ -68,7 +68,7 @@ internal actual class SdkInitializer {
         val androidBleController: BleController = AndroidBleController(context, beaconDataParser, config.bleConfig)
 
         // Instantiate common components, injecting their dependencies.
-        val secureStore = KVault(context, "polaris_secure_store")
+        val secureStore = KVault(context, "polaris_secure_store_v2")
         val protocolHandler = DefaultProtocolHandler(cryptoUtils)
         val keyStore = DefaultKeyStore(secureStore, cryptoUtils)
         val networkClient = config.networkConfig?.let { apiCfg ->

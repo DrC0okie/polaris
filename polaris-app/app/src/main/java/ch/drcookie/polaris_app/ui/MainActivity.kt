@@ -134,6 +134,7 @@ class MainActivity : AppCompatActivity() {
         binding.payloadFlowButton.isEnabled = !isActionInProgress
         binding.registerButton.isEnabled = !isActionInProgress
         binding.fetchBeaconButton.isEnabled = !isActionInProgress
+        binding.endToEndButton.isEnabled = !isActionInProgress
 
         // The monitor button should be disabled only when a different flow is busy
         binding.monitorBoradcastButton.isEnabled = !state.isBusy
