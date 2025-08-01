@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "polaris-app"
 include(":app")
 include(":polaris-sdk")
+include(":polaris-health")
