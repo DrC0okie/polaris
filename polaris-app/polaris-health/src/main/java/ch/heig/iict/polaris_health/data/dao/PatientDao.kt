@@ -1,17 +1,18 @@
 package ch.heig.iict.polaris_health.data.dao
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import ch.heig.iict.polaris_health.data.model.PatientEntity
-import kotlinx.coroutines.flow.Flow
+import androidx.room.*
+import ch.heig.iict.polaris_health.data.entities.BeaconEntity
+import ch.heig.iict.polaris_health.data.entities.MedicalRecordEntity
+import ch.heig.iict.polaris_health.data.entities.PatientEntity
 
 @Dao
 interface PatientDao {
-    @Query("SELECT * FROM patients ORDER BY lastName ASC")
-    fun getPatients(): Flow<List<PatientEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPatient(patient: PatientEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(patients: List<PatientEntity>)
+    suspend fun insertMedicalRecord(record: MedicalRecordEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBeacon(beacon: BeaconEntity)
 }

@@ -2,10 +2,10 @@ package ch.heig.iict.polaris_health
 
 import android.app.Application
 import ch.heig.iict.polaris_health.data.db.PolarisHealthDatabase
-import ch.heig.iict.polaris_health.data.repository.PatientRepositoryImpl
-import ch.heig.iict.polaris_health.data.repository.TokenRepositoryImpl
-import ch.heig.iict.polaris_health.domain.repository.PatientRepository
-import ch.heig.iict.polaris_health.domain.repository.TokenRepository
+import ch.heig.iict.polaris_health.data.repositories.TokenRepositoryImpl
+import ch.heig.iict.polaris_health.data.repositories.VisitRepositoryImpl
+import ch.heig.iict.polaris_health.domain.repositories.VisitRepository
+import ch.heig.iict.polaris_health.domain.repositories.TokenRepository
 import kotlin.getValue
 
 class PolarisHealthApplication : Application() {
@@ -14,8 +14,8 @@ class PolarisHealthApplication : Application() {
         PolarisHealthDatabase.getDatabase(this)
     }
 
-    val patientRepository: PatientRepository by lazy {
-        PatientRepositoryImpl(database.patientDao())
+    val visitRepository: VisitRepository by lazy {
+        VisitRepositoryImpl(database.visitDao(), database.patientDao(), database.beaconDao())
     }
 
     val tokenRepository: TokenRepository by lazy {

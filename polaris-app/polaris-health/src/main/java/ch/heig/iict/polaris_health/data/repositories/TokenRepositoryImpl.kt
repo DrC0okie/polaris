@@ -1,19 +1,19 @@
-package ch.heig.iict.polaris_health.data.repository
+package ch.heig.iict.polaris_health.data.repositories
 
 import ch.drcookie.polaris_sdk.api.Polaris
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import ch.heig.iict.polaris_health.data.dao.PoLTokenDao
-import ch.heig.iict.polaris_health.data.model.PoLTokenEntity
-import ch.heig.iict.polaris_health.domain.repository.TokenRepository
+import ch.heig.iict.polaris_health.data.entities.PoLTokenEntity
+import ch.heig.iict.polaris_health.domain.repositories.TokenRepository
 
 class TokenRepositoryImpl( private val tokenDao: PoLTokenDao) : TokenRepository {
 
     private val networkClient = Polaris.networkClient
 
-    override suspend fun storeToken(patientId: Long, token: PoLToken) {
-        val entity = token.toEntity(patientId)
+    override suspend fun storeToken(visitId: Long, token: PoLToken) {
+        val entity = token.toEntity(visitId)
         tokenDao.insert(entity)
     }
 
@@ -46,9 +46,9 @@ class TokenRepositoryImpl( private val tokenDao: PoLTokenDao) : TokenRepository 
 }
 
 @OptIn(ExperimentalUnsignedTypes::class)
-private fun PoLToken.toEntity(patientId: Long): PoLTokenEntity {
+private fun PoLToken.toEntity(visitId: Long): PoLTokenEntity {
     return PoLTokenEntity(
-        patientId = patientId,
+        visitId = visitId,
         flags = this.flags.toByte(),
         phoneId = this.phoneId.toLong(),
         beaconId = this.beaconId.toInt(),

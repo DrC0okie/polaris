@@ -3,7 +3,7 @@ package ch.heig.iict.polaris_health.data.dao
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import ch.heig.iict.polaris_health.data.model.PoLTokenEntity
+import ch.heig.iict.polaris_health.data.entities.PoLTokenEntity
 
 @Dao
 interface PoLTokenDao {
