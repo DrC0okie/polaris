@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/launcherFragment">
+
+    <fragment
+        android:id="@+id/launcherFragment"
+        android:name="ch.heig.iict.polaris_health.ui.init.LauncherFragment"
+        android:label="Launcher" >
+        <action
+            android:id="@+id/action_launcherFragment_to_permissionFragment"
+            app:destination="@id/permissionFragment" />
+        <action
+            android:id="@+id/action_launcherFragment_to_tourFragment"
+            app:destination="@id/tourFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/permissionFragment"
+        android:name="ch.heig.iict.polaris_health.ui.init.PermissionFragment"
+        android:label="Permissions" >
+        <action
+            android:id="@+id/action_permissionFragment_to_tourFragment"
+            app:destination="@id/tourFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/tourFragment"
+        android:name="ch.heig.iict.polaris_health.ui.tour.TourFragment"
+        android:label="fragment_tour"
+        tools:layout="@layout/fragment_tour" >
+        <action
+            android:id="@+id/action_tourFragment_to_visitDetailFragment"
+            app:destination="@id/visitDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/visitDetailFragment"
+        android:name="ch.heig.iict.polaris_health.ui.visit.VisitDetailFragment"
+        android:label="fragment_visit_detail"
+        tools:layout="@layout/fragment_visit_detail" >
+        <argument
+            android:name="visitId"
+            app:argType="long" />
+    </fragment>
+</navigation>

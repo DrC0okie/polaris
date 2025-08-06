@@ -1,10 +1,14 @@
 package ch.heig.iict.polaris_health.ui.tour
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.api.use_case.*
+import ch.heig.iict.polaris_health.di.AppContainer
 import ch.heig.iict.polaris_health.domain.repositories.VisitRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -79,5 +83,16 @@ class TourViewModel(
     override fun onCleared() {
         super.onCleared()
         stopMonitoring()
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                TourViewModel(
+                    AppContainer.visitRepository,
+                    AppContainer.monitorBroadcasts
+                )
+            }
+        }
     }
 }

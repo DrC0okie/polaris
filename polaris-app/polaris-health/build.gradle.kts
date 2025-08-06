@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.devtools.ksp)
+    id("androidx.navigation.safeargs.kotlin")
 }
 
 kotlin {
@@ -10,7 +11,7 @@ kotlin {
             optIn.add("kotlin.RequiresOptIn")
         }
     }
-    jvmToolchain(11)
+    jvmToolchain(17)
 }
 
 android {
@@ -29,6 +30,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        dataBinding = true
     }
 
     buildTypes {
@@ -38,8 +40,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
@@ -57,6 +59,11 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.material)
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
+
+    // Animation
+    implementation(libs.lottie)
 
     implementation(project(":polaris-sdk"))
 

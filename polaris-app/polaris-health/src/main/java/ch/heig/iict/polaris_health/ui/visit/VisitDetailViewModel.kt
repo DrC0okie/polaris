@@ -1,8 +1,12 @@
 package ch.heig.iict.polaris_health.ui.visit
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import ch.drcookie.polaris_sdk.api.use_case.*
+import ch.heig.iict.polaris_health.di.AppContainer
 import ch.heig.iict.polaris_health.domain.repositories.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -15,7 +19,7 @@ class VisitDetailViewModel(
     private val visitRepository: VisitRepository,
     private val tokenRepository: TokenRepository,
     private val scanForBeacon: ScanForBeacon,
-    private val performPolTransaction: PolTransaction,
+    private val polTransaction: PolTransaction
 
 ) : ViewModel() {
 
@@ -32,6 +36,7 @@ class VisitDetailViewModel(
                     _uiState.update {
                         it.copy(
                             patientFullName = currentVisit.patientFullName,
+                            patientDetails = "Beacon ID: ${currentVisit.associatedBeaconId}",
                             isTokenButtonEnabled = !currentVisit.isLocked
                         )
                     }
@@ -52,7 +57,6 @@ class VisitDetailViewModel(
         throw NotImplementedError("Not yet implemented")
     }
 
-    // Helper pour ajouter des logs à l'UI
     private fun appendLog(message: String) {
         val timestamp = formatter.format(Instant.now())
         _uiState.update {
@@ -61,7 +65,6 @@ class VisitDetailViewModel(
         }
     }
 
-    // Helper pour gérer l'état 'isBusy'
     private fun runFlow(flowName: String, block: suspend () -> Unit) {
         viewModelScope.launch {
             _uiState.update { it.copy(isBusy = true) }
@@ -73,6 +76,20 @@ class VisitDetailViewModel(
             } finally {
                 _uiState.update { it.copy(isBusy = false) }
                 appendLog("--- Terminé: $flowName ---")
+            }
+        }
+    }
+
+    companion object {
+        fun provideFactory(visitId: Long): ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                VisitDetailViewModel(
+                    visitId,
+                    AppContainer.visitRepository,
+                    AppContainer.tokenRepository,
+                    AppContainer.scanForBeacon,
+                    AppContainer.polTransaction
+                )
             }
         }
     }

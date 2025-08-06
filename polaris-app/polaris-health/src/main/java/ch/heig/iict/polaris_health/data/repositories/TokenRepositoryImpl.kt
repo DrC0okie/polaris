@@ -1,16 +1,14 @@
 package ch.heig.iict.polaris_health.data.repositories
 
-import ch.drcookie.polaris_sdk.api.Polaris
 import ch.drcookie.polaris_sdk.api.SdkError
 import ch.drcookie.polaris_sdk.api.SdkResult
+import ch.drcookie.polaris_sdk.network.NetworkClient
 import ch.drcookie.polaris_sdk.protocol.model.PoLToken
 import ch.heig.iict.polaris_health.data.dao.PoLTokenDao
 import ch.heig.iict.polaris_health.data.entities.PoLTokenEntity
 import ch.heig.iict.polaris_health.domain.repositories.TokenRepository
 
-class TokenRepositoryImpl( private val tokenDao: PoLTokenDao) : TokenRepository {
-
-    private val networkClient = Polaris.networkClient
+class TokenRepositoryImpl( private val tokenDao: PoLTokenDao, private val networkClient: NetworkClient) : TokenRepository {
 
     override suspend fun storeToken(visitId: Long, token: PoLToken) {
         val entity = token.toEntity(visitId)

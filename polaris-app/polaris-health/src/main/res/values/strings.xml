@@ -4,4 +4,11 @@
     <string name="patient_profile_icon">patient profile</string>
     <string name="tour_title">Visites</string>
     <string name="no_visits_today">No visits today</string>
+    <string name="patient_record_title">Dossier Patient</string>
+    <string name="visit_actions">Actions de la visite</string>
+    <string name="generate_proof_of_visit">Générer Preuve de Visite</string>
+    <string name="check_maintenance_tasks">Vérifier Tâches de Maintenance</string>
+    <string name="synchronize_with_server">Synchroniser avec le Serveur</string>
+    <string name="activity_logs">Logs d\'activité</string>
+
 </resources>
