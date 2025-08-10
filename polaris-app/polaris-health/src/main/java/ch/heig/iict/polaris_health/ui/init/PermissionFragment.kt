@@ -1,7 +1,6 @@
 package ch.heig.iict.polaris_health.ui.init
 
 import android.Manifest
-import android.animation.Animator
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle

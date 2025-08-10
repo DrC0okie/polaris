@@ -54,16 +54,20 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
+    // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
-    implementation(libs.material)
+    // Navigation
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
 
     // Animation
     implementation(libs.lottie)
+
+    // Swipe to refresh
+    implementation(libs.androidx.swiperefreshlayout)
 
     implementation(project(":polaris-sdk"))
 

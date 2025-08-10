@@ -1,8 +1,16 @@
 package ch.heig.iict.polaris_health.di
 
 import android.content.Context
+import android.os.Build
+import android.util.Log
 import ch.drcookie.polaris_sdk.api.Polaris
+import ch.drcookie.polaris_sdk.api.Polaris.bleController
+import ch.drcookie.polaris_sdk.api.Polaris.keyStore
+import ch.drcookie.polaris_sdk.api.Polaris.networkClient
+import ch.drcookie.polaris_sdk.api.Polaris.protocolHandler
+import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.config.AuthMode
+import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.api.use_case.*
 import ch.heig.iict.polaris_health.data.db.PolarisHealthDatabase
 import ch.heig.iict.polaris_health.data.repositories.TokenRepositoryImpl
@@ -29,6 +37,15 @@ object AppContainer {
     lateinit var polTransaction: PolTransaction
         private set
 
+    lateinit var deliverPayload: DeliverPayload
+        private set
+
+    lateinit var pullAndForward: PullAndForward
+        private set
+
+    lateinit var fetchBeacons: FetchBeacons
+        private set
+
     suspend fun init(context: Context) {
         if (initialized) return
 
@@ -39,39 +56,27 @@ object AppContainer {
             }
         }
 
+        fetchBeacons = FetchBeacons(networkClient, keyStore)
+
+        val deviceModel = Build.MODEL
+        val osVersion = Build.VERSION.RELEASE
+
+        when (val result = fetchBeacons(deviceModel, osVersion, "1.0.1")) {
+            is SdkResult.Success -> { /* On success, continue */ }
+            is SdkResult.Failure -> Log.e (this.javaClass.simpleName, result.error.message())
+        }
+
         val db = PolarisHealthDatabase.getDatabase(context.applicationContext)
 
-        visitRepository = VisitRepositoryImpl(
-            db.visitDao(),
-            db.patientDao(),
-            db.beaconDao()
-        )
-
-        tokenRepository = TokenRepositoryImpl(
-            db.polTokenDao(),
-            Polaris.networkClient
-        )
-
-        scanForBeacon = ScanForBeacon(
-            Polaris.bleController,
-            Polaris.networkClient
-        )
-
-        polTransaction = PolTransaction(
-            Polaris.bleController,
-            Polaris.networkClient,
-            Polaris.keyStore,
-            Polaris.protocolHandler
-        )
-
-        monitorBroadcasts = MonitorBroadcasts(
-            Polaris.bleController,
-            Polaris.networkClient,
-            Polaris.protocolHandler
-        )
+        visitRepository = VisitRepositoryImpl(db.visitDao(), db.patientDao(), db.beaconDao())
+        tokenRepository = TokenRepositoryImpl(db.polTokenDao(), networkClient)
+        scanForBeacon = ScanForBeacon(bleController, networkClient)
+        polTransaction = PolTransaction(bleController, networkClient, keyStore, protocolHandler)
+        monitorBroadcasts = MonitorBroadcasts(bleController, networkClient, protocolHandler)
+        deliverPayload = DeliverPayload(bleController, networkClient, scanForBeacon)
+        pullAndForward = PullAndForward(bleController, networkClient)
 
         visitRepository.seedWithDemoData()
-
         initialized = true
     }
 }

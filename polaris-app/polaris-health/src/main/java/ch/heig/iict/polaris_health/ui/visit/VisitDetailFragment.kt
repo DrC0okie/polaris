@@ -4,10 +4,13 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.navigation.ui.NavigationUI
@@ -38,6 +41,7 @@ class VisitDetailFragment : Fragment() {
         setupToolbar()
         setupClickListeners()
         observeUiState()
+        observeNavigationEvents()
     }
 
     private fun setupToolbar() {
@@ -62,6 +66,21 @@ class VisitDetailFragment : Fragment() {
                 binding.buttonCheckMaintenance.isEnabled = !state.isBusy
                 binding.buttonSync.isEnabled = !state.isBusy
                 binding.logScrollView.post { binding.logScrollView.fullScroll(View.FOCUS_DOWN) }
+            }
+        }
+    }
+
+    private fun observeNavigationEvents() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.navigationEvent.collect { event ->
+                    when (event) {
+                        is VisitDetailViewModel.NavigationEvent.NavigateBack -> {
+                            Toast.makeText(requireContext(), "Proximité perdue, fermeture du dossier.", Toast.LENGTH_SHORT).show()
+                            findNavController().popBackStack()
+                        }
+                    }
+                }
             }
         }
     }

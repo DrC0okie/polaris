@@ -18,6 +18,9 @@ import ch.heig.iict.polaris_health.R
 import ch.heig.iict.polaris_health.databinding.FragmentLauncherBinding
 import ch.heig.iict.polaris_health.di.AppContainer
 import kotlinx.coroutines.launch
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 
 class LauncherFragment : Fragment(R.layout.fragment_launcher) {
 
@@ -25,6 +28,24 @@ class LauncherFragment : Fragment(R.layout.fragment_launcher) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         binding = FragmentLauncherBinding.bind(view)
+
+        val full = "Polaris HEALTH"
+        val span = SpannableString(full).apply {
+            val start = full.indexOf("HEALTH")
+            if (start >= 0) {
+                setSpan(
+                    ForegroundColorSpan(
+                        ContextCompat.getColor(requireContext(), R.color.md_theme_primary) // ou R.color.secondaryContainer
+                    ),
+                    start, start + "HEALTH".length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+        }
+        binding.appName.text = span
+
+        val motion = binding.motionRoot
+        motion.post { motion.transitionToEnd() }
 
         // Block back press
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
