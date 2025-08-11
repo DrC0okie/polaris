@@ -15,11 +15,11 @@
         app:lottie_rawRes="@raw/heart_animation"
         app:lottie_autoPlay="true"
         app:lottie_loop="false"
+        app:lottie_speed="2"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/appName"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        />
+        app:layout_constraintEnd_toEndOf="parent"/>
 
     <TextView
         android:id="@+id/appName"

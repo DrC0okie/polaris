@@ -12,8 +12,10 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import ch.heig.iict.polaris_health.databinding.FragmentTourBinding
+import com.google.android.material.transition.platform.MaterialElevationScale
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -34,8 +36,12 @@ class TourFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        (requireActivity() as AppCompatActivity).setSupportActionBar(binding.toolbar)
         super.onViewCreated(view, savedInstanceState)
+        (requireActivity() as AppCompatActivity).setSupportActionBar(binding.toolbar)
+
+        exitTransition = MaterialElevationScale(false).apply { duration = 150 }
+        reenterTransition = MaterialElevationScale(true).apply { duration = 150 }
+
         setupRecyclerView()
         setupSwipeToRefresh()
         observeUiState()
@@ -49,10 +55,13 @@ class TourFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        tourAdapter = TourAdapter { visit ->
+        tourAdapter = TourAdapter { visit, cardView  ->
             if (!visit.isLocked) {
                 val action = TourFragmentDirections.actionTourFragmentToVisitDetailFragment(visit.visitId)
-                findNavController().navigate(action)
+                val extras = FragmentNavigatorExtras(
+                    cardView to "visit_container_${visit.visitId}"
+                )
+                findNavController().navigate(action, extras)
             }
         }
         binding.recyclerViewVisits.adapter = tourAdapter

@@ -39,7 +39,7 @@
     <fragment
         android:id="@+id/visitDetailFragment"
         android:name="ch.heig.iict.polaris_health.ui.visit.VisitDetailFragment"
-        android:label="fragment_visit_detail"
+        android:label="@string/patient_record_title"
         tools:layout="@layout/fragment_visit_detail" >
         <argument
             android:name="visitId"
