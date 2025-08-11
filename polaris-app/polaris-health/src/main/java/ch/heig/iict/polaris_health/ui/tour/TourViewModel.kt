@@ -8,21 +8,21 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.api.use_case.*
+import ch.drcookie.polaris_sdk.ble.BleController
+import ch.drcookie.polaris_sdk.ble.model.ConnectionState
 import ch.heig.iict.polaris_health.di.AppContainer
 import ch.heig.iict.polaris_health.domain.repositories.VisitRepository
 import ch.heig.iict.polaris_health.ui.shared.Event
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 
 class TourViewModel(
     private val visitRepository: VisitRepository,
-    private val monitorBroadcasts: MonitorBroadcasts
+    private val monitorBroadcasts: MonitorBroadcasts,
+    private val bleController: BleController
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TourUiState())
@@ -42,7 +42,8 @@ class TourViewModel(
             initializer {
                 TourViewModel(
                     AppContainer.visitRepository,
-                    AppContainer.monitorBroadcasts
+                    AppContainer.monitorBroadcasts,
+                    AppContainer.sdkBleController
                 )
             }
         }
@@ -75,7 +76,9 @@ class TourViewModel(
 
         proximityMonitoringJob = viewModelScope.launch {
             while (isActive) {
-                scanForBeaconsPeriodically()
+                if (bleController.connectionState.value == ConnectionState.Disconnected) {
+                    scanForBeaconsPeriodically()
+                }
                 delay(SCAN_INTERVAL_MS)
             }
         }

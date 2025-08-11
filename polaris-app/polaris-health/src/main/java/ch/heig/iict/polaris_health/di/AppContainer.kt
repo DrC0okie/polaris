@@ -12,6 +12,7 @@ import ch.drcookie.polaris_sdk.api.SdkResult
 import ch.drcookie.polaris_sdk.api.config.AuthMode
 import ch.drcookie.polaris_sdk.api.message
 import ch.drcookie.polaris_sdk.api.use_case.*
+import ch.drcookie.polaris_sdk.ble.BleController
 import ch.heig.iict.polaris_health.data.db.PolarisHealthDatabase
 import ch.heig.iict.polaris_health.data.repositories.TokenRepositoryImpl
 import ch.heig.iict.polaris_health.data.repositories.VisitRepositoryImpl
@@ -46,6 +47,9 @@ object AppContainer {
     lateinit var fetchBeacons: FetchBeacons
         private set
 
+    lateinit var sdkBleController: BleController
+        private set
+
     suspend fun init(context: Context) {
         if (initialized) return
 
@@ -75,6 +79,7 @@ object AppContainer {
         monitorBroadcasts = MonitorBroadcasts(bleController, networkClient, protocolHandler)
         deliverPayload = DeliverPayload(bleController, networkClient, scanForBeacon)
         pullAndForward = PullAndForward(bleController, networkClient)
+        sdkBleController = bleController
 
         visitRepository.seedWithDemoData()
         initialized = true
