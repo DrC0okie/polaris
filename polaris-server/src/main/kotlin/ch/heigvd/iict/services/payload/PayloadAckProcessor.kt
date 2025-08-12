@@ -12,6 +12,8 @@ import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.services.crypto.model.SealedMessage
 import ch.heigvd.iict.services.protocol.MessageType
 import ch.heigvd.iict.services.protocol.OperationType
+import ch.heigvd.iict.web.demo.DemoEvent
+import ch.heigvd.iict.web.demo.DemoSseResource
 import com.ionspin.kotlin.crypto.aead.AeadCorrupedOrTamperedDataException
 import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
@@ -37,7 +39,8 @@ class PayloadAckProcessor(
     private val entityManager: EntityManager,
     private val beaconAdminService: BeaconAdminService,
     private val payloadService: PayloadService,
-    private val keyManager: X25519SharedKeyManager
+    private val keyManager: X25519SharedKeyManager,
+    private val demoSse: DemoSseResource // For demo
 ) {
 
     /**
@@ -96,6 +99,13 @@ class PayloadAckProcessor(
 
         delivery.persist()
         message.persist()
+
+        demoSse.publish(
+            DemoEvent.AckProcessed(
+                messageId = delivery.outboundMessage.id!!,
+                ackStatus = delivery.ackStatus.name
+            )
+        )
 
         return AckResponseDto(
             deliveryId = delivery.id!!,
@@ -161,6 +171,14 @@ class PayloadAckProcessor(
         delivery.ackStatus = AckStatus.ACK_RECEIVED
         delivery.outboundMessage.status = MessageStatus.ACKNOWLEDGED
         delivery.outboundMessage.firstAcknowledgedAt = delivery.ackReceivedAt
+
+        // For demo
+        demoSse.publish(
+            DemoEvent.KeyRotation(
+                beaconId = delivery.outboundMessage.beacon.id!!,
+                phase = "FINISH"
+            )
+        )
     }
 
     private fun handleGenericAck(plaintext: PlaintextMessage, delivery: MessageDelivery) {

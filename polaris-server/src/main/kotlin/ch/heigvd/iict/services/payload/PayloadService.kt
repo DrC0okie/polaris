@@ -13,6 +13,8 @@ import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.repositories.OutboundMessageRepository
 import ch.heigvd.iict.services.protocol.MessageType
 import ch.heigvd.iict.services.protocol.OperationType
+import ch.heigvd.iict.web.demo.DemoEvent
+import ch.heigvd.iict.web.demo.DemoSseResource
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import jakarta.ws.rs.NotFoundException
@@ -32,7 +34,8 @@ class PayloadService(
     private val ackProcessor: PayloadAckProcessor,
     private val beaconRepository: BeaconRepository,
     private val outboundMessageRepository: OutboundMessageRepository,
-    private val inboundPayloadProcessor: InboundPayloadProcessor
+    private val inboundPayloadProcessor: InboundPayloadProcessor,
+    private val demoSse: DemoSseResource // For demo
 ) {
 
     /**
@@ -85,6 +88,26 @@ class PayloadService(
             this.opType = opType
         }
         message.persist()
+
+        // For demo
+        if (opType == OperationType.ROTATE_KEY_INIT) {
+            demoSse.publish(
+                DemoEvent.KeyRotation(
+                    beaconId = beacon.id!!,
+                    phase = "INIT"
+                )
+            )
+        } else {
+            demoSse.publish(
+                DemoEvent.OutboundCreated(
+                    messageId = message.id!!,
+                    beaconId = message.beacon.id!!,
+                    opType = message.opType.name,
+                    redundancy = message.redundancyFactor
+                )
+            )
+        }
+
         return message
     }
 
@@ -114,6 +137,13 @@ class PayloadService(
                 this.ackStatus = AckStatus.PENDING_ACK
             }
             delivery.persist()
+
+            demoSse.publish(
+                DemoEvent.DeliveryClaimed(
+                    messageId = delivery.outboundMessage.id!!,
+                    phoneId = delivery.phone.id!!
+                )
+            )
 
             // Update the parent message's state.
             claimedMessage.deliveryCount++

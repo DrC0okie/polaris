@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Polaris Health — Live Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Material+Symbols+Rounded"
+          rel="stylesheet">
+
+    <style>
+        :root {
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+            --ok: var(--primary);
+            --bad: var(--error);
+            --warn: var(--tertiary);
+        }
+
+        :root[data-theme="light"] {
+            --primary: #416835;
+            --on-primary: #FFFFFF;
+            --primary-container: #C2EFAE;
+            --on-primary-container: #2A4F1F;
+
+            --surface: #F8FAF0;
+            --on-surface: #191D17;
+            --surface-variant: #DFE4D7;
+            --on-surface-variant: #43483F;
+            --outline: #C3C8BC;
+            --outline-strong: #73796E;
+
+            --tertiary: #386668;
+            --error: #BA1A1A;
+
+            --card: var(--surface);
+            --border: var(--outline);
+            --chip: var(--surface-variant);
+            --background: var(--surface);
+            --muted: var(--on-surface-variant);
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root:not([data-theme]) {
+                --primary: #416835;
+                --on-primary: #FFFFFF;
+                --primary-container: #C2EFAE;
+                --on-primary-container: #2A4F1F;
+
+                --surface: #F8FAF0;
+                --on-surface: #191D17;
+                --surface-variant: #DFE4D7;
+                --on-surface-variant: #43483F;
+                --outline: #C3C8BC;
+                --outline-strong: #73796E;
+
+                --tertiary: #386668;
+                --error: #BA1A1A;
+
+                --card: var(--surface);
+                --border: var(--outline);
+                --chip: var(--surface-variant);
+                --background: var(--surface);
+                --muted: var(--on-surface-variant);
+            }
+        }
+
+        :root[data-theme="dark"] {
+            --primary: #A6D394;
+            --on-primary: #13380A;
+            --primary-container: #2A4F1F;
+            --on-primary-container: #C2EFAE;
+
+            --surface: #11140F;
+            --on-surface: #E1E4DA;
+            --surface-variant: #43483F;
+            --on-surface-variant: #C3C8BC;
+            --outline: #30342D;
+            --outline-strong: #8D9387;
+
+            --tertiary: #A0CFD1;
+            --error: #FFB4AB;
+
+            --card: #1D211B;
+            --border: #30342D;
+            --chip: #191D17;
+            --background: linear-gradient(180deg, #0C0F0A, var(--surface) 60%);
+            --muted: var(--on-surface-variant);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme]) {
+                --primary: #A6D394;
+                --on-primary: #13380A;
+                --primary-container: #2A4F1F;
+                --on-primary-container: #C2EFAE;
+
+                --surface: #11140F;
+                --on-surface: #E1E4DA;
+                --surface-variant: #43483F;
+                --on-surface-variant: #C3C8BC;
+                --outline: #30342D;
+                --outline-strong: #8D9387;
+
+                --tertiary: #A0CFD1;
+                --error: #FFB4AB;
+
+                --card: #1D211B;
+                --border: #30342D;
+                --chip: #191D17;
+                --background: linear-gradient(180deg, #0C0F0A, var(--surface) 60%);
+                --muted: var(--on-surface-variant);
+            }
+        }
+
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            background: var(--background);
+            color: var(--on-surface);
+            font: 14px/1.45 Inter, system-ui, -apple-system, Segoe UI, Roboto
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(6px);
+            position: sticky;
+            top: 0;
+            background: color-mix(in oklab, var(--surface) 85%, transparent);
+        }
+
+        h1 {
+            font-size: 18px;
+            margin: 0;
+            display: flex;
+            gap: 10px;
+            align-items: center
+        }
+
+        .brand {
+            color: var(--primary);
+            font-weight: 600
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:repeat(12, 1fr);
+            gap: 16px;
+            padding: 16px;
+            max-width: 1400px;
+            margin: 0 auto
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px
+        }
+
+        .kpis {
+            grid-column: span 12;
+            display: grid;
+            grid-template-columns:repeat(4, 1fr);
+            gap: 12px
+        }
+
+        .kpi {
+            display: flex;
+            flex-direction: column;
+            gap: 6px
+        }
+
+        .kpi h3 {
+            margin: 0;
+            color: var(--muted);
+            font-weight: 500
+        }
+
+        .kpi .v {
+            font-size: 28px;
+            font-weight: 600
+        }
+
+        .panel {
+            grid-column: span 8;
+            min-height: 360px
+        }
+
+        .side {
+            grid-column: span 4;
+            display: flex;
+            flex-direction: column;
+            gap: 12px
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse
+        }
+
+        th, td {
+            padding: 8px 8px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+            text-align: left
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: var(--chip);
+            border: 1px solid var(--border);
+            font-size: 12px
+        }
+
+        .ok {
+            color: var(--ok)
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 360px;
+            overflow: auto
+        }
+
+        .tline-item {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #111726
+        }
+
+        .mono {
+            font-family: var(--mono), serif;
+            font-size: 12px
+        }
+
+        footer {
+            opacity: .65;
+            text-align: center;
+            padding: 16px
+        }
+
+        @media (max-width: 1024px) {
+            .panel {
+                grid-column: span 12
+            }
+
+            .side {
+                grid-column: span 12
+            }
+
+            .kpis {
+                grid-template-columns:repeat(2, 1fr)
+            }
+        }
+
+        @keyframes pulse-rot-init {
+            0% {
+                box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
+            }
+            70% {
+                box-shadow: 0 0 0 8px transparent;
+            }
+            100% {
+                box-shadow: 0 0 0 0 transparent;
+            }
+        }
+
+        tr.rotation-init {
+            outline: 2px solid color-mix(in oklab, var(--primary) 55%, transparent);
+            background: color-mix(in oklab, var(--primary-container) 35%, transparent);
+            animation: pulse-rot-init 1.4s ease-out infinite;
+        }
+
+        tr.rotation-finish {
+            outline: 2px solid color-mix(in oklab, var(--primary) 75%, transparent);
+            background: color-mix(in oklab, var(--primary-container) 55%, transparent);
+            transition: background 300ms ease, outline-color 300ms ease;
+        }
+
+        @keyframes highlight-row {
+            from {
+                background-color: color-mix(in oklab, var(--primary) 20%, transparent);
+            }
+            to {
+                background-color: transparent;
+            }
+        }
+
+        tr.new-item {
+            animation: highlight-row 2s ease-out;
+        }
+
+        .scrollable-table {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        .scrollable-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--card);
+        }
+
+        .scrollable-table th, .scrollable-table td {
+            padding: 10px 8px;
+        }
+        #tblTokens th:nth-child(1), #tblTokens td:nth-child(1) { width: 15%; }
+        #tblTokens th:nth-child(2), #tblTokens td:nth-child(2) { width: 15%; }
+        #tblTokens th:nth-child(3), #tblTokens td:nth-child(3) { width: 20%; }
+        #tblTokens th:nth-child(4), #tblTokens td:nth-child(4) { width: 20%; }
+        #tblTokens th:nth-child(5), #tblTokens td:nth-child(5) { width: 30%; }
+
+        #tblOutbound th:nth-child(1), #tblOutbound td:nth-child(1) { width: 10%; }
+        #tblOutbound th:nth-child(2), #tblOutbound td:nth-child(2) { width: 15%; }
+        #tblOutbound th:nth-child(3), #tblOutbound td:nth-child(3) { width: 30%; }
+        #tblOutbound th:nth-child(4), #tblOutbound td:nth-child(4) { width: 25%; }
+        #tblOutbound th:nth-child(5), #tblOutbound td:nth-child(5) { width: 20%; }
+
+        tr.new-item {
+            animation: highlight-row 2s ease-out;
+        }
+
+        @keyframes highlight-row {
+            from { background-color: color-mix(in oklab, var(--primary) 20%, transparent); }
+            to { background-color: transparent; }
+        }
+    </style>
+
+</head>
+<body>
+<header>
+    <h1><span class="material-symbols-rounded" style="color:var(--primary)">health_and_safety</span>
+        Polaris <span class="brand">HEALTH</span> — Dashboard</h1>
+    <div style="display:flex;gap:12px;align-items:center">
+        <div id="clock" class="mono"></div>
+        <button id="themeToggle" class="chip" style="cursor:pointer">🌓</button>
+    </div>
+</header>
+
+<main class="grid">
+    <section class="kpis">
+        <div class="card kpi"><h3>Nombre de balises</h3>
+            <div id="k_beacons" class="v">—</div>
+        </div>
+        <div class="card kpi"><h3>Tokens (valides)</h3>
+            <div id="k_tokens_ok" class="v">—</div>
+        </div>
+        <div class="card kpi"><h3>Tokens (invalides)</h3>
+            <div id="k_tokens_bad" class="v">—</div>
+        </div>
+        <div class="card kpi"><h3>Jobs en cours</h3>
+            <div id="k_jobs" class="v">—</div>
+        </div>
+    </section>
+
+    <section class="card panel">
+        <h3 style="margin:6px 0 12px;color:var(--muted)">Flux en direct</h3>
+        <div id="timeline" class="timeline"></div>
+    </section>
+
+    <aside class="side">
+        <div class="card">
+            <h3 style="margin:6px 0 12px;color:var(--muted)">Derniers tokens</h3>
+            <div class="scrollable-table">
+                <table id="tblTokens">
+                    <thead>
+                    <tr>
+                        <th>Beacon</th>
+                        <th>Phone</th>
+                        <th>Cnt</th>
+                        <th>Valide</th>
+                        <th>Réception</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin:6px 0 12px;color:var(--muted)">Jobs serveur ➜ balise</h3>
+            <div class="scrollable-table">
+                <table id="tblOutbound">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Balise</th>
+                        <th>Opération</th>
+                        <th>Statut</th>
+                        <th>Claim</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </aside>
+
+    <section class="card" style="grid-column:span 12">
+        <h3 style="margin:6px 0 12px;color:var(--muted)">Balises</h3>
+        <table id="tblBeacons">
+            <thead>
+            <tr>
+                <th>#</th>
+                <th>Tech ID</th>
+                <th>Nom</th>
+                <th>Compteur</th>
+                <th>MàJ</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+</main>
+
+<footer>
+    <small>Polaris Demo • SSE + REST • end‑to‑end encrypted data mule</small>
+</footer>
+
+<script>
+    const html = document.documentElement;
+    const btn = document.getElementById("themeToggle");
+
+    const $ = (s, r = document) => r.querySelector(s);
+    const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+    const fmtTime = d => new Date(d).toLocaleTimeString();
+    const fmtDate = d => new Date(d).toLocaleString();
+    const chip = (t, cls = '') => `<span class="chip ${cls}">${t}</span>`;
+
+    function setTheme(theme) {
+        if (theme) {
+            html.setAttribute("data-theme", theme);
+            localStorage.setItem("theme", theme);
+        } else {
+            html.removeAttribute("data-theme");
+            localStorage.removeItem("theme");
+        }
+    }
+
+    btn.addEventListener("click", () => {
+        const current = html.getAttribute("data-theme");
+        if (current === "light") {
+            setTheme("dark");
+        } else if (current === "dark") {
+            setTheme(null);
+        } else {
+            setTheme("light");
+        }
+    });
+
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme) setTheme(savedTheme);
+
+    function showKeyRotationInit(beaconId) {
+        const el = document.getElementById(`beacon-${beaconId}`);
+        if (el) {
+            el.classList.add('rotation-init');
+        }
+    }
+
+    function showKeyRotationFinish(beaconId) {
+        const el = document.getElementById(`beacon-${beaconId}`);
+        if (el) {
+            el.classList.remove('rotation-init');
+            el.classList.add('rotation-finish');
+        }
+    }
+
+    async function loadSummary() {
+        const s = await fetch('/demo/api/summary').then(r => r.json());
+        $('#clock').textContent = fmtDate(s.now);
+        $('#k_beacons').textContent = s.beacons;
+        $('#k_tokens_ok').innerHTML = `${s.tokensValid} / ${s.tokensTotal}`;
+        $('#k_tokens_bad').textContent = s.tokensInvalid;
+        $('#k_jobs').innerHTML = `${s.outboundPending} en cours • ${s.outboundDelivered} ack`;
+    }
+
+    async function loadTokens() {
+        const tokens = await fetch('/demo/api/tokens?limit=50').then(r => r.json());
+        if (!Array.isArray(tokens)) {
+            console.error("Erreur: /demo/api/tokens n'a pas retourné un tableau.", tokens);
+            return;
+        }
+        tokens.sort((a, b) => new Date(b.receivedAt) - new Date(a.receivedAt));
+
+        const tbody = $('#tblTokens tbody');
+        tbody.innerHTML = '';
+        tokens.forEach(x => {
+            const valid = x.isValid ? chip('OK', 'ok') : chip('FAIL', 'bad');
+            tbody.insertAdjacentHTML('beforeend',
+                `<tr><td>${x.beaconId}</td><td>${x.phoneId}</td><td>${x.counter}</td><td>${valid}</td><td class="mono">${fmtTime(x.receivedAt)}</td></tr>`);
+        });
+    }
+
+    async function loadOutbound() {
+        const outboundJobs = await fetch('/demo/api/outbound?limit=50').then(r => r.json());
+        if (!Array.isArray(outboundJobs)) {
+            console.error("Erreur: /demo/api/outbound n'a pas retourné un tableau.", outboundJobs);
+            return;
+        }
+
+        outboundJobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        const tbody = $('#tblOutbound tbody');
+        tbody.innerHTML = '';
+        outboundJobs.forEach(x => {
+            const statusChip = x.status === 'PENDING' ? chip('PENDING', 'warn')
+                : x.status === 'DELIVERING' ? chip('DELIVERING', 'warn')
+                    : chip(x.status, 'ok'); // 'ACKNOWLEDGED'
+            tbody.insertAdjacentHTML('beforeend',
+                `<tr><td class="mono">${x.id}</td><td>${x.beaconId}</td><td>${x.opType}</td><td>${statusChip}</td><td>${x.claimed}/${x.redundancy}</td></tr>`);
+        });
+    }
+
+    async function loadBeacons() {
+        const beacons = await fetch('/demo/api/beacons').then(r => r.json());
+        if (!Array.isArray(beacons)) {
+            console.error("Erreur: /demo/api/beacons n'a pas retourné un tableau.", beacons);
+            return;
+        }
+        const tbody = $('#tblBeacons tbody');
+        tbody.innerHTML = '';
+        beacons.forEach(x => {
+            const actionButton = `<button class="chip" style="cursor:pointer;" onclick="rotateKey(this, ${x.id})"><span class="material-symbols-rounded">sync_lock</span></button>`;
+            tbody.insertAdjacentHTML('beforeend',
+                `<tr id="beacon-${x.id}">
+                    <td class="mono">${x.id}</td>
+                    <td class="mono">${x.technicalId}</td>
+                    <td>${x.name}</td>
+                    <td>${x.lastKnownCounter}</td>
+                    <td class="mono">${fmtTime(x.updatedAt)}</td>
+                    <td>${actionButton}</td>
+                </tr>`);
+        });
+    }
+
+    async function rotateKey(button, beaconId) {
+        button.disabled = true;
+        button.innerHTML = `<span class="material-symbols-rounded">hourglass_top</span>`;
+
+        try {
+            const response = await fetch(`/demo/api/beacons/${beaconId}/rotate-key`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Erreur du serveur');
+            }
+
+            const result = await response.json();
+            pushTimeline(`✅ ${result.message}`, 'check_circle', 'ok');
+            button.innerHTML = `<span class="material-symbols-rounded">done</span>`;
+
+        } catch (err) {
+            pushTimeline(`❌ Erreur rotation clé: ${err.message}`, 'error', 'bad');
+            button.innerHTML = `<span class="material-symbols-rounded">error</span>`;
+        } finally {
+            setTimeout(() => {
+                button.disabled = false;
+                button.innerHTML = `<span class="material-symbols-rounded">sync_lock</span>`;
+            }, 3000);
+        }
+    }
+
+    function pushTimeline(html, icon, colorClass = '') {
+        const tl = $('#timeline');
+        const el = document.createElement('div');
+        el.className = 'tline-item';
+        el.innerHTML = `<span class="material-symbols-rounded ${colorClass}" style="font-size: 28px;">${icon}</span><div style="flex:1;">${html}</div>`;
+        tl.prepend(el);
+
+        requestAnimationFrame(() => {
+            el.classList.add('new-item');
+        });
+
+        while (tl.children.length > 50) tl.lastChild.remove();
+    }
+
+    function startSse() {
+        const es = new EventSource('/demo/events');
+
+        const handlers = {
+            'TokenReceived': (x) => {
+                const content = `Token <b>#${x.tokenId}</b> — Beacon <b>${x.beaconId}</b>, Phone <b>${x.phoneId}</b>
+              • Cnt ${x.counter} • ${x.isValid ? chip('OK', 'ok') : chip('FAIL', 'bad')}`;
+                pushTimeline(content, 'receipt_long', x.isValid ? 'ok' : 'bad');
+                // CORRECTION: Rafraîchir toutes les tables concernées
+                loadSummary();
+                loadTokens();
+                loadBeacons(); // Un nouveau token peut mettre à jour le compteur de la balise
+            },
+            'OutboundCreated': (x) => {
+                const content = `Job <b>#${x.messageId}</b> pour Beacon <b>${x.beaconId}</b> • Op ${chip(x.opType)} • Redondance ${x.redundancy}`;
+                pushTimeline(content, 'send', 'warn');
+                loadSummary();
+                loadOutbound();
+            },
+            'DeliveryClaimed': (x) => {
+                const content = `Phone <b>${x.phoneId}</b> a récupéré Job <b>#${x.messageId}</b>`;
+                pushTimeline(content, 'phone_android');
+                loadOutbound();
+            },
+            'AckProcessed': (x) => {
+                const cls = x.ackStatus === 'ACK_RECEIVED' ? 'ok' : 'bad';
+                pushTimeline(`✅ ACK pour Job <b>#${x.messageId}</b> • ${chip(x.ackStatus, cls)}`, 'task_alt', cls);
+                loadSummary();
+                loadOutbound();
+                loadBeacons(); // Un ACK peut contenir un nouveau compteur
+            },
+            'InboundReceived': (x) => {
+                const content = `📥 Inbound de Beacon <b>${x.beaconId}</b> • ${chip(x.msgType)} • ${chip(x.opType)}`;
+                pushTimeline(content, 'call_received');
+                loadSummary();
+                loadBeacons(); // Un message inbound met à jour le compteur
+            },
+            'KeyRotation': (x) => {
+                const icon = x.phase === 'INIT' ? 'sync_lock' : 'verified_user';
+                const content = `Rotation clé Beacon <b>${x.beaconId}</b> • Phase ${chip(x.phase)}`;
+                pushTimeline(content, icon, 'ok');
+                if (x.phase === "INIT") {
+                    showKeyRotationInit(x.beaconId);
+                } else if (x.phase === "FINISH") {
+                    showKeyRotationFinish(x.beaconId);
+                    loadBeacons(); // Rafraîchir pour enlever l'animation
+                }
+            }
+        };
+
+        Object.keys(handlers).forEach(name =>
+            es.addEventListener(name, ev => {
+                try {
+                    handlers[name](JSON.parse(ev.data));
+                } catch (e) {
+                    console.error(`Erreur lors du traitement de l'événement SSE '${name}':`, e, ev.data);
+                }
+            })
+        );
+    }
+
+    async function boot() {
+        await Promise.all([loadSummary(), loadTokens(), loadOutbound(), loadBeacons()]);
+        startSse();
+        setInterval(loadSummary, 15000);
+        setInterval(() => $('#clock').textContent = new Date().toLocaleString(), 1000);
+    }
+
+    boot();
+</script>
+</body>
+</html>
+

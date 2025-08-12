@@ -5,6 +5,7 @@ import ch.heigvd.iict.dto.api.PoLTokenValidationResultDto
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.repositories.BeaconRepository
 import ch.heigvd.iict.repositories.PoLTokenRecordRepository
+import ch.heigvd.iict.web.demo.DemoSseResource
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
 import jakarta.transaction.Transactional
@@ -26,7 +27,8 @@ class TokenProcessingService @Inject constructor(
     private val beaconRepo: BeaconRepository,
     private val recordRepo: PoLTokenRecordRepository,
     private val validator: PoLTokenValidator,
-    private val assembler: PoLTokenAssembler
+    private val assembler: PoLTokenAssembler,
+    private val demoSse: DemoSseResource // For demo app
 ) {
     /**
      * Processes a submitted PoL token from a mobile client.
@@ -50,6 +52,17 @@ class TokenProcessingService @Inject constructor(
         if (isValid && newCounter > beacon.lastKnownCounter) {
             beacon.lastKnownCounter = newCounter
         }
+
+        // For demo app
+        demoSse.publish(
+            ch.heigvd.iict.web.demo.DemoEvent.TokenReceived(
+                tokenId = record.id!!,
+                beaconId = record.beacon.id!!,
+                phoneId = record.phone.id!!,
+                counter = record.beaconCounter,
+                isValid = record.isValid
+            )
+        )
 
         return PoLTokenValidationResultDto(
             isValid = isValid,

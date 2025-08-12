@@ -6,6 +6,7 @@ import ch.heigvd.iict.entities.InboundMessage
 import ch.heigvd.iict.repositories.InboundMessageRepository
 import ch.heigvd.iict.services.crypto.model.PlaintextMessage
 import ch.heigvd.iict.services.crypto.model.SealedMessage
+import ch.heigvd.iict.web.demo.DemoSseResource
 import io.quarkus.logging.Log
 import jakarta.enterprise.context.ApplicationScoped
 
@@ -21,7 +22,8 @@ import jakarta.enterprise.context.ApplicationScoped
 @ApplicationScoped
 class InboundPayloadProcessor(
     private val unsealer: IMessageUnsealer,
-    private val inboundMessageRepository: InboundMessageRepository
+    private val inboundMessageRepository: InboundMessageRepository,
+    private val demoSse: DemoSseResource // For demo
 ) {
 
     /**
@@ -66,6 +68,14 @@ class InboundPayloadProcessor(
         }
         inboundRecord.persist()
         Log.info("Stored inbound message ${inboundRecord.id} from beacon ${sourceBeacon.id}")
+
+        demoSse.publish(
+            ch.heigvd.iict.web.demo.DemoEvent.InboundReceived(
+                beaconId = inboundRecord.beacon.id!!,
+                msgType = inboundRecord.msgType.name,
+                opType = inboundRecord.opType.name
+            )
+        )
 
         return plaintext
     }
