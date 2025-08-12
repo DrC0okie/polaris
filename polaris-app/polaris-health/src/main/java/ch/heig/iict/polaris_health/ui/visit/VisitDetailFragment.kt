@@ -55,20 +55,18 @@ class VisitDetailFragment : Fragment() {
         val end = view.findViewById<View>(R.id.detail_container)
         end.transitionName = "visit_container_${args.visitId}"
 
-        // Option: éviter tout “flash” si la vue met un frame à se mesurer
         postponeEnterTransition()
         view.doOnPreDraw { startPostponedEnterTransition() }
 
-        // Start/End shape pour des coins qui passent de 12dp (item) à 0dp (plein écran)
         val startShape = ShapeAppearanceModel.Builder()
-            .setAllCornerSizes(resources.getDimension(R.dimen.card_corner_12dp)) // 12dp
+            .setAllCornerSizes(resources.getDimension(R.dimen.card_corner_12dp))
             .build()
         val endShape = ShapeAppearanceModel.Builder()
             .setAllCornerSizes(0f)
             .build()
 
         sharedElementEnterTransition = MaterialContainerTransform().apply {
-            drawingViewId = R.id.nav_host_fragment        // id racine de l’Activity
+            drawingViewId = R.id.nav_host_fragment
             duration = 1000
             scrimColor = Color.TRANSPARENT
             setAllContainerColors(
@@ -78,7 +76,7 @@ class VisitDetailFragment : Fragment() {
             endShapeAppearanceModel = endShape
             fitMode = MaterialContainerTransform.FIT_MODE_AUTO
             fadeMode = MaterialContainerTransform.FADE_MODE_THROUGH
-            pathMotion = MaterialArcMotion()  // trajectoire légèrement incurvée (plus organique)
+            pathMotion = MaterialArcMotion()
         }
 
         sharedElementReturnTransition = MaterialContainerTransform().apply {
