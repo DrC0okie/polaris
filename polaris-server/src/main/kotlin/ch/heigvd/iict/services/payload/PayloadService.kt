@@ -93,17 +93,18 @@ class PayloadService(
         if (opType == OperationType.ROTATE_KEY_INIT) {
             demoSse.publish(
                 DemoEvent.KeyRotation(
-                    beaconId = beacon.id!!,
-                    phase = "INIT"
+                    beacon.id!!,
+                    message.id!!,
+                    "INIT"
                 )
             )
         } else {
             demoSse.publish(
                 DemoEvent.OutboundCreated(
-                    messageId = message.id!!,
-                    beaconId = message.beacon.id!!,
-                    opType = message.opType.name,
-                    redundancy = message.redundancyFactor
+                    message.id!!,
+                    message.beacon.id!!,
+                    message.opType.name,
+                    message.redundancyFactor
                 )
             )
         }

@@ -1,6 +1,5 @@
 package ch.heigvd.iict.web.demo
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.PostConstruct
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
@@ -10,6 +9,8 @@ import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.sse.Sse
 import jakarta.ws.rs.sse.SseBroadcaster
 import jakarta.ws.rs.sse.SseEventSink
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
 
 @ApplicationScoped
 @Path("/demo")
@@ -19,7 +20,7 @@ class DemoSseResource {
     lateinit var sse: Sse
 
     @Inject
-    lateinit var objectMapper: ObjectMapper
+    lateinit var json: Json
 
     private lateinit var broadcaster: SseBroadcaster
 
@@ -36,12 +37,13 @@ class DemoSseResource {
     }
 
     fun publish(event: DemoEvent) {
-        val json = objectMapper.writeValueAsString(event)
+        val jsonString = json.encodeToString(event)
+
         val name = event::class.simpleName ?: "Event"
         val out = sse.newEventBuilder()
             .name(name)
             .mediaType(MediaType.APPLICATION_JSON_TYPE)
-            .data(json)
+            .data(jsonString)
             .build()
         broadcaster.broadcast(out)
     }

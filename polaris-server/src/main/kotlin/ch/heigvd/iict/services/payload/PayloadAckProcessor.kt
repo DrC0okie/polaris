@@ -175,8 +175,9 @@ class PayloadAckProcessor(
         // For demo
         demoSse.publish(
             DemoEvent.KeyRotation(
-                beaconId = delivery.outboundMessage.beacon.id!!,
-                phase = "FINISH"
+                delivery.outboundMessage.beacon.id!!,
+                delivery.outboundMessage.id!!,
+                "FINISH"
             )
         )
     }

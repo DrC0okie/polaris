@@ -5,6 +5,7 @@ import ch.heigvd.iict.dto.api.PoLTokenValidationResultDto
 import ch.heigvd.iict.entities.RegisteredPhone
 import ch.heigvd.iict.repositories.BeaconRepository
 import ch.heigvd.iict.repositories.PoLTokenRecordRepository
+import ch.heigvd.iict.web.demo.DemoEvent
 import ch.heigvd.iict.web.demo.DemoSseResource
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
@@ -55,19 +56,20 @@ class TokenProcessingService @Inject constructor(
 
         // For demo app
         demoSse.publish(
-            ch.heigvd.iict.web.demo.DemoEvent.TokenReceived(
-                tokenId = record.id!!,
-                beaconId = record.beacon.id!!,
-                phoneId = record.phone.id!!,
-                counter = record.beaconCounter,
-                isValid = record.isValid
+            DemoEvent.TokenReceived(
+                record.id!!,
+                record.beacon.id!!,
+                beacon.name,
+                record.phone.id!!,
+                record.beaconCounter,
+                record.isValid
             )
         )
 
         return PoLTokenValidationResultDto(
-            isValid = isValid,
-            message = if (isValid) null else errors.joinToString("; "),
-            id = record.id
+            isValid,
+            if (isValid) null else errors.joinToString("; "),
+            record.id
         )
     }
 }

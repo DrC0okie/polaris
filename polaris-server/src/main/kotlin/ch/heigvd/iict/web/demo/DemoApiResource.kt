@@ -3,16 +3,12 @@ package ch.heigvd.iict.web.demo
 import ch.heigvd.iict.repositories.*
 import ch.heigvd.iict.services.payload.PayloadService
 import ch.heigvd.iict.services.protocol.OperationType
+import ch.heigvd.iict.util.InstantSerializer
 import jakarta.inject.Inject
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import java.time.Instant
 
 @Path("/demo/api")
@@ -29,18 +25,6 @@ class DemoApiResource {
     lateinit var payloadService: PayloadService
     @Inject
     lateinit var inboundRepo: InboundMessageRepository
-
-    object InstantSerializer : KSerializer<Instant> {
-        override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
-
-        override fun serialize(encoder: Encoder, value: Instant) {
-            encoder.encodeString(value.toString())
-        }
-
-        override fun deserialize(decoder: Decoder): Instant {
-            return Instant.parse(decoder.decodeString())
-        }
-    }
 
     @Serializable
     data class SummaryDto(
@@ -81,6 +65,7 @@ class DemoApiResource {
     data class TokenLiteDto(
         val id: Long,
         val beaconId: Long,
+        val beaconName: String,
         val phoneId: Long,
         val counter: Long,
         val isValid: Boolean,
@@ -96,6 +81,7 @@ class DemoApiResource {
             TokenLiteDto(
                 it.id!!,
                 it.beacon.id!!,
+                it.beacon.name,
                 it.phone.id!!,
                 it.beaconCounter,
                 it.isValid,
@@ -108,6 +94,7 @@ class DemoApiResource {
     data class OutboundLiteDto(
         val id: Long,
         val beaconId: Long,
+        val beaconName: String,
         val status: String,
         val opType: String,
         val redundancy: Int,
@@ -126,6 +113,7 @@ class DemoApiResource {
             OutboundLiteDto(
                 it.id!!,
                 it.beacon.id!!,
+                it.beacon.name,
                 it.status.name,
                 it.opType.name,
                 it.redundancyFactor,
@@ -187,6 +175,9 @@ class DemoApiResource {
         }
     }
 
+    @Serializable
+    data class SimpleMessage(val message: String)
+
     @POST
     @Path("/beacons/{id}/rotate-key")
     fun rotateKey(@PathParam("id") id: Long): Response {
@@ -200,13 +191,146 @@ class DemoApiResource {
                 OperationType.ROTATE_KEY_INIT
             )
 
-            Response.ok("Job de rotation des clés créé pour la balise #${beacon.id} (${beacon.name}).")
+            Response.ok(SimpleMessage("Job de rotation des clés créé pour la balise #${beacon.id} (${beacon.name})."))
                 .build()
 
         } catch (e: Exception) {
             Response.status(Response.Status.BAD_REQUEST)
                 .entity(e.message ?: "An unknown error occurred.")
                 .build()
+        }
+    }
+
+    @Serializable
+    data class DeliveryDetailDto(
+        val phoneId: Long,
+        @Serializable(with = InstantSerializer::class)
+        val deliveredAt: Instant,
+        val ackStatus: String,
+        @Serializable(with = InstantSerializer::class)
+        val ackReceivedAt: Instant?
+    )
+
+    @Serializable
+    data class OutboundDetailDto(
+        val messageId: Long,
+        val beaconName: String,
+        val beaconTechnicalId: Int,
+        val status: String,
+        val opType: String,
+        val commandPayload: String,
+        val redundancy: Int,
+        val deliveryCount: Int,
+        @Serializable(with = InstantSerializer::class)
+        val createdAt: Instant,
+        @Serializable(with = InstantSerializer::class)
+        val firstAckAt: Instant?,
+        val deliveries: List<DeliveryDetailDto>
+    )
+
+    @Serializable
+    data class TokenDetailDto(
+        val tokenId: Long,
+        @Serializable(with = InstantSerializer::class)
+        val receivedAt: Instant,
+        val isValid: Boolean,
+        val validationError: String?,
+        // Beacon Info
+        val beaconName: String,
+        val beaconTechnicalId: Int,
+        val beaconLastKnownCounter: Long,
+        // Phone Info
+        val phoneId: Long,
+        val phoneUserAgent: String?,
+        // Raw Data
+        val nonceHex: String,
+        val phonePkUsedHex: String,
+        val beaconPkUsedHex: String,
+        val phoneSigHex: String,
+        val beaconSigHex: String
+    )
+
+    @Serializable
+    data class InboundDetailDto(
+        val messageId: Long,
+        val beaconName: String,
+        val beaconTechnicalId: Int,
+        val msgType: String,
+        val opType: String,
+        val beaconCounter: Long,
+        val payload: String?,
+        @Serializable(with = InstantSerializer::class)
+        val receivedAt: Instant
+    )
+
+    @GET
+    @Path("/details/{type}/{id}")
+    @OptIn(ExperimentalUnsignedTypes::class, ExperimentalStdlibApi::class)
+    fun getDetails(@PathParam("type") type: String, @PathParam("id") id: Long): Response {
+        return try {
+            val details = when (type) {
+                "token" -> {
+                    val token = tokenRepo.findById(id) ?: throw NotFoundException("Token $id not found")
+                    TokenDetailDto(
+                        token.id!!,
+                        token.receivedAt,
+                        token.isValid,
+                        token.validationError,
+                        token.beacon.name,
+                        token.beacon.beaconId,
+                        token.beacon.lastKnownCounter,
+                        token.phone.id!!,
+                        token.phone.userAgent,
+                        token.nonceHex,
+                        token.phonePkUsed.toHexString(),
+                        token.beaconPkUsed.toHexString(),
+                        token.phoneSig.toHexString(),
+                        token.beaconSig.toHexString()
+                    )
+                }
+                "outbound" -> {
+                    val message = outboundRepo.findById(id) ?: throw NotFoundException("Outbound message $id not found")
+                    // Eagerly fetch deliveries
+                    val deliveries = message.deliveries.map {
+                        DeliveryDetailDto(
+                            it.phone.id!!,
+                            it.deliveredAt,
+                            it.ackStatus.name,
+                            it.ackReceivedAt
+                        )
+                    }
+                    OutboundDetailDto(
+                        message.id!!,
+                        message.beacon.name,
+                        message.beacon.beaconId,
+                        message.status.name,
+                        message.opType.name,
+                        message.commandPayload,
+                        message.redundancyFactor,
+                        message.deliveryCount,
+                        message.createdAt,
+                        message.firstAcknowledgedAt,
+                        deliveries
+                    )
+                }
+                "inbound" -> {
+                    val message = inboundRepo.findById(id) ?: throw NotFoundException("Inbound message $id not found")
+                    InboundDetailDto(
+                        message.id!!,
+                        message.beacon.name,
+                        message.beacon.beaconId,
+                        message.msgType.name,
+                        message.opType.name,
+                        message.beaconCounter,
+                        message.payload,
+                        message.receivedAt
+                    )
+                }
+                else -> throw BadRequestException("Unknown detail type: $type")
+            }
+            Response.ok(details).build()
+        } catch (e: Exception) {
+            Response.status(Response.Status.NOT_FOUND).entity(SimpleMessage(e.message ?: "Error")).build()
         }
     }
 }
