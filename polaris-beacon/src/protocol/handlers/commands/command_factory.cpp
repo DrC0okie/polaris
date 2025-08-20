@@ -12,11 +12,13 @@
 
 CommandFactory::CommandFactory(LedController& ledController, DisplayController& displayController,
                                SystemMonitor& systemMonitor,
-                               OutgoingMessageService& outgoingMessageService)
+                               OutgoingMessageService& outgoingMessageService,
+                               SystemEventNotifier& notifier)
     : _ledController(ledController),
       _displayController(displayController),
       _systemMonitor(systemMonitor),
-      _outgoingMessageService(outgoingMessageService) {
+      _outgoingMessageService(outgoingMessageService),
+      _notifier(notifier) {
 }
 
 std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
@@ -24,7 +26,7 @@ std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
                                                         KeyManager& keyManager) {
     switch (opType) {
         case OperationType::NoOp:
-            return std::unique_ptr<NoOpCommand>(new NoOpCommand());
+            return std::unique_ptr<NoOpCommand>(new NoOpCommand(_notifier));
 
         case OperationType::Reboot:
             return std::unique_ptr<RebootCommand>(new RebootCommand());
@@ -48,10 +50,12 @@ std::unique_ptr<ICommand> CommandFactory::createCommand(OperationType opType,
                 new RequestStatusCommand(_systemMonitor, _outgoingMessageService));
 
         case OperationType::RotateKeyInit:
-            return std::unique_ptr<RotateKeyInitCommand>(new RotateKeyInitCommand(keyManager));
+            return std::unique_ptr<RotateKeyInitCommand>(
+                new RotateKeyInitCommand(keyManager, _notifier));
 
         case OperationType::RotateKeyFinish:
-            return std::unique_ptr<RotateKeyFinishCommand>(new RotateKeyFinishCommand(keyManager));
+            return std::unique_ptr<RotateKeyFinishCommand>(
+                new RotateKeyFinishCommand(keyManager, _notifier));
 
         default:
             // For unknown commands, return a null pointer.

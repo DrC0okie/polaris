@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 
 #include <memory>
-
+#include "../../../utils/system_event_notifier.h"
 #include "../encrypted_message_handler.h"
 #include "icommand.h"
 #include "protocol/handlers/outgoing_message_service.h"
@@ -30,7 +30,8 @@ public:
      * @param outgoingMessageService Reference to the service for queuing outgoing messages.
      */
     CommandFactory(LedController& ledController, DisplayController& displayController,
-                   SystemMonitor& systemMonitor, OutgoingMessageService& outgoingMessageService);
+                   SystemMonitor& systemMonitor, OutgoingMessageService& outgoingMessageService,
+                   SystemEventNotifier& notifier);
 
     /**
      * @brief Creates a command object.
@@ -53,5 +54,8 @@ private:
 
     /// @brief Reference to the outgoing message queuing service.
     OutgoingMessageService& _outgoingMessageService;
+
+    /// @brief Reference to the system notifier.
+    SystemEventNotifier& _notifier;
 };
 #endif  // COMMAND_FACTORY

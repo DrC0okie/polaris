@@ -6,6 +6,7 @@
 #include "../pol_constants.h"
 #include "imessage_handler.h"
 #include "protocol/transport/imessage_transport.h"
+#include "../../utils/system_event_notifier.h"
 
 /**
  * @class TokenMessageHandler
@@ -23,7 +24,7 @@ public:
      * @param transport Reference to the transport layer for sending the response.
      */
     TokenMessageHandler(const CryptoService& cryptoService, const BeaconCounter& counter,
-                        IMessageTransport& transport);
+                        IMessageTransport& transport, const SystemEventNotifier& notifier);
 
     /**
      * @brief Processes a complete, reassembled PoL token request.
@@ -41,6 +42,9 @@ private:
 
     /// @brief The transport layer used to send the signed response.
     IMessageTransport& _transport;
+
+    /// @brief Notifier used to trigger actions
+    const SystemEventNotifier& _notifier;
 };
 
 #endif  // TOKEN_HANDLER_H

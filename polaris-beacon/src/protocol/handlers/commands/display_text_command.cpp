@@ -24,7 +24,7 @@ DisplayTextCommand::DisplayTextCommand(DisplayController& displayController,
 
 CommandResult DisplayTextCommand::execute() {
     Serial.println("[Command] Executing DISPLAY_TEXT.");
-    _displayController.showMessage(_text, _size, _centered);
+    _displayController.showCenteredMessage(_text, _size);
 
     CommandResult result;
     result.success = true;

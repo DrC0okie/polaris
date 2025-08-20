@@ -15,6 +15,7 @@
 #include "utils/display_controller.h"
 #include "utils/key_manager.h"
 #include "utils/led_controller.h"
+#include "utils/system_event_notifier.h"
 #include "utils/system_monitor.h"
 
 // These objects are declared globally to ensure their lifecycle persists for
@@ -28,9 +29,10 @@ CryptoService cryptoService(keyManager);
 LedController ledController;
 DisplayController displayController;
 SystemMonitor systemMonitor;
+SystemEventNotifier eventNotifier;
 OutgoingMessageService outgoingMessageService;
 CommandFactory commandFactory(ledController, displayController, systemMonitor,
-                              outgoingMessageService);
+                              outgoingMessageService, eventNotifier);
 std::unique_ptr<BroadcastAdvertiser> beaconExtAdvertiser;
 std::unique_ptr<ConnectableAdvertiser> connectableAdvertiser;
 std::vector<std::unique_ptr<FragmentationTransport>> g_transports;
@@ -46,6 +48,30 @@ void setup() {
     if (!displayController.begin()) {
         Serial.println("DisplayController error!");
     }
+
+    // Create the lambda listener to register to the notifier
+    EventListener uiFeedbackListener = [&](SystemEventType event) {
+        switch (event) {
+            case SystemEventType::PoLTokenGenerated:
+                displayController.addLog("> Token created");
+                break;
+            case SystemEventType::ServerCmd_NoOp:
+                displayController.addLog("> Cmd : No-op");
+                break;
+            case SystemEventType::ServerCmd_RotateKeyInit:
+                displayController.addLog("> Key rotation initiated");
+                break;
+            case SystemEventType::ServerCmd_RotateKeyFinish:
+                displayController.addLog("> Key rotation completed");
+                break;
+            case SystemEventType::BeaconReady:
+                displayController.addLog("> Beacon ready!");
+                break;
+            default:
+                break;
+        }
+    };
+    eventNotifier.registerListener(uiFeedbackListener);
 
     // Init crypto lib
     if (sodium_init() == -1) {
@@ -102,7 +128,7 @@ void setup() {
         [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
             // Inside the lambda, create the TokenMessageHandler for this channel.
             return std::unique_ptr<TokenMessageHandler>(
-                new TokenMessageHandler(cryptoService, counter, transport));
+                new TokenMessageHandler(cryptoService, counter, transport, eventNotifier));
         }));
 
     ble.setTokenRequestProcessor(tokenTransport.get());
@@ -113,8 +139,9 @@ void setup() {
     auto encIndicateChar = ble.getCharacteristicByUUID(BLEUUID(BleManager::ENCRYPTED_INDICATE));
     auto encryptedTransport = std::unique_ptr<FragmentationTransport>(new FragmentationTransport(
         encIndicateChar, [&](IMessageTransport& transport) -> std::unique_ptr<IMessageHandler> {
-            return std::unique_ptr<EncryptedMessageHandler>(new EncryptedMessageHandler(
-                cryptoService, counter, prefs, transport, commandFactory, outgoingMessageService, keyManager));
+            return std::unique_ptr<EncryptedMessageHandler>(
+                new EncryptedMessageHandler(cryptoService, counter, prefs, transport,
+                                            commandFactory, outgoingMessageService, keyManager));
         }));
 
     ble.setEncryptedDataProcessor(encryptedTransport.get());
@@ -129,6 +156,7 @@ void setup() {
     g_handlers.push_back(std::move(dataPullHandler));
 
     Serial.printf("%s Setup complete. Beacon is operational.\n", TAG);
+    eventNotifier.notify(SystemEventType::BeaconReady);
 }
 
 void loop() {

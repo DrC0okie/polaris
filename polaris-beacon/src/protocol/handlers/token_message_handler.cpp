@@ -6,8 +6,9 @@
 #include "../messages/pol_response.h"
 
 TokenMessageHandler::TokenMessageHandler(const CryptoService& cryptoService,
-                                         const BeaconCounter& counter, IMessageTransport& transport)
-    : _cryptoService(cryptoService), _counter(counter), _transport(transport) {
+                                         const BeaconCounter& counter, IMessageTransport& transport,
+                                         const SystemEventNotifier& notifier)
+    : _cryptoService(cryptoService), _counter(counter), _transport(transport), _notifier(notifier) {
 }
 
 void TokenMessageHandler::process(const uint8_t* data, size_t len) {
@@ -53,4 +54,5 @@ void TokenMessageHandler::process(const uint8_t* data, size_t len) {
     }
 
     Serial.println("[Processor] Response dispatched to transport layer.");
+    _notifier.notify(SystemEventType::PoLTokenGenerated);
 }

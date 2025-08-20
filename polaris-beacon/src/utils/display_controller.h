@@ -3,7 +3,7 @@
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-
+#include <vector>
 #include <string>
 
 /**
@@ -35,16 +35,17 @@ public:
     void clear();
 
     /**
-     * @brief Displays a message on the screen.
-     *
-     * This method handles clearing the screen, setting text properties,
-     * and printing the message with automatic word wrapping.
-     *
-     * @param message The string message to display. Can include '\n' for new lines.
-     * @param size The font size multiplier (e.g., 1 for default, 2 for double size).
-     * @param centered If true, attempts to center the text on the screen.
+     * @brief Displays a simple message.
+     * @param The message to display
+     * @param size The font size
      */
-    void showMessage(const std::string& message, uint8_t size = 1, bool centered = false);
+    void showCenteredMessage(const std::string& message, uint8_t size = 1);
+
+    /**
+     * @brief Adds a message to the display that acts as a terminal
+     * @param logMessage The message to add
+     */
+    void addLog(const std::string& logMessage);
 
     /**
      * @brief Displays the default Adafruit splash screen.
@@ -52,6 +53,12 @@ public:
     void showSplashScreen();
 
 private:
+
+    /**
+     * @brief Redraws the entire log with updated data
+     */
+    void redrawLog();
+
     /// @brief A tag used for logging from this class.
     static constexpr const char* TAG = "[DisplayCtrl]";
 
@@ -72,6 +79,12 @@ private:
 
     /// @brief A flag to indicate if the display has been successfully initialized.
     bool _isInitialized = false;
+
+    /// @brief Max number of text lines on the display
+    static constexpr int MAX_LOG_LINES = 4;
+    
+    /// @brief Buffer that holds the display messages
+    std::vector<std::string> _logBuffer;
 };
 
 #endif  // DISPLAY_CONTROLLER_H

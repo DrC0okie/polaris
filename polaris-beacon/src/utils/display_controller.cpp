@@ -33,36 +33,68 @@ bool DisplayController::begin() {
 void DisplayController::clear() {
     if (!_isInitialized)
         return;
+    _logBuffer.clear();
     _display.clearDisplay();
     _display.display();
 }
 
-void DisplayController::showMessage(const std::string& message, uint8_t size, bool centered) {
-    if (!_isInitialized)
-        return;
+void DisplayController::showCenteredMessage(const std::string& message, uint8_t size) {
+    if (!_isInitialized) return;
 
+    _logBuffer.clear();
     _display.clearDisplay();
     _display.setTextSize(size);
     _display.setTextColor(SSD1306_WHITE);
-    _display.setCursor(0, 0);
-    _display.setTextWrap(true);  // Enable word wrapping
+    _display.setTextWrap(true);
 
-    if (centered) {
-        // Simple centering logic (not perfect, but good enough for short messages)
-        int16_t x1, y1;
-        uint16_t w, h;
-        _display.getTextBounds(message.c_str(), 0, 0, &x1, &y1, &w, &h);
-        int16_t cursorX = (SCREEN_WIDTH - w) / 2;
-        int16_t cursorY = (SCREEN_HEIGHT - h) / 2;
-        _display.setCursor(cursorX < 0 ? 0 : cursorX, cursorY < 0 ? 0 : cursorY);
-    }
-
+    int16_t x1, y1;
+    uint16_t w, h;
+    _display.getTextBounds(message.c_str(), 0, 0, &x1, &y1, &w, &h);
+    int16_t cursorX = (SCREEN_WIDTH - w) / 2;
+    int16_t cursorY = (SCREEN_HEIGHT - h) / 2;
+    _display.setCursor(cursorX < 0 ? 0 : cursorX, cursorY < 0 ? 0 : cursorY);
+    
     _display.println(message.c_str());
     _display.display();
 }
 
-void DisplayController::showSplashScreen() {
-    if (!_isInitialized)
-        return;
-    _display.display();  // The library initializes with the splash screen
+void DisplayController::addLog(const std::string& logMessage) {
+    if (!_isInitialized) return;
+
+    // Adds the new message to the buffer
+    _logBuffer.push_back(logMessage);
+
+    // buffer rotation with the new data
+    if (_logBuffer.size() > MAX_LOG_LINES) {
+        _logBuffer.erase(_logBuffer.begin());
+    }
+
+    redrawLog();
+}
+
+void DisplayController::redrawLog() {
+    if (!_isInitialized) return;
+
+    _display.clearDisplay();
+    _display.setTextSize(1, 2);
+    _display.setTextColor(SSD1306_WHITE);
+    _display.setTextWrap(false);
+
+
+    const int16_t startX = 0;
+    const int16_t startY = 3;
+    const int16_t lineHeight = 16;
+    int16_t currentY = startY;
+
+    for (const auto& line : _logBuffer) {
+        _display.setCursor(startX, currentY);
+        _display.print(line.c_str());
+        
+        currentY += lineHeight;
+
+        if (currentY > SCREEN_HEIGHT) {
+            break;
+        }
+    }
+    _display.display();
 }
