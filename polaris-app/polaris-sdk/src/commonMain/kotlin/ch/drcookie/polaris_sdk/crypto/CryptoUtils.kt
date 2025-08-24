@@ -64,11 +64,10 @@ internal object CryptoUtils {
     /** Verifies the signature of a [BroadcastPayload]. */
     internal fun verifyBeaconBroadcast(payload: BroadcastPayload, knownBeacon: Beacon): Boolean {
 
-        // Verify freshness
+        // Verify monotonicity
         if (payload.counter < knownBeacon.lastKnownCounter){
             return false
         }
-
         return try {
             // The verifyDetached function will throw an exception if the signature is invalid.
             Signature.verifyDetached(payload.signature, payload.getSignedData(), knownBeacon.publicKey)

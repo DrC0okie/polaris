@@ -209,10 +209,10 @@ void EncryptedMessageHandler::sendErr(uint32_t originalMsgId, uint8_t originalOp
 
 void EncryptedMessageHandler::handleIncomingCommand(const InnerPlaintext& pt) {
     JsonObject params;
+    JsonDocument doc;
 
     // Only try to parse JSON if there is a payload
     if (pt.actualPayloadLength > 2) {
-        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, pt.payload, pt.actualPayloadLength);
         if (error) {
             Serial.printf("%s Failed to parse JSON payload: %s. Ignoring command.\n", TAG,

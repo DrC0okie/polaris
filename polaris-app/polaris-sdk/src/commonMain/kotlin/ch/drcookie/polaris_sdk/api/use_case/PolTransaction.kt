@@ -94,7 +94,7 @@ public class PolTransaction(
                 is SdkResult.Failure -> return responseResult
             }
 
-            // Step 8: Verify the beacon's response
+            // Verify the beacon's response
             val isValid = protocolHandler.verifyPoLResponse(response, signedRequest, foundBeacon.info.publicKey)
             if (!isValid) {
                 return SdkResult.Failure(SdkError.ProtocolError("Invalid beacon signature during PoL transaction!"))
